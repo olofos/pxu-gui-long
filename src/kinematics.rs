@@ -16,6 +16,28 @@ impl CouplingConstants {
             kslash: k as f64 / TAU,
         }
     }
+
+    pub fn k(&self) -> u32 {
+        (TAU * self.kslash + 0.1).floor() as u32
+    }
+
+    pub fn s(&self) -> f64 {
+        ((self.kslash * self.kslash + self.h * self.h).sqrt() + self.kslash) / self.h
+    }
+
+    pub fn get_set_k(&mut self, k: Option<f64>) -> f64 {
+        if let Some(k) = k {
+            self.kslash = k / std::f64::consts::TAU;
+        }
+        self.k() as f64
+    }
+
+    pub fn get_set_s(&mut self, s: Option<f64>) -> f64 {
+        if let Some(s) = s {
+            self.h = 2.0 * self.kslash * s / (s * s - 1.0);
+        }
+        self.s()
+    }
 }
 
 fn dispersion_relation(p: C, m: f64, consts: CouplingConstants) -> C {

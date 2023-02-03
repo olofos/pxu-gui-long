@@ -143,14 +143,13 @@ impl eframe::App for TemplateApp {
             ui.add(egui::Slider::new(&mut self.consts.h, 0.5..=5.5).text("h"));
 
             ui.add(
-                egui::Slider::from_get_set(0.0..=10.0, |v: Option<f64>| {
-                    if let Some(v) = v {
-                        self.consts.kslash = v / std::f64::consts::TAU;
-                    }
-                    std::f64::consts::TAU * self.consts.kslash
-                })
-                .integer()
-                .text("k"),
+                egui::Slider::from_get_set(0.0..=10.0, |v| self.consts.get_set_k(v))
+                    .integer()
+                    .text("k"),
+            );
+
+            ui.add(
+                egui::Slider::from_get_set(1.00001..=5.0, |v| self.consts.get_set_s(v)).text("s"),
             );
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -169,10 +168,7 @@ impl eframe::App for TemplateApp {
         });
 
         let the_grid = PxuGrid::new_pm(self.consts);
-        let s = ((self.consts.kslash * self.consts.kslash + self.consts.h * self.consts.h).sqrt()
-            + self.consts.kslash)
-            / self.consts.h;
-        let s = s as f32;
+        let s = self.consts.s() as f32;
 
         egui::CentralPanel::default().show(ctx, |_ui| {});
 

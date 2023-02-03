@@ -214,8 +214,7 @@ impl PxuGrid {
         }
 
         {
-            let s = ((consts.kslash * consts.kslash + consts.h * consts.h).sqrt() + consts.kslash)
-                / consts.h;
+            let s = consts.s();
             let x0 = 2.0 * s;
             let pxu0 = pxu_real
                 .shift_xp(C::new(pxu_real.xp.re, 0.0), consts)
@@ -252,8 +251,7 @@ impl PxuGrid {
         }
 
         {
-            let s = ((consts.kslash * consts.kslash + consts.h * consts.h).sqrt() + consts.kslash)
-                / consts.h;
+            let s = consts.s();
             let x0 = 2.0 * s;
             let pxu0 = pxu_real
                 .shift_xm(C::new(pxu_real.xm.re, 0.0), consts)
