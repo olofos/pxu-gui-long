@@ -182,78 +182,11 @@ impl eframe::App for TemplateApp {
 
         self.plot_window(
             ctx,
-            "xp",
+            "xp/xm",
             vec![|pxu: &PxuPoint| pxu.xp, |pxu: &PxuPoint| pxu.xm],
             &the_grid,
             eframe::emath::Rect::from_x_y_ranges(-2.0 * s..=4.0 * s, -3.0 * s..=3.0 * s),
         );
-
-        egui::Window::new("Window 2")
-            .default_size(vec2(512.0, 512.0))
-            .show(ctx, |ui| {
-                egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                    // ui.ctx().request_repaint();
-
-                    let desired_size = ui.available_width() * vec2(0.5, 0.5);
-                    let (_id, rect) = ui.allocate_space(desired_size);
-                    let to_screen = eframe::emath::RectTransform::from_to(
-                        eframe::emath::Rect::from_x_y_ranges(
-                            -2.0 * s..=4.0 * s,
-                            -3.0 * s..=3.0 * s,
-                        ),
-                        rect,
-                    );
-
-                    ui.set_clip_rect(rect);
-
-                    let mut shapes = vec![
-                        egui::epaint::Shape::line(
-                            vec![
-                                to_screen * egui::pos2(-f32::INFINITY, 0.0),
-                                to_screen * egui::pos2(f32::INFINITY, 0.0),
-                            ],
-                            Stroke::new(0.75, Color32::GRAY),
-                        ),
-                        egui::epaint::Shape::line(
-                            vec![
-                                to_screen * egui::pos2(0.0, -f32::INFINITY),
-                                to_screen * egui::pos2(0.0, f32::INFINITY),
-                            ],
-                            Stroke::new(0.75, Color32::GRAY),
-                        ),
-                    ];
-
-                    let grid = extract_grid_component(&the_grid, |pxu| pxu.xp);
-
-                    for points in grid {
-                        let points = points
-                            .iter()
-                            .map(|(x, y)| to_screen * egui::pos2(*x as f32, -*y as f32))
-                            .collect::<Vec<_>>();
-
-                        shapes.push(egui::epaint::Shape::line(
-                            points,
-                            Stroke::new(1.0, Color32::BLUE),
-                        ));
-                    }
-
-                    let grid = extract_grid_component(&the_grid, |pxu| pxu.xm);
-
-                    for points in grid {
-                        let points = points
-                            .iter()
-                            .map(|(x, y)| to_screen * egui::pos2(*x as f32, -*y as f32))
-                            .collect::<Vec<_>>();
-
-                        shapes.push(egui::epaint::Shape::line(
-                            points,
-                            Stroke::new(1.0, Color32::LIGHT_RED),
-                        ));
-                    }
-
-                    ui.painter().extend(shapes);
-                });
-            });
 
         self.plot_window(
             ctx,
