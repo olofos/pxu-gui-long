@@ -1,4 +1,4 @@
-use crate::kinematics::{dxm_dp, dxp_dp, u, xm, xp, CouplingConstants};
+use crate::kinematics::{du_dp, dxm_dp, dxp_dp, u, xm, xp, CouplingConstants};
 use crate::newton_raphson::find_root;
 use num::complex::Complex;
 use std::f64::consts::PI;
@@ -12,7 +12,10 @@ pub struct PxuGrid {
 
 impl PxuGrid {
     pub fn new_pm(consts: CouplingConstants) -> Self {
-        let p0 = C::new(PI / 6.0, 0.0);
+        let p_start = 0.0 * PI;
+        let p_end = p_start + 2.0 * PI;
+
+        let p0 = C::new(p_start + PI / 6.0, 0.0);
         let pxu_real = PxuPoint::new(p0, consts);
 
         let mut points = vec![];
@@ -25,7 +28,7 @@ impl PxuGrid {
             let pxu1 = pxu_real.shift_xp(xp(p0, m, consts), consts).unwrap();
             let mut left_points = vec![pxu1.clone()];
 
-            for j in 1..(((2.0 * PI - dp) - p0.re) / dp).floor() as i32 {
+            for j in 1..(((p_end - dp) - p0.re) / dp).floor() as i32 {
                 println!("{m} {i} L");
                 let p = p0 + j as f64 * dp;
                 let pxu = left_points
@@ -40,7 +43,7 @@ impl PxuGrid {
 
             let mut right_points = vec![pxu1.clone()];
 
-            for j in 1..((p0.re - (0.0 + dp)) / dp).floor() as i32 {
+            for j in 1..((p0.re - (p_start + dp)) / dp).floor() as i32 {
                 println!("{m} {i} R");
 
                 let p = p0 - j as f64 * dp;
@@ -70,7 +73,7 @@ impl PxuGrid {
             let pxu1 = pxu_real.shift_xm(xm(p0, m, consts), consts).unwrap();
             let mut left_points = vec![pxu1.clone()];
 
-            for j in 1..(((2.0 * PI - dp) - p0.re) / dp).floor() as i32 {
+            for j in 1..(((p_end - dp) - p0.re) / dp).floor() as i32 {
                 println!("{m} {i} L");
                 let p = p0 + j as f64 * dp;
                 let pxu = left_points
@@ -85,7 +88,7 @@ impl PxuGrid {
 
             let mut right_points = vec![pxu1.clone()];
 
-            for j in 1..((p0.re - (0.0 + dp)) / dp).floor() as i32 {
+            for j in 1..((p0.re - (p_start)) / dp).floor() as i32 {
                 println!("{m} {i} R");
 
                 let p = p0 - j as f64 * dp;
@@ -123,7 +126,7 @@ impl PxuGrid {
             let pxu1 = pxu0.shift_xp(xm(p0, m, consts), consts).unwrap();
             let mut left_points = vec![pxu1.clone()];
 
-            for j in 1..(((2.0 * PI - dp) - p0.re) / dp).floor() as i32 {
+            for j in 1..(((p_end - dp) - p0.re) / dp).floor() as i32 {
                 println!("{m} {i} L");
                 let p = p0 + j as f64 * dp;
                 let pxu = left_points
@@ -138,7 +141,7 @@ impl PxuGrid {
 
             let mut right_points = vec![pxu1.clone()];
 
-            for j in 1..((p0.re - (0.0 + dp)) / dp).floor() as i32 {
+            for j in 1..((p0.re - (p_start)) / dp).floor() as i32 {
                 println!("{m} {i} R");
 
                 let p = p0 - j as f64 * dp;
@@ -176,7 +179,7 @@ impl PxuGrid {
             let pxu1 = pxu0.shift_xm(xp(p0, m, consts), consts).unwrap();
             let mut left_points = vec![pxu1.clone()];
 
-            for j in 1..(((2.0 * PI - dp) - p0.re) / dp).floor() as i32 {
+            for j in 1..(((p_end - dp) - p0.re) / dp).floor() as i32 {
                 println!("{m} {i} L");
                 let p = p0 + j as f64 * dp;
                 let pxu = left_points
@@ -191,7 +194,7 @@ impl PxuGrid {
 
             let mut right_points = vec![pxu1.clone()];
 
-            for j in 1..((p0.re - (0.0 + dp)) / dp).floor() as i32 {
+            for j in 1..((p0.re - (p_start)) / dp).floor() as i32 {
                 println!("{m} {i} R");
 
                 let p = p0 - j as f64 * dp;
@@ -213,7 +216,7 @@ impl PxuGrid {
             points.push(left_points);
         }
 
-        {
+        if p_start == 0.0 {
             let s = consts.s();
             let x0 = 2.0 * s;
             let pxu0 = pxu_real
@@ -250,7 +253,7 @@ impl PxuGrid {
             points.push(left_points);
         }
 
-        {
+        if p_start == 0.0 {
             let s = consts.s();
             let x0 = 2.0 * s;
             let pxu0 = pxu_real
@@ -337,8 +340,20 @@ impl PxuPoint {
     pub fn new(p: C, consts: CouplingConstants) -> Self {
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(xp, consts) - C::i() / consts.h;
+        let u = u(p, consts);
         Self { p, xp, xm, u }
+    }
+
+    fn limit_p(&self, p: Option<C>, consts: CouplingConstants) -> Option<Self> {
+        if let Some(p) = p {
+            if (self.p - p).norm_sqr() > 4.0 {
+                None
+            } else {
+                Some(Self::new(p, consts))
+            }
+        } else {
+            None
+        }
     }
 
     pub fn shift_xp(&self, new_xp: C, consts: CouplingConstants) -> Option<Self> {
@@ -349,10 +364,7 @@ impl PxuPoint {
             1.0e-6,
             50,
         );
-        if p.is_none() {
-            return None;
-        }
-        Some(Self::new(p.unwrap(), consts))
+        self.limit_p(p, consts)
     }
 
     pub fn shift_xm(&self, new_xm: C, consts: CouplingConstants) -> Option<Self> {
@@ -363,9 +375,17 @@ impl PxuPoint {
             1.0e-6,
             50,
         );
-        if p.is_none() {
-            return None;
-        }
-        Some(Self::new(p.unwrap(), consts))
+        self.limit_p(p, consts)
+    }
+
+    pub fn shift_u(&self, new_u: C, consts: CouplingConstants) -> Option<Self> {
+        let p = find_root(
+            |p| u(p, consts) - new_u,
+            |p| du_dp(p, consts),
+            self.p,
+            1.0e-6,
+            50,
+        );
+        self.limit_p(p, consts)
     }
 }

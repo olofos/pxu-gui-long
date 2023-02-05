@@ -12,6 +12,8 @@ pub struct TemplateApp {
     consts: CouplingConstants,
     #[serde(skip)]
     grid: PxuGrid,
+    #[serde(skip)]
+    pxu: PxuPoint,
 }
 
 impl Default for TemplateApp {
@@ -20,6 +22,7 @@ impl Default for TemplateApp {
         Self {
             consts,
             grid: PxuGrid::new_pm(consts),
+            pxu: PxuPoint::new(num::complex::Complex::new(2.0, 0.0), consts),
         }
     }
 }
@@ -42,7 +45,7 @@ impl TemplateApp {
 
 fn extract_grid_component(
     the_grid: &PxuGrid,
-    extract: fn(&PxuPoint) -> num::complex::Complex<f64>,
+    extract: &fn(&PxuPoint) -> num::complex::Complex<f64>,
 ) -> Vec<Vec<(f64, f64)>> {
     the_grid
         .points
@@ -58,10 +61,11 @@ fn extract_grid_component(
 
 impl TemplateApp {
     fn plot_window(
-        &self,
+        &mut self,
         ctx: &egui::Context,
         title: impl Into<egui::WidgetText>,
         extracts: Vec<fn(&PxuPoint) -> num::complex::Complex64>,
+        setters: Vec<fn(&PxuPoint, num::complex::Complex64, CouplingConstants) -> PxuPoint>,
         the_grid: &PxuGrid,
         visible_rect: eframe::emath::Rect,
     ) -> () {
@@ -70,15 +74,22 @@ impl TemplateApp {
             .show(ctx, |ui| {
                 egui::Frame::canvas(ui.style()).show(ui, |ui| {
                     let desired_size = ui.available_width() * vec2(0.5, 0.5);
-                    let (_id, rect) = ui.allocate_space(desired_size);
-                    let to_screen = eframe::emath::RectTransform::from_to(visible_rect, rect);
+                    // let (_id, rect) = ui.allocate_space(desired_size);
 
+                    // let painter = ui.painter();
+
+                    let (response, painter) =
+                        ui.allocate_painter(desired_size, egui::Sense::hover());
+
+                    let rect = response.rect;
+
+                    let to_screen = eframe::emath::RectTransform::from_to(visible_rect, rect);
                     ui.set_clip_rect(rect);
 
                     let origin = to_screen * egui::pos2(0.0, 0.0);
 
                     let mut grid = vec![];
-                    for extract in extracts {
+                    for extract in extracts.iter() {
                         grid.extend(extract_grid_component(the_grid, extract).into_iter());
                     }
 
@@ -110,7 +121,41 @@ impl TemplateApp {
                             Stroke::new(1.0, Color32::BLUE),
                         ));
                     }
-                    ui.painter().extend(shapes);
+
+                    for (i, (extract, set)) in extracts.iter().zip(setters.iter()).enumerate() {
+                        let size = egui::epaint::Vec2::splat(8.0);
+
+                        let x = extract(&self.pxu);
+                        let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
+
+                        let point_rect = egui::Rect::from_center_size(center, size);
+                        let point_id = response.id.with(i);
+                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
+                        if point_response.dragged() {
+                            let new_value =
+                                to_screen.inverse() * (center + point_response.drag_delta());
+
+                            self.pxu = set(
+                                &self.pxu,
+                                num::complex::Complex::new(new_value.x as f64, -new_value.y as f64),
+                                self.consts,
+                            );
+                        }
+
+                        let stroke = ui.style().interact(&point_response).fg_stroke;
+
+                        let x = extract(&self.pxu);
+                        let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
+
+                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                            center,
+                            radius: 2.0,
+                            fill: Color32::RED,
+                            stroke,
+                        }));
+                    }
+
+                    painter.extend(shapes);
                 });
             });
     }
@@ -176,6 +221,11 @@ impl eframe::App for TemplateApp {
             ctx,
             "p",
             vec![|pxu: &PxuPoint| pxu.p],
+            vec![
+                |_: &PxuPoint, p: num::complex::Complex64, consts: CouplingConstants| {
+                    PxuPoint::new(p, consts)
+                },
+            ],
             &the_grid,
             eframe::emath::Rect::from_x_y_ranges(-1.0..=7.0, -1.0..=1.0),
         );
@@ -184,6 +234,17 @@ impl eframe::App for TemplateApp {
             ctx,
             "xp/xm",
             vec![|pxu: &PxuPoint| pxu.xp, |pxu: &PxuPoint| pxu.xm],
+            vec![
+                |pxu: &PxuPoint, x: num::complex::Complex64, consts: CouplingConstants| {
+                    pxu.shift_xp(x, consts).unwrap_or_else(|| {
+                        log::info!("!");
+                        pxu.clone()
+                    })
+                },
+                |pxu: &PxuPoint, x: num::complex::Complex64, consts: CouplingConstants| {
+                    pxu.shift_xm(x, consts).unwrap_or(pxu.clone())
+                },
+            ],
             &the_grid,
             eframe::emath::Rect::from_x_y_ranges(-2.0 * s..=4.0 * s, -3.0 * s..=3.0 * s),
         );
@@ -192,6 +253,11 @@ impl eframe::App for TemplateApp {
             ctx,
             "u",
             vec![|pxu: &PxuPoint| pxu.u],
+            vec![
+                |pxu: &PxuPoint, u: num::complex::Complex64, consts: CouplingConstants| {
+                    pxu.shift_u(u, consts).unwrap_or(pxu.clone())
+                },
+            ],
             &the_grid,
             eframe::emath::Rect::from_x_y_ranges(-2.0..=4.0, -3.0..=3.0),
         );

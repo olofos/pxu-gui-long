@@ -40,18 +40,26 @@ impl CouplingConstants {
     }
 }
 
-fn dispersion_relation(p: C, m: f64, consts: CouplingConstants) -> C {
+fn en(p: C, m: f64, consts: CouplingConstants) -> C {
     let sin = (p / 2.0).sin();
     let m_eff = m + consts.kslash * p;
 
     (m_eff * m_eff + 4.0 * consts.h * consts.h * sin * sin).sqrt()
 }
 
+fn den_dp(p: C, m: f64, consts: CouplingConstants) -> C {
+    let sin = (p / 2.0).sin();
+    let cos = (p / 2.0).cos();
+    let m_eff = m + consts.kslash * p;
+
+    (consts.kslash * m_eff + 2.0 * consts.h * consts.h * sin * cos) / en(p, m, consts)
+}
+
 fn x(p: C, m: f64, consts: CouplingConstants) -> C {
     let sin = (p / 2.0).sin();
     let m_eff = m + consts.kslash * p;
 
-    let numerator = m_eff + dispersion_relation(p, m, consts);
+    let numerator = m_eff + en(p, m, consts);
     let denominator = 2.0 * consts.h * sin;
 
     numerator / denominator
@@ -64,7 +72,7 @@ fn dx_dp(p: C, m: f64, consts: CouplingConstants) -> C {
     let term1 = -x(p, m, consts) * (cos / sin) / 2.0;
     let term2 = consts.kslash / (2.0 * consts.h * sin);
     let term3 = (consts.kslash * (m + consts.kslash * p) + 2.0 * consts.h * consts.h * sin * cos)
-        / (dispersion_relation(p, m, consts) * 2.0 * consts.h * sin);
+        / (en(p, m, consts) * 2.0 * consts.h * sin);
 
     term1 + term2 + term3
 }
@@ -89,6 +97,26 @@ pub fn dxm_dp(p: C, m: f64, consts: CouplingConstants) -> C {
     dx_dp(p, m, consts) * exp - (i_half) * x(p, m, consts) * exp
 }
 
-pub fn u(x: C, consts: CouplingConstants) -> C {
-    x + 1.0 / x - 2.0 * consts.kslash / consts.h * x.ln()
+// pub fn u(x: C, consts: CouplingConstants) -> C {
+//     x + 1.0 / x - 2.0 * consts.kslash / consts.h * x.ln()
+// }
+
+pub fn u(p: C, consts: CouplingConstants) -> C {
+    // let cot = 1.0 / (p / 2.0).tan();
+    // (en(p, 1.0, consts) * cot - 2.0 * consts.kslash * x(p, 1.0, consts).ln()) / consts.h
+
+    let xp = xp(p, 1.0, consts);
+
+    xp + 1.0 / xp - 2.0 * consts.kslash / consts.h * xp.ln() - 2.0 * C::i() / consts.h
+}
+
+pub fn du_dp(p: C, consts: CouplingConstants) -> C {
+    let cot = 1.0 / (p / 2.0).tan();
+    let sin = (p / 2.0).sin();
+
+    let term1 = den_dp(p, 1.0, consts) * cot;
+    let term2 = -en(p, 1.0, consts) / (2.0 * sin * sin);
+    let term3 = -2.0 * consts.kslash * dx_dp(p, 1.0, consts) / x(p, 1.0, consts);
+
+    (term1 + term2 + term3) * consts.h
 }
