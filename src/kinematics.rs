@@ -3,10 +3,18 @@ use std::f64::consts::TAU;
 
 type C = Complex<f64>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CouplingConstants {
     pub h: f64,
     pub kslash: f64,
+}
+
+struct Context {
+    pub h: f64,
+    pub kslash: f64,
+
+    pub p_branch: i32,
+    pub log_branch: i32,
 }
 
 impl CouplingConstants {
@@ -40,19 +48,34 @@ impl CouplingConstants {
     }
 }
 
-fn en(p: C, m: f64, consts: CouplingConstants) -> C {
+pub fn en(p: C, m: f64, consts: CouplingConstants) -> C {
     let sin = (p / 2.0).sin();
     let m_eff = m + consts.kslash * p;
 
     (m_eff * m_eff + 4.0 * consts.h * consts.h * sin * sin).sqrt()
 }
 
-fn den_dp(p: C, m: f64, consts: CouplingConstants) -> C {
+pub fn den_dp(p: C, m: f64, consts: CouplingConstants) -> C {
     let sin = (p / 2.0).sin();
     let cos = (p / 2.0).cos();
     let m_eff = m + consts.kslash * p;
 
     (consts.kslash * m_eff + 2.0 * consts.h * consts.h * sin * cos) / en(p, m, consts)
+}
+
+pub fn en2(p: C, m: f64, consts: CouplingConstants) -> C {
+    let sin = (p / 2.0).sin();
+    let m_eff = m + consts.kslash * p;
+
+    (m_eff * m_eff + 4.0 * consts.h * consts.h * sin * sin)
+}
+
+pub fn den2_dp(p: C, m: f64, consts: CouplingConstants) -> C {
+    let sin = (p / 2.0).sin();
+    let cos = (p / 2.0).cos();
+    let m_eff = m + consts.kslash * p;
+
+    2.0 * consts.kslash * m_eff + 4.0 * consts.h * consts.h * sin * cos
 }
 
 fn x(p: C, m: f64, consts: CouplingConstants) -> C {
@@ -102,12 +125,12 @@ pub fn dxm_dp(p: C, m: f64, consts: CouplingConstants) -> C {
 // }
 
 pub fn u(p: C, consts: CouplingConstants) -> C {
-    // let cot = 1.0 / (p / 2.0).tan();
-    // (en(p, 1.0, consts) * cot - 2.0 * consts.kslash * x(p, 1.0, consts).ln()) / consts.h
+    let cot = 1.0 / (p / 2.0).tan();
+    (en(p, 1.0, consts) * cot - 2.0 * consts.kslash * x(p, 1.0, consts).ln()) / consts.h
 
-    let xp = xp(p, 1.0, consts);
+    // let xp = xp(p, 1.0, consts);
 
-    xp + 1.0 / xp - 2.0 * consts.kslash / consts.h * xp.ln() - 2.0 * C::i() / consts.h
+    // xp + 1.0 / xp - 2.0 * consts.kslash / consts.h * xp.ln() - C::i() / consts.h
 }
 
 pub fn du_dp(p: C, consts: CouplingConstants) -> C {

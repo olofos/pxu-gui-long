@@ -2,6 +2,6 @@
 
 mod app;
 mod kinematics;
-mod newton_raphson;
+mod nr;
 mod pxu;
 pub use app::TemplateApp;
