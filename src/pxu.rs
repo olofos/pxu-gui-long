@@ -175,18 +175,76 @@ pub struct PxuGrid {
 
 #[derive(Debug)]
 pub struct Grid {
-    p: Vec<Vec<C>>,
-    x: Vec<Vec<C>>,
-    u: Vec<Vec<C>>,
+    pub p: Vec<Vec<C>>,
+    pub x: Vec<Vec<C>>,
+    pub u: Vec<Vec<C>>,
 }
 
 impl Grid {
     pub fn new(p_range: i32, consts: CouplingConstants) -> Self {
-        let mut p = vec![];
-        let mut x = vec![];
-        let mut u = vec![];
+        let p = Self::fill_p(p_range, consts);
+        let x = Self::fill_x(p_range, consts);
+        let u = Self::fill_u(p_range, consts);
 
         Self { p, x, u }
+    }
+
+    fn fill_x(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
+        let mut lines = vec![];
+
+        let p_start = p_range as f64 * 2.0 * PI;
+
+        for m in 1..consts.k() {
+            let mut xp_points = vec![];
+            let mut xm_points = vec![];
+
+            if p_range < 0 {
+                xp_points.push(C::zero());
+                xm_points.push(C::zero());
+            }
+
+            let steps = 64;
+
+            for i in 1..=(steps - 1) {
+                let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
+                xp_points.push(xp(C::from(p), m as f64, consts));
+                xm_points.push(xm(C::from(p), m as f64, consts));
+            }
+
+            if p_range < -1 {
+                xp_points.push(C::zero());
+                xm_points.push(C::zero());
+            }
+
+            lines.push(xp_points);
+            lines.push(xm_points);
+        }
+
+        if p_range == 0 {
+            lines.push(vec![C::from(consts.s()), C::from(1000.0)]);
+        }
+
+        if p_range == -1 {
+            lines.push(vec![C::from(-1000.0), C::from(-1.0 / consts.s())]);
+        }
+        lines
+    }
+
+    fn fill_u(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
+        let mut lines = vec![];
+
+        let k = consts.k() as i32;
+        for y in (-k + 1)..=(k - 1) {
+            lines.push(vec![C::new(-1000.0, y as f64), C::new(1000.0, y as f64)]);
+        }
+
+        lines
+    }
+
+    fn fill_p(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
+        let mut lines = vec![];
+
+        lines
     }
 }
 
