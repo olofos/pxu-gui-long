@@ -9,7 +9,7 @@ pub struct CouplingConstants {
     pub kslash: f64,
 }
 
-struct Context {
+struct _Context {
     pub h: f64,
     pub kslash: f64,
 
@@ -67,7 +67,7 @@ pub fn en2(p: C, m: f64, consts: CouplingConstants) -> C {
     let sin = (p / 2.0).sin();
     let m_eff = m + consts.kslash * p;
 
-    (m_eff * m_eff + 4.0 * consts.h * consts.h * sin * sin)
+    m_eff * m_eff + 4.0 * consts.h * consts.h * sin * sin
 }
 
 pub fn den2_dp(p: C, m: f64, consts: CouplingConstants) -> C {

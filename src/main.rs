@@ -11,7 +11,14 @@ fn main() {
     eframe::run_native(
         "pxu gui",
         native_options,
-        Box::new(|cc| Box::new(pxu_gui::TemplateApp::new(cc))),
+        Box::new(|cc| {
+            let style = egui::Style {
+                visuals: egui::Visuals::light(),
+                ..egui::Style::default()
+            };
+            cc.egui_ctx.set_style(style);
+            Box::new(pxu_gui::TemplateApp::new(cc))
+        }),
     );
 }
 
