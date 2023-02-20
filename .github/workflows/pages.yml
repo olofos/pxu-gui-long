@@ -1,15 +1,15 @@
 name: Github Pages
 
 # By default, runs if you push to master. keeps your deployed app in sync with master branch.
-on:
-  push:
-    branches:
-      - master
-# to only run when you do a new github release, comment out above part and uncomment the below trigger.
 # on:
-#   release:
-#     types:
-#       - published
+#   push:
+#     branches:
+#       - master
+# to only run when you do a new github release, comment out above part and uncomment the below trigger.
+on:
+  release:
+    types:
+      - published
 
 permissions:
   contents: write # for committing to gh-pages branch.
@@ -22,7 +22,7 @@ jobs:
       - uses: actions-rs/toolchain@v1 # get rust toolchain for wasm
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache # cache the rust build artefacts
