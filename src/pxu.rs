@@ -1,5 +1,7 @@
 use crate::kinematics::{den2_dp, du_dp, dxm_dp, dxp_dp, en2, u, xm, xp, CouplingConstants};
 use crate::nr::{self};
+use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
+use itertools::Itertools;
 use num::complex::Complex;
 use num::Zero;
 use std::f64::consts::PI;
@@ -199,30 +201,32 @@ impl Grid {
         let p_start = p_range as f64 * 2.0 * PI;
 
         for m in 0..=consts.k() {
-            let mut xp_points = vec![];
+            // for m in 1..=1 {
+            // let mut xp_points = vec![];
 
-            if m == 0 && p_range == 0 {
-                xp_points.push(C::from(consts.s()));
-            } else if m == consts.k() && p_range == -1 {
-                xp_points.push(C::from(consts.s()));
-            } else if p_range < 0 {
-                xp_points.push(C::zero());
-            }
+            // if m == 0 && p_range == 0 {
+            //     xp_points.push(C::from(consts.s()));
+            // } else if m == consts.k() && p_range == -1 {
+            //     xp_points.push(C::from(consts.s()));
+            // } else if p_range < 0 {
+            //     xp_points.push(C::zero());
+            // }
 
-            let steps = 64;
+            // let steps = 64;
 
-            for i in 1..=(steps - 1) {
-                let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
-                xp_points.push(xp(C::from(p), m as f64, consts));
-            }
+            // for i in 1..=(steps - 1) {
+            //     let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
+            //     xp_points.push(xp(C::from(p), m as f64, consts));
+            // }
 
-            if m == 0 && p_range == -1 {
-                xp_points.push(C::from(-1.0 / consts.s()));
-            } else if m == consts.k() && p_range == -2 {
-                xp_points.push(C::from(-1.0 / consts.s()));
-            } else if p_range < -1 {
-                xp_points.push(C::zero());
-            }
+            // if m == 0 && p_range == -1 {
+            //     xp_points.push(C::from(-1.0 / consts.s()));
+            // } else if m == consts.k() && p_range == -2 {
+            //     xp_points.push(C::from(-1.0 / consts.s()));
+            // } else if p_range < -1 {
+            //     xp_points.push(C::zero());
+            // }
+            let xp_points = XInterpolator::generate_xp(p_range, m as f64, consts);
 
             lines.push(xp_points.iter().map(|z| z.conj()).collect::<Vec<_>>());
             lines.push(xp_points);
@@ -486,7 +490,7 @@ impl Grid {
                     nr::shoot_two_sided(
                         &xp_func,
                         &xm_fixed_m,
-                        p_start + PI / 64.0,
+                        p_start + PI / 16.0,
                         p0.re,
                         p_start + 2.0 * PI - PI / 64.0,
                         p,
@@ -512,7 +516,7 @@ impl Grid {
                 1.0e-3,
                 50,
             );
-            log::info!("{:?}", p0);
+            // log::info!("{:?}", p0);
 
             let mut cut_p = vec![p0.unwrap()];
             for i in 1..64 {
@@ -561,7 +565,395 @@ impl Grid {
 
 // struct GridLine {}
 
-// struct Cut {}
+pub struct Cut {
+    pub p: Vec<Vec<C>>,
+    pub x: Vec<Vec<C>>,
+    pub u: Vec<Vec<C>>,
+
+    pub branch_points_p: Vec<C>,
+    pub branch_points_x: Vec<C>,
+    pub branch_points_u: Vec<C>,
+}
+
+impl Cut {
+    pub fn get(p_range: i32, consts: CouplingConstants) -> Vec<Self> {
+        vec![
+            // Self::x(p_range, consts),
+            // Self::e(p_range, consts),
+            Self::x_log(p_range, consts),
+        ]
+    }
+
+    fn x(p_range: i32, consts: CouplingConstants) -> Self {
+        let p_start = p_range as f64 * 2.0 * PI;
+        let xp_func = XpFunc { consts };
+
+        let p_s = {
+            let p0 = PI / 4.0;
+            let x0 = xp(C::from(p0), 1.0, consts);
+            let fixed_re = FixedRe::new(x0.re);
+            let start = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0)
+                .last()
+                .unwrap()
+                .1;
+            let fixed_im = FixedIm::new(0.0);
+            let t0 = x0.re;
+            let t1 = consts.s();
+            nr::shoot(&xp_func, &fixed_im, t0, t1, start, (t1 - t0).abs() / 4.0)
+                .last()
+                .unwrap()
+                .1
+        };
+
+        let p_min_one_over_s = {
+            let p0 = -PI / 32.0;
+            let x0 = xp(C::from(p0), 1.0, consts);
+            let fixed_re = FixedRe::new(x0.re);
+            let pts = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0);
+
+            let start = pts.last().unwrap().1;
+            let fixed_im = FixedIm::new(0.0);
+            let t0 = x0.re;
+            let t1 = -1.0 / consts.s();
+            let pts = nr::shoot(&xp_func, &fixed_im, t0, t1, start, (t1 - t0).abs() / 4.0);
+
+            pts.last().unwrap().1
+        };
+
+        let mut p_points = vec![];
+        {
+            if p_range != -1 {
+                let p0 = C::from(p_start + PI / 2.0);
+                let x0 = xp(p0, 1.0, consts);
+                let fixed_re = FixedRe::new(x0.re);
+                let p1 = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0)
+                    .last()
+                    .unwrap()
+                    .1;
+                let xm_fixed_p = XmFixedP::new(p0.re, consts);
+
+                let p2 = nr::shoot(&xp_func, &xm_fixed_p, 1.0, 0.0, p1, 1.0)
+                    .last()
+                    .unwrap()
+                    .1;
+
+                let xm_fixed_m = XmFixedM::new(0.0, consts);
+                p_points.push(C::from(p_start));
+                p_points.extend(
+                    nr::shoot_two_sided(
+                        &xp_func,
+                        &xm_fixed_m,
+                        p_start + PI / 64.0,
+                        p0.re,
+                        p_start + 2.0 * PI - PI / 64.0,
+                        p2,
+                        PI / 64.0,
+                    )
+                    .into_iter()
+                    .rev()
+                    .map(|(_, p)| p),
+                );
+                if p_range == 0 {
+                    p_points.push(p_s);
+                } else {
+                    p_points.push(C::from(p_start));
+                }
+            }
+
+            {
+                // xp m = 0
+                let p0 = p_start + PI / 4.0;
+                let xp_fixed_p = XpFixedP::new(p0, consts);
+
+                let (m, p1) = *nr::shoot(&xp_func, &xp_fixed_p, 1.0, 0.0, C::from(p0), 0.5)
+                    .last()
+                    .unwrap();
+
+                let fixed_m = XpFixedM::new(m, consts);
+
+                p_points.extend(
+                    nr::shoot_two_sided(
+                        &xp_func,
+                        &fixed_m,
+                        p_start + 1.0 * PI / 32.0,
+                        p0,
+                        p_start + 63.0 * PI / 32.0,
+                        p1,
+                        PI / 1024.0,
+                    )
+                    .into_iter()
+                    .map(|(_, p)| p),
+                );
+                if p_range != -1 {
+                    p_points.push(C::from(p_start + 2.0 * PI));
+                } else {
+                    p_points.push(p_min_one_over_s);
+                }
+            }
+        }
+
+        let mut x_points = vec![];
+
+        if p_range == 0 {
+            x_points.push(C::from(consts.s()));
+        } else if p_range < 0 {
+            x_points.push(C::zero());
+        }
+
+        let steps = 64;
+
+        for i in 1..=(steps - 1) {
+            let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
+            x_points.push(xp(C::from(p), 0.0, consts));
+        }
+
+        if p_range == -1 {
+            x_points.push(C::from(-1.0 / consts.s()));
+        } else if p_range < -1 {
+            x_points.push(C::zero());
+        }
+
+        let mut u_points = vec![];
+
+        let u_s = {
+            let s = consts.s();
+            s + 1.0 / s - 2.0 * consts.kslash / consts.h * s.ln()
+        };
+        if p_range == 0 {
+            u_points.push(C::new(-100.0, -1.0 / consts.h));
+            u_points.push(C::new(u_s, -1.0 / consts.h));
+        } else if p_range == -1 {
+            u_points.push(C::new(-u_s, -1.0 / consts.h));
+            u_points.push(C::new(100.0, -1.0 / consts.h));
+        } else {
+            u_points.push(C::new(-100.0, -1.0 / consts.h));
+            u_points.push(C::new(100.0, -1.0 / consts.h));
+        }
+
+        let x = vec![
+            x_points.iter().rev().map(|z| *z).collect::<Vec<_>>(),
+            x_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+        ];
+
+        let p = vec![
+            p_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            p_points,
+        ];
+        let u = vec![
+            u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            u_points,
+        ];
+
+        let branch_points_p = match p_range {
+            0 => vec![p_s, p_s.conj()],
+            -1 => vec![p_min_one_over_s, p_min_one_over_s.conj()],
+            _ => vec![],
+        };
+        let branch_points_x = match p_range {
+            0 => vec![C::from(consts.s())],
+            -1 => vec![C::from(-1.0 / consts.s())],
+            _ => vec![],
+        };
+        let branch_points_u = match p_range {
+            0 => vec![C::new(u_s, 1.0 / consts.h), C::new(u_s, -1.0 / consts.h)],
+            -1 => vec![C::new(-u_s, 1.0 / consts.h), C::new(-u_s, -1.0 / consts.h)],
+            _ => vec![],
+        };
+
+        Self {
+            p,
+            x,
+            u,
+            branch_points_p,
+            branch_points_x,
+            branch_points_u,
+        }
+    }
+
+    fn e(p_range: i32, consts: CouplingConstants) -> Self {
+        let p0 = nr::find_root(
+            |p| en2(p, 1.0, consts) - C::new(0.0, 0.0),
+            |p| den2_dp(p, 1.0, consts),
+            C::new(0.0, 2.5),
+            // C::new(0.0, 0.5),
+            1.0e-3,
+            50,
+        )
+        .unwrap();
+
+        let mut cut_p = vec![p0];
+        for i in 0..=256 {
+            let im = i as f64 * i as f64 / 64.0;
+
+            let p = nr::find_root(
+                |p| en2(p, 1.0, consts) - C::new(-im, 0.0),
+                |p| den2_dp(p, 1.0, consts),
+                *cut_p.last().unwrap(),
+                1.0e-3,
+                50,
+            );
+
+            cut_p.push(p.unwrap());
+        }
+
+        let mut xp_points = vec![];
+
+        xp_points.push(C::zero());
+        xp_points.extend(
+            cut_p
+                .iter()
+                .rev()
+                .map(|p| xp(*p + C::from(1.0e-5), 1.0, consts)),
+        );
+        xp_points.extend(cut_p.iter().map(|p| xp(*p + C::from(-1.0e-5), 1.0, consts)));
+        xp_points.push(C::zero());
+
+        let mut xm_points = vec![];
+
+        xm_points.extend(
+            cut_p
+                .iter()
+                .rev()
+                .map(|p| xm(*p + C::from(1.0e-5), 1.0, consts)),
+        );
+        xm_points.extend(cut_p.iter().map(|p| xm(*p + C::from(-1.0e-5), 1.0, consts)));
+
+        let mut u_points = vec![];
+
+        u_points.extend(
+            cut_p
+                .iter()
+                .rev()
+                .map(|p| u(*p + C::from(1.0e-5), p_range, consts)),
+        );
+        u_points.extend(
+            cut_p
+                .iter()
+                .map(|p| u(*p + C::from(-1.0e-5), p_range, consts)),
+        );
+
+        let p = vec![cut_p.iter().map(|z| z.conj()).collect::<Vec<_>>(), cut_p];
+        let x = vec![
+            xp_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            xp_points,
+            xm_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            xm_points,
+        ];
+        let u_cuts = vec![
+            u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            u_points,
+        ];
+
+        let branch_points_p = vec![p0, p0.conj()];
+        let branch_points_x = vec![
+            xp(p0, 1.0, consts),
+            xm(p0, 1.0, consts),
+            xp(p0, 1.0, consts).conj(),
+            xm(p0, 1.0, consts).conj(),
+        ];
+        let branch_points_u = vec![u(p0, p_range, consts), u(p0, p_range, consts).conj()];
+
+        Self {
+            p,
+            x,
+            u: u_cuts,
+            branch_points_p,
+            branch_points_x,
+            branch_points_u,
+        }
+    }
+
+    fn x_log(p_range: i32, consts: CouplingConstants) -> Self {
+        let x_points;
+        let branch_points_x;
+        if p_range == 0 {
+            x_points = vec![C::from(-100.0), C::zero()];
+            branch_points_x = vec![C::zero()];
+        } else if p_range == -1 {
+            x_points = vec![C::zero(), C::from(100.0)];
+            branch_points_x = vec![C::zero()];
+        } else {
+            x_points = vec![C::from(-100.0), C::from(100.0)];
+            branch_points_x = vec![]
+        }
+
+        let mut p = vec![];
+
+        let mut x = vec![];
+
+        if p_range == 0 {
+            let p0 = p_range as f64 + 1.0 / 32.0;
+            let p1 = p_range as f64 + 24.0 / 32.0;
+
+            let mut p_int = PInterpolator::xp(p0, consts)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p1, 1.0)
+                .goto_im(0.0);
+
+            p_int.p_path = vec![*p_int.p_path.last().unwrap()];
+            p_int.x_path = vec![*p_int.x_path.last().unwrap()];
+
+            let p_int2 = p_int.clone().goto_re(-1000.0);
+            x.push(p_int2.x_path);
+            p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            p.push(p_int2.p_path);
+
+            let p_int2 = p_int.goto_re(0.01);
+            x.push(p_int2.x_path);
+            p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            p.push(p_int2.p_path);
+
+            let mut p_int = PInterpolator::xp(p1, consts).goto_im(0.0);
+
+            p_int.p_path = vec![*p_int.p_path.last().unwrap()];
+            p_int.x_path = vec![*p_int.x_path.last().unwrap()];
+
+            let p_int2 = p_int.clone().goto_re(-1000.0);
+            x.push(p_int2.x_path);
+            p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            p.push(p_int2.p_path);
+
+            let p_int2 = p_int.goto_re(0.01);
+            x.push(p_int2.x_path);
+            p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            p.push(p_int2.p_path);
+        }
+
+        if p_range > 0 {
+            let p0 = p_range as f64 + 8.0 / 32.0;
+            let p1 = p_range as f64 + 24.0 / 32.0;
+
+            let mut p_int = PInterpolator::xp(p0, consts).goto_xp(p1, 1.0);
+
+            // p_int.p_path = vec![*p_int.p_path.last().unwrap()];
+            // p_int.x_path = vec![*p_int.x_path.last().unwrap()];
+
+            let p_int2 = p_int.clone();
+            x.push(p_int2.x_path);
+            p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            p.push(p_int2.p_path);
+
+            // let p_int2 = p_int.goto_re(0.01);
+            // x.push(p_int2.x_path);
+            // p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            // p.push(p_int2.p_path);
+        }
+
+        let u = vec![];
+
+        let branch_points_p = vec![];
+        let branch_points_u = vec![];
+
+        Self {
+            p,
+            x,
+            u,
+            branch_points_p,
+            branch_points_x,
+            branch_points_u,
+        }
+    }
+}
 
 impl PxuGrid {
     pub fn new_pm(consts: CouplingConstants) -> Self {
@@ -796,7 +1188,7 @@ impl PxuPoint {
     pub fn new(p: C, consts: CouplingConstants) -> Self {
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(p, consts);
+        let u = u(p, (p.re / (2.0 * PI)).floor() as i32, consts);
         Self {
             p,
             xp,
@@ -842,7 +1234,7 @@ impl PxuPoint {
 
     pub fn shift_u(&self, new_u: C) -> Option<Self> {
         let p = nr::find_root(
-            |p| u(p, self.consts) - new_u,
+            |p| u(p, (p.re / (2.0 * PI)).floor() as i32, self.consts) - new_u,
             |p| du_dp(p, self.consts),
             self.p,
             1.0e-6,

@@ -1,5 +1,5 @@
 use num::complex::Complex;
-use std::f64::consts::TAU;
+use std::f64::consts::{PI, TAU};
 
 type C = Complex<f64>;
 
@@ -124,13 +124,16 @@ pub fn dxm_dp(p: C, m: f64, consts: CouplingConstants) -> C {
 //     x + 1.0 / x - 2.0 * consts.kslash / consts.h * x.ln()
 // }
 
-pub fn u(p: C, consts: CouplingConstants) -> C {
-    let cot = 1.0 / (p / 2.0).tan();
-    (en(p, 1.0, consts) * cot - 2.0 * consts.kslash * x(p, 1.0, consts).ln()) / consts.h
+pub fn u(p: C, p_range: i32, consts: CouplingConstants) -> C {
+    // let cot = 1.0 / (p / 2.0).tan();
+    // (en(p, 1.0, consts) * cot - 2.0 * consts.kslash * x(p, 1.0, consts).ln()) / consts.h
+    //     - C::i() * (consts.k() as f64 * (p.re / TAU).floor()) / consts.h
 
-    // let xp = xp(p, 1.0, consts);
+    let xp = xp(p, 1.0, consts);
 
-    // xp + 1.0 / xp - 2.0 * consts.kslash / consts.h * xp.ln() - C::i() / consts.h
+    xp + 1.0 / xp
+        - 2.0 * consts.kslash / consts.h * xp.ln()
+        - C::i() * (1.0 + consts.k() as f64 * p_range as f64) / consts.h
 }
 
 pub fn du_dp(p: C, consts: CouplingConstants) -> C {
