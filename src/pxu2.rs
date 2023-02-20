@@ -67,7 +67,7 @@ impl InterpolationStrategy {
         match self {
             Self::XpConstP(_, _, _) | Self::XmConstP(_, _, _) => 1.0 / 32.0,
             Self::XpConstM(_, _, _) | Self::XmConstM(_, _, _) => 1.0 / 32.0,
-            Self::Lerp(_, _) => 1.0 / 32.0,
+            Self::Lerp(_, _) => 1.0 / 128.0,
         }
     }
 
@@ -271,12 +271,9 @@ impl PInterpolator {
         }
     }
 
-    pub fn get_x(&self) -> Complex64 {
-        self.pt.evaluate(self.consts)
-    }
-
-    pub fn get_p(&self) -> Complex64 {
-        self.p
+    pub fn clear_path(&mut self) {
+        self.p_path = vec![*self.p_path.last().unwrap()];
+        self.x_path = vec![*self.x_path.last().unwrap()];
     }
 
     pub fn goto_re(self, re: f64) -> Self {
