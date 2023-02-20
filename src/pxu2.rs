@@ -5,9 +5,7 @@ use crate::{
 };
 
 use std::collections::VecDeque;
-//  use std::f64::consts::TAU;
-
-const TAU: f64 = 1.0;
+use std::f64::consts::TAU;
 
 use itertools::Itertools;
 use num::complex::Complex64;
@@ -22,8 +20,8 @@ pub enum InterpolationPoint {
 impl InterpolationPoint {
     fn evaluate(&self, consts: CouplingConstants) -> Complex64 {
         match self {
-            Self::Xp(p, m) => xp(Complex64::from(p) * TAU, *m, consts),
-            Self::Xm(p, m) => xm(Complex64::from(p) * TAU, *m, consts),
+            Self::Xp(p, m) => xp(Complex64::from(p), *m, consts),
+            Self::Xm(p, m) => xm(Complex64::from(p), *m, consts),
             Self::C(c) => *c,
         }
     }
@@ -130,9 +128,7 @@ impl XAsymptote {
 
 impl XInterpolator {
     pub fn generate_xp(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
-        Self::generate_x(p_range, m, consts, |p| {
-            xp(Complex64::from(TAU * p), m, consts)
-        })
+        Self::generate_x(p_range, m, consts, |p| xp(Complex64::from(p), m, consts))
     }
 
     fn generate_x(
@@ -257,7 +253,7 @@ impl PInterpolator {
             p,
             pt,
             consts,
-            p_path: vec![TAU * p],
+            p_path: vec![p],
             x_path: vec![pt.evaluate(consts)],
         }
     }
@@ -270,7 +266,7 @@ impl PInterpolator {
             p,
             pt,
             consts,
-            p_path: vec![TAU * p],
+            p_path: vec![p],
             x_path: vec![pt.evaluate(consts)],
         }
     }

@@ -3,9 +3,6 @@ use crate::nr::{self};
 use crate::pxu2::{PInterpolator, XInterpolator};
 use num::complex::Complex;
 use num::Zero;
-// use std::f64::consts::PI;
-
-const PI: f64 = 0.5;
 
 type C = Complex<f64>;
 
@@ -194,7 +191,7 @@ impl Grid {
     fn fill_x(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
         let mut lines = vec![];
 
-        // let p_start = p_range as f64 * 2.0 * PI;
+        // let p_start = p_range as f64;
 
         for m in 0..=consts.k() {
             // for m in 1..=1 {
@@ -211,7 +208,7 @@ impl Grid {
             // let steps = 64;
 
             // for i in 1..=(steps - 1) {
-            //     let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
+            //     let p = p_start + i as f64 / (steps as f64);
             //     xp_points.push(xp(C::from(p), m as f64, consts));
             // }
 
@@ -309,13 +306,13 @@ impl Grid {
     fn fill_p(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
         let mut lines = vec![];
 
-        let p_start = 2. * PI * p_range as f64;
-        lines.push(vec![C::from(p_start), C::from(p_start + 2.0 * PI)]);
+        let p_start = p_range as f64;
+        lines.push(vec![C::from(p_start), C::from(p_start + 1.0)]);
 
         let xp_func = XpFunc { consts };
 
         let p_s = {
-            let p0 = PI / 4.0;
+            let p0 = 1.0 / 8.0;
             let x0 = xp(C::from(p0), 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let start = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0)
@@ -332,7 +329,7 @@ impl Grid {
         };
 
         let p_min_one_over_s = {
-            let p0 = -PI / 32.0;
+            let p0 = -1.0 / 64.0;
             let x0 = xp(C::from(p0), 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let pts = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0);
@@ -348,7 +345,7 @@ impl Grid {
 
         {
             // xp m = 0
-            let p0 = p_start + PI / 4.0;
+            let p0 = p_start + 1.0 / 8.0;
             let xp_fixed_p = XpFixedP::new(p0, consts);
 
             let (m, p1) = *nr::shoot(&xp_func, &xp_fixed_p, 1.0, 0.0, C::from(p0), 0.5)
@@ -367,17 +364,17 @@ impl Grid {
                 nr::shoot_two_sided(
                     &xp_func,
                     &fixed_m,
-                    p_start + 1.0 * PI / 32.0,
+                    p_start + 1.0 * 1.0 / 64.0,
                     p0,
-                    p_start + 63.0 * PI / 32.0,
+                    p_start + 63.0 * 1.0 / 64.0,
                     p1,
-                    PI / 16.0,
+                    1.0 / 32.0,
                 )
                 .into_iter()
                 .map(|(_, p)| p),
             );
             if p_range != -1 {
-                pts.push(C::from(p_start + 2.0 * PI));
+                pts.push(C::from(p_start + 1.0));
             } else {
                 pts.push(p_min_one_over_s);
             }
@@ -418,7 +415,7 @@ impl Grid {
         }
 
         if p_range != -1 {
-            let p0 = C::from(p_start + PI / 2.0);
+            let p0 = C::from(p_start + 1.0 / 4.0);
             let x0 = xp(p0, 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let pts = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0);
@@ -446,11 +443,11 @@ impl Grid {
                     nr::shoot_two_sided(
                         &xp_func,
                         &xm_fixed_m,
-                        p_start + PI / 64.0,
+                        p_start + 1.0 / 128.0,
                         p0.re,
-                        p_start + 2.0 * PI - PI / 64.0,
+                        p_start + 1.0 - 1.0 / 128.0,
                         p,
-                        PI / 64.0,
+                        1.0 / 128.0,
                     )
                     .into_iter()
                     .map(|(_, p)| p),
@@ -463,7 +460,7 @@ impl Grid {
         }
 
         if p_range == -1 {
-            let p0 = C::from(-PI / 32.0);
+            let p0 = C::from(-1.0 / 64.0);
             let x0 = xp(p0, 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let pts = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0);
@@ -486,11 +483,11 @@ impl Grid {
                     nr::shoot_two_sided(
                         &xp_func,
                         &xm_fixed_m,
-                        p_start + PI / 16.0,
+                        p_start + 1.0 / 32.0,
                         p0.re,
-                        p_start + 2.0 * PI - PI / 64.0,
+                        p_start + 1.0 - 1.0 / 128.0,
                         p,
-                        PI / 64.0,
+                        1.0 / 128.0,
                     )
                     .into_iter()
                     .map(|(_, p)| p),
@@ -581,11 +578,11 @@ impl Cut {
     }
 
     fn x(p_range: i32, consts: CouplingConstants) -> Self {
-        let p_start = p_range as f64 * 2.0 * PI;
+        let p_start = p_range as f64;
         let xp_func = XpFunc { consts };
 
         let p_s = {
-            let p0 = PI / 4.0;
+            let p0 = 1.0 / 8.0;
             let x0 = xp(C::from(p0), 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let start = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0)
@@ -602,7 +599,7 @@ impl Cut {
         };
 
         let p_min_one_over_s = {
-            let p0 = -PI / 32.0;
+            let p0 = -1.0 / 64.0;
             let x0 = xp(C::from(p0), 1.0, consts);
             let fixed_re = FixedRe::new(x0.re);
             let pts = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, C::from(p0), x0.im / 1.0);
@@ -619,7 +616,7 @@ impl Cut {
         let mut p_points = vec![];
         {
             if p_range != -1 {
-                let p0 = C::from(p_start + PI / 2.0);
+                let p0 = C::from(p_start + 1.0 / 4.0);
                 let x0 = xp(p0, 1.0, consts);
                 let fixed_re = FixedRe::new(x0.re);
                 let p1 = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0)
@@ -639,11 +636,11 @@ impl Cut {
                     nr::shoot_two_sided(
                         &xp_func,
                         &xm_fixed_m,
-                        p_start + PI / 64.0,
+                        p_start + 1.0 / 128.0,
                         p0.re,
-                        p_start + 2.0 * PI - PI / 64.0,
+                        p_start + 1.0 - 1.0 / 128.0,
                         p2,
-                        PI / 64.0,
+                        1.0 / 128.0,
                     )
                     .into_iter()
                     .rev()
@@ -658,7 +655,7 @@ impl Cut {
 
             {
                 // xp m = 0
-                let p0 = p_start + PI / 4.0;
+                let p0 = p_start + 1.0 / 8.0;
                 let xp_fixed_p = XpFixedP::new(p0, consts);
 
                 let (m, p1) = *nr::shoot(&xp_func, &xp_fixed_p, 1.0, 0.0, C::from(p0), 0.5)
@@ -671,17 +668,17 @@ impl Cut {
                     nr::shoot_two_sided(
                         &xp_func,
                         &fixed_m,
-                        p_start + 1.0 * PI / 32.0,
+                        p_start + 1.0 * 1.0 / 64.0,
                         p0,
-                        p_start + 63.0 * PI / 32.0,
+                        p_start + 63.0 * 1.0 / 64.0,
                         p1,
-                        PI / 1024.0,
+                        1.0 / 512.0,
                     )
                     .into_iter()
                     .map(|(_, p)| p),
                 );
                 if p_range != -1 {
-                    p_points.push(C::from(p_start + 2.0 * PI));
+                    p_points.push(C::from(p_start + 1.0));
                 } else {
                     p_points.push(p_min_one_over_s);
                 }
@@ -699,7 +696,7 @@ impl Cut {
         let steps = 64;
 
         for i in 1..=(steps - 1) {
-            let p = p_start + 2.0 * PI * i as f64 / (steps as f64);
+            let p = p_start + i as f64 / (steps as f64);
             x_points.push(xp(C::from(p), 0.0, consts));
         }
 
@@ -964,7 +961,7 @@ impl PxuPoint {
     pub fn new(p: C, consts: CouplingConstants) -> Self {
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(p, (p.re / (2.0 * PI)).floor() as i32, consts);
+        let u = u(p, p.re.floor() as i32, consts);
         Self {
             p,
             xp,
@@ -1010,7 +1007,7 @@ impl PxuPoint {
 
     pub fn shift_u(&self, new_u: C) -> Option<Self> {
         let p = nr::find_root(
-            |p| u(p, (p.re / (2.0 * PI)).floor() as i32, self.consts) - new_u,
+            |p| u(p, p.re.floor() as i32, self.consts) - new_u,
             |p| du_dp(p, self.consts),
             self.p,
             1.0e-6,
