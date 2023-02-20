@@ -711,7 +711,7 @@ impl Cut {
 
         let u_s = {
             let s = consts.s();
-            s + 1.0 / s - 2.0 * consts.kslash / consts.h * s.ln()
+            s + 1.0 / s - 2.0 * consts.kslash() / consts.h * s.ln()
         };
         if p_range == 0 {
             u_points.push(C::new(-100.0, -1.0 / consts.h));
