@@ -6,7 +6,7 @@ use num::complex::Complex64;
 
 use crate::kinematics::CouplingConstants;
 use crate::pxu;
-use crate::pxu::{PxuGrid, PxuPoint};
+use crate::pxu::PxuPoint;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -15,8 +15,6 @@ use crate::pxu::{PxuGrid, PxuPoint};
 pub struct TemplateApp {
     #[serde(skip)]
     consts: CouplingConstants,
-    #[serde(skip)]
-    grid: PxuGrid,
     #[serde(skip)]
     pxu: PxuPoint,
     #[serde(skip)]
@@ -206,18 +204,6 @@ impl Plot {
                                 .shift_xp(Complex64::new(new_value.x as f64, -new_value.y as f64))
                             {
                                 *pxu = new_pxu;
-
-                                // let tst = pxu.xp + 1.0 / pxu.xm;
-                                let tst = pxu.consts.h
-                                    * (pxu.xp + 1.0 / pxu.xp - pxu.xp.conj() - 1.0 / pxu.xp.conj())
-                                    - 2.0 * (pxu.consts.kslash * (pxu.xp / pxu.xp.conj()).ln());
-
-                                // let tst = pxu.xp + 1.0 / pxu.xp
-                                //     - pxu.xm
-                                //     - 1.0 / pxu.xm
-                                //     - 2.0 * Complex64::i() * (1.0 + pxu.consts.kslash * pxu.p)
-                                //         / pxu.consts.h;
-                                // log::info!("{:?}", tst);
                             }
                         }
 
@@ -359,17 +345,6 @@ impl Plot {
 
     fn zoom(&mut self, zoom: f32) {
         self.height /= zoom;
-        // let Rect { min, max } = self.visible_rect;
-        // self.visible_rect = Rect::from_min_max(
-        //     Pos2 {
-        //         x: min.x / zoom,
-        //         y: min.y / zoom,
-        //     },
-        //     Pos2 {
-        //         x: max.x / zoom,
-        //         y: max.y / zoom,
-        //     },
-        // );
     }
 }
 
@@ -379,7 +354,6 @@ impl Default for TemplateApp {
         let p_range = 1;
         Self {
             consts,
-            grid: PxuGrid::new_pm(consts),
             pxu: PxuPoint::new(
                 num::complex::Complex::from(p_range as f64 * 2.0 * PI + 2.0),
                 consts,
@@ -425,133 +399,6 @@ impl TemplateApp {
         }
 
         Default::default()
-    }
-}
-
-fn _extract_grid_component(
-    the_grid: &PxuGrid,
-    extract: &fn(&PxuPoint) -> num::complex::Complex<f64>,
-) -> Vec<Vec<(f64, f64)>> {
-    the_grid
-        .points
-        .iter()
-        .map(|l| {
-            l.iter()
-                .map(extract)
-                .map(|z| (z.re, z.im))
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>()
-}
-
-impl TemplateApp {
-    fn _plot(
-        &mut self,
-        ui: &mut Ui,
-        desired_size: Vec2,
-        extracts: Vec<fn(&PxuPoint) -> num::complex::Complex64>,
-        setters: Vec<fn(&PxuPoint, num::complex::Complex64, CouplingConstants) -> PxuPoint>,
-        visible_rect: Rect,
-    ) -> () {
-        egui::Frame::canvas(ui.style())
-            .outer_margin(Margin::same(0.0))
-            .inner_margin(Margin::same(0.0))
-            .show(ui, |ui| {
-                let (response, painter) = ui.allocate_painter(desired_size, egui::Sense::hover());
-
-                let zoom;
-                {
-                    if response.hovered() {
-                        let inp = ui.input();
-                        zoom = inp.zoom_delta();
-                    } else {
-                        zoom = 1.0;
-                    }
-                }
-
-                let rect = response.rect;
-
-                let to_screen =
-                    eframe::emath::RectTransform::from_to(visible_rect.expand(zoom), rect);
-                ui.set_clip_rect(rect);
-
-                let origin = to_screen * egui::pos2(0.0, 0.0);
-
-                let mut grid = vec![];
-                for extract in extracts.iter() {
-                    grid.extend(_extract_grid_component(&self.grid, extract).into_iter());
-                }
-
-                let mut shapes = vec![
-                    egui::epaint::Shape::line(
-                        vec![
-                            egui::pos2(rect.left(), origin.y),
-                            egui::pos2(rect.right(), origin.y),
-                        ],
-                        Stroke::new(0.75, Color32::GRAY),
-                    ),
-                    egui::epaint::Shape::line(
-                        vec![
-                            egui::pos2(origin.x, rect.bottom()),
-                            egui::pos2(origin.x, rect.top()),
-                        ],
-                        Stroke::new(0.75, Color32::GRAY),
-                    ),
-                ];
-
-                for points in grid {
-                    let points = points
-                        .iter()
-                        .map(|(x, y)| to_screen * egui::pos2(*x as f32, -*y as f32))
-                        .collect::<Vec<_>>();
-
-                    shapes.push(egui::epaint::Shape::line(
-                        points,
-                        Stroke::new(1.0, Color32::BLUE),
-                    ));
-                }
-
-                for (i, (extract, set)) in extracts.iter().zip(setters.iter()).enumerate() {
-                    let size = egui::epaint::Vec2::splat(8.0);
-
-                    let x = extract(&self.pxu);
-                    let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
-
-                    let point_rect = egui::Rect::from_center_size(center, size);
-                    let point_id = response.id.with(i);
-                    let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                    let mut stroke = egui::epaint::Stroke::NONE;
-
-                    if point_response.hovered() || point_response.dragged() {
-                        stroke = egui::epaint::Stroke::new(1.0, Color32::GREEN);
-                    }
-                    if point_response.dragged() {
-                        let new_value =
-                            to_screen.inverse() * (center + point_response.drag_delta());
-
-                        self.pxu = set(
-                            &self.pxu,
-                            num::complex::Complex::new(new_value.x as f64, -new_value.y as f64),
-                            self.consts,
-                        );
-                    }
-
-                    // let stroke = ui.style().interact(&point_response).fg_stroke;
-                    let x = extract(&self.pxu);
-                    let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
-
-                    shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                        center,
-                        radius: 4.0,
-                        fill: Color32::RED,
-                        stroke,
-                    }));
-                }
-
-                painter.extend(shapes);
-            });
-        // });
     }
 }
 
@@ -618,7 +465,6 @@ impl eframe::App for TemplateApp {
         });
 
         if old_consts != self.consts || old_p_range != self.p_range {
-            self.grid = PxuGrid::new_pm(self.consts);
             self.pxu = PxuPoint::new(
                 self.pxu.p + 2.0 * PI * (self.p_range - old_p_range) as f64,
                 self.consts,
@@ -639,207 +485,144 @@ impl eframe::App for TemplateApp {
         }
 
         if old_p_range != self.p_range {
-            // self.x_plot.height *= 2.0f32.powi(self.p_range - old_p_range);
             self.p_plot.origin.x += (self.p_range - old_p_range) as f32 * (2.0 * PI) as f32;
         }
 
-        // let the_grid = PxuGrid::new_pm(self.consts);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let available_size = ui.available_size();
+            ui.horizontal(|ui| {
+                self.p_plot.draw(
+                    ui,
+                    available_size * vec2(0.49, 0.49),
+                    &self.new_grid,
+                    &self.cuts,
+                    self.show_dots,
+                    &mut self.pxu,
+                );
 
-        egui::CentralPanel::default()
-            // .frame(Frame::default().inner_margin(Margin::same(5.0)))
-            .show(ctx, |ui| {
-                let available_size = ui.available_size();
-                ui.horizontal(|ui| {
-                    // self.plot(
-                    //     // ctx,
-                    //     ui,
-                    //     available_size * vec2(0.49, 0.49),
-                    //     // "xp/xm",
-                    //     vec![|pxu: &PxuPoint| pxu.xp, |pxu: &PxuPoint| pxu.xm],
-                    //     vec![
-                    //         |pxu: &PxuPoint,
-                    //          x: num::complex::Complex64,
-                    //          consts: CouplingConstants| {
-                    //             pxu.shift_xp(x, consts).unwrap_or_else(|| {
-                    //                 log::info!("!");
-                    //                 pxu.clone()
-                    //             })
-                    //         },
-                    //         |pxu: &PxuPoint,
-                    //          x: num::complex::Complex64,
-                    //          consts: CouplingConstants| {
-                    //             pxu.shift_xm(x, consts).unwrap_or(pxu.clone())
-                    //         },
-                    //     ],
-                    //     eframe::emath::Rect::from_x_y_ranges(
-                    //         -2.0 * s..=2.0 * s,
-                    //         -1.5 * s..=1.5 * s,
-                    //     ),
-                    // );
-
-                    self.p_plot.draw(
-                        ui,
-                        available_size * vec2(0.49, 0.49),
-                        &self.new_grid,
-                        &self.cuts,
-                        self.show_dots,
-                        &mut self.pxu,
-                    );
-
-                    self.x_plot.draw(
-                        ui,
-                        available_size * vec2(0.49, 0.49),
-                        &self.new_grid,
-                        &self.cuts,
-                        self.show_dots,
-                        &mut self.pxu,
-                    );
-
-                    // ui.with_layout(layout, add_contents)
-
-                    // self.plot(
-                    //     //     ctx,
-                    //     ui,
-                    //     available_size * vec2(0.49, 0.49),
-                    //     // "u",
-                    //     vec![|pxu: &PxuPoint| pxu.u],
-                    //     vec![|pxu: &PxuPoint,
-                    //           u: num::complex::Complex64,
-                    //           consts: CouplingConstants| {
-                    //         pxu.shift_u(u, consts).unwrap_or(pxu.clone())
-                    //     }],
-                    //     eframe::emath::Rect::from_x_y_ranges(-2.0..=4.0, -3.0..=3.0),
-                    // );
-                });
-                ui.horizontal(|ui| {
-                    // self.plot(
-                    //     // ctx,
-                    //     ui,
-                    //     available_size * vec2(0.49, 0.49),
-                    //     // "p",
-                    //     vec![|pxu: &PxuPoint| pxu.p],
-                    //     vec![|_: &PxuPoint,
-                    //           p: num::complex::Complex64,
-                    //           consts: CouplingConstants| {
-                    //         PxuPoint::new(p, consts)
-                    //     }],
-                    //     eframe::emath::Rect::from_x_y_ranges(-7.0..=7.0, -1.0..=1.0),
-                    // );
-
-                    self.u_plot.draw(
-                        ui,
-                        available_size * vec2(0.49, 0.49),
-                        &self.new_grid,
-                        &self.cuts,
-                        self.show_dots,
-                        &mut self.pxu,
-                    );
-
-                    egui::Frame::canvas(ui.style())
-                        .outer_margin(Margin::same(0.0))
-                        .inner_margin(Margin::same(0.0))
-                        .show(ui, |ui| {
-                            let (response, painter) = ui.allocate_painter(
-                                available_size * vec2(0.49, 0.49),
-                                egui::Sense::hover(),
-                            );
-
-                            let rect = response.rect;
-                            let to_screen = eframe::emath::RectTransform::from_to(
-                                eframe::emath::Rect::from_x_y_ranges(-1.0..=1.0, -1.0..=1.0),
-                                rect,
-                            );
-                            ui.set_clip_rect(rect);
-
-                            let size = egui::epaint::Vec2::splat(8.0);
-
-                            let x = self.z;
-
-                            let cut_points = vec![
-                                num::complex::Complex64::new(-0.5, 0.0),
-                                num::complex::Complex64::new(0.5, 0.0),
-                            ];
-
-                            let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
-
-                            let point_rect = egui::Rect::from_center_size(center, size);
-                            let point_id = response.id.with(1);
-                            let point_response =
-                                ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                            let mut stroke = egui::epaint::Stroke::NONE;
-
-                            if point_response.hovered() || point_response.dragged() {
-                                stroke = egui::epaint::Stroke::new(1.0, Color32::LIGHT_BLUE);
-                            }
-
-                            if point_response.dragged() {
-                                fn cross(a: Complex64, b: Complex64) -> f64 {
-                                    a.re * b.im - a.im * b.re
-                                }
-
-                                let new_value =
-                                    to_screen.inverse() * (center + point_response.drag_delta());
-
-                                let w = num::complex::Complex64::new(
-                                    new_value.x as f64,
-                                    -new_value.y as f64,
-                                );
-
-                                let p = cut_points[0];
-                                let r = cut_points[1] - cut_points[0];
-
-                                let q = self.z;
-                                let s = w - self.z;
-
-                                if cross(r, s) != 0.0 {
-                                    let t = cross(q - p, s) / cross(r, s);
-                                    let u = cross(q - p, r) / cross(r, s);
-
-                                    if 0.0 < t && t < 1.0 && 0.0 < u && u < 1.0 {
-                                        self.branch *= -1;
-                                    }
-                                }
-
-                                self.z = w;
-                            }
-
-                            let mut shapes = vec![];
-
-                            for i in 0..cut_points.len() - 1 {
-                                let z1 = cut_points[i];
-                                let z2 = cut_points[i + 1];
-
-                                let p1 = to_screen * egui::pos2(z1.re as f32, -z1.im as f32);
-                                let p2 = to_screen * egui::pos2(z2.re as f32, -z2.im as f32);
-
-                                shapes.push(egui::epaint::Shape::LineSegment {
-                                    points: [p1, p2],
-                                    stroke: egui::epaint::Stroke::new(
-                                        2.0,
-                                        if self.branch == 1 {
-                                            Color32::GREEN
-                                        } else {
-                                            Color32::RED
-                                        },
-                                    ),
-                                })
-                            }
-
-                            // let stroke = ui.style().interact(&point_response).fg_stroke;
-                            let x = self.z;
-                            let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
-
-                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                                center,
-                                radius: 4.0,
-                                fill: Color32::BLUE,
-                                stroke,
-                            }));
-
-                            painter.extend(shapes);
-                        });
-                });
+                self.x_plot.draw(
+                    ui,
+                    available_size * vec2(0.49, 0.49),
+                    &self.new_grid,
+                    &self.cuts,
+                    self.show_dots,
+                    &mut self.pxu,
+                );
             });
+            ui.horizontal(|ui| {
+                self.u_plot.draw(
+                    ui,
+                    available_size * vec2(0.49, 0.49),
+                    &self.new_grid,
+                    &self.cuts,
+                    self.show_dots,
+                    &mut self.pxu,
+                );
+
+                egui::Frame::canvas(ui.style())
+                    .outer_margin(Margin::same(0.0))
+                    .inner_margin(Margin::same(0.0))
+                    .show(ui, |ui| {
+                        let (response, painter) = ui.allocate_painter(
+                            available_size * vec2(0.49, 0.49),
+                            egui::Sense::hover(),
+                        );
+
+                        let rect = response.rect;
+                        let to_screen = eframe::emath::RectTransform::from_to(
+                            eframe::emath::Rect::from_x_y_ranges(-1.0..=1.0, -1.0..=1.0),
+                            rect,
+                        );
+                        ui.set_clip_rect(rect);
+
+                        let size = egui::epaint::Vec2::splat(8.0);
+
+                        let x = self.z;
+
+                        let cut_points = vec![
+                            num::complex::Complex64::new(-0.5, 0.0),
+                            num::complex::Complex64::new(0.5, 0.0),
+                        ];
+
+                        let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
+
+                        let point_rect = egui::Rect::from_center_size(center, size);
+                        let point_id = response.id.with(1);
+                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
+
+                        let mut stroke = egui::epaint::Stroke::NONE;
+
+                        if point_response.hovered() || point_response.dragged() {
+                            stroke = egui::epaint::Stroke::new(1.0, Color32::LIGHT_BLUE);
+                        }
+
+                        if point_response.dragged() {
+                            fn cross(a: Complex64, b: Complex64) -> f64 {
+                                a.re * b.im - a.im * b.re
+                            }
+
+                            let new_value =
+                                to_screen.inverse() * (center + point_response.drag_delta());
+
+                            let w = num::complex::Complex64::new(
+                                new_value.x as f64,
+                                -new_value.y as f64,
+                            );
+
+                            let p = cut_points[0];
+                            let r = cut_points[1] - cut_points[0];
+
+                            let q = self.z;
+                            let s = w - self.z;
+
+                            if cross(r, s) != 0.0 {
+                                let t = cross(q - p, s) / cross(r, s);
+                                let u = cross(q - p, r) / cross(r, s);
+
+                                if 0.0 < t && t < 1.0 && 0.0 < u && u < 1.0 {
+                                    self.branch *= -1;
+                                }
+                            }
+
+                            self.z = w;
+                        }
+
+                        let mut shapes = vec![];
+
+                        for i in 0..cut_points.len() - 1 {
+                            let z1 = cut_points[i];
+                            let z2 = cut_points[i + 1];
+
+                            let p1 = to_screen * egui::pos2(z1.re as f32, -z1.im as f32);
+                            let p2 = to_screen * egui::pos2(z2.re as f32, -z2.im as f32);
+
+                            shapes.push(egui::epaint::Shape::LineSegment {
+                                points: [p1, p2],
+                                stroke: egui::epaint::Stroke::new(
+                                    2.0,
+                                    if self.branch == 1 {
+                                        Color32::GREEN
+                                    } else {
+                                        Color32::RED
+                                    },
+                                ),
+                            })
+                        }
+
+                        // let stroke = ui.style().interact(&point_response).fg_stroke;
+                        let x = self.z;
+                        let center = to_screen * egui::pos2(x.re as f32, -x.im as f32);
+
+                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                            center,
+                            radius: 4.0,
+                            fill: Color32::BLUE,
+                            stroke,
+                        }));
+
+                        painter.extend(shapes);
+                    });
+            });
+        });
     }
 }

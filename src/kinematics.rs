@@ -1,5 +1,5 @@
 use num::complex::Complex;
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::TAU;
 
 type C = Complex<f64>;
 

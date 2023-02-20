@@ -7,7 +7,7 @@ use crate::{
 use std::{collections::VecDeque, f64::consts::TAU};
 
 use itertools::Itertools;
-use num::{complex::Complex64, Zero};
+use num::complex::Complex64;
 
 #[derive(Debug, Copy, Clone)]
 pub enum InterpolationPoint {
@@ -36,7 +36,7 @@ enum InterpolationStrategy {
 
 impl InterpolationStrategy {
     fn new(pt1: InterpolationPoint, pt2: InterpolationPoint) -> Self {
-        use InterpolationPoint::{Xm, Xp, C};
+        use InterpolationPoint::{Xm, Xp};
         use InterpolationStrategy::*;
 
         let pts = (pt1, pt2);
@@ -360,17 +360,5 @@ impl PInterpolator {
             InterpolationComponent::Xp => dxp_dp(z, 1.0, self.consts),
             InterpolationComponent::Xm => dxm_dp(z, 1.0, self.consts),
         }
-    }
-
-    fn next(&self, pt: InterpolationPoint) -> Option<Complex64> {
-        let n = nr::find_root(
-            |z| self.f(z) - pt.evaluate(self.consts),
-            |z| self.df(z),
-            self.p,
-            1.0e-3,
-            50,
-        );
-
-        unimplemented!()
     }
 }

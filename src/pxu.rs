@@ -1,7 +1,6 @@
 use crate::kinematics::{den2_dp, du_dp, dxm_dp, dxp_dp, en2, u, xm, xp, CouplingConstants};
 use crate::nr::{self};
-use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
-use itertools::Itertools;
+use crate::pxu2::{PInterpolator, XInterpolator};
 use num::complex::Complex;
 use num::Zero;
 use std::f64::consts::PI;
@@ -171,11 +170,6 @@ impl nr::Func for XmFunc {
 // }
 
 #[derive(Debug)]
-pub struct PxuGrid {
-    pub points: Vec<Vec<PxuPoint>>,
-}
-
-#[derive(Debug)]
 pub struct Grid {
     pub p: Vec<Vec<C>>,
     pub x: Vec<Vec<C>>,
@@ -198,7 +192,7 @@ impl Grid {
     fn fill_x(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
         let mut lines = vec![];
 
-        let p_start = p_range as f64 * 2.0 * PI;
+        // let p_start = p_range as f64 * 2.0 * PI;
 
         for m in 0..=consts.k() {
             // for m in 1..=1 {
@@ -864,16 +858,16 @@ impl Cut {
     }
 
     fn x_log(p_range: i32, consts: CouplingConstants) -> Self {
-        let x_points;
+        // let x_points;
         let branch_points_x;
         if p_range == 0 {
-            x_points = vec![C::from(-100.0), C::zero()];
+            //     x_points = vec![C::from(-100.0), C::zero()];
             branch_points_x = vec![C::zero()];
         } else if p_range == -1 {
-            x_points = vec![C::zero(), C::from(100.0)];
+            //     x_points = vec![C::zero(), C::from(100.0)];
             branch_points_x = vec![C::zero()];
         } else {
-            x_points = vec![C::from(-100.0), C::from(100.0)];
+            //     x_points = vec![C::from(-100.0), C::from(100.0)];
             branch_points_x = vec![]
         }
 
@@ -952,226 +946,6 @@ impl Cut {
             branch_points_x,
             branch_points_u,
         }
-    }
-}
-
-impl PxuGrid {
-    pub fn new_pm(consts: CouplingConstants) -> Self {
-        let p_range = 0;
-        let p_start = 2. * PI * p_range as f64;
-
-        let p0 = C::from(p_start + PI / 6.0);
-
-        let mut points = vec![];
-
-        let xp_func = XpFunc { consts };
-        let xm_func = XmFunc { consts };
-        {
-            let p0 = p_start + PI / 4.0;
-            let xp_fixed_p = XpFixedP::new(p0, consts);
-
-            let starts =
-                nr::shoot_two_sided(&xp_func, &xp_fixed_p, 0.5, 1.0, 1.5, C::from(p0), 0.5);
-
-            for (m, p1) in starts {
-                let fixed_m = XpFixedM::new(m, consts);
-
-                let pts = nr::shoot_two_sided(
-                    &xp_func,
-                    &fixed_m,
-                    p_start + 1.0 * PI / 64.0,
-                    p0,
-                    p_start + 63.0 * PI / 32.0,
-                    p1,
-                    PI / 128.0,
-                )
-                .into_iter()
-                .map(|(_, p)| PxuPoint::new(p, consts))
-                .collect::<Vec<_>>();
-                points.push(pts);
-            }
-        }
-
-        {
-            let p0 = p_start + PI / 4.0;
-            let xm_fixed_p = XmFixedP::new(p0, consts);
-
-            let starts = nr::shoot(&xm_func, &xm_fixed_p, 1.0, 0.0, C::from(p0), 0.5);
-
-            let (m, p1) = *starts.last().unwrap();
-
-            {
-                let fixed_m = XmFixedM::new(m, consts);
-
-                let pts = nr::shoot_two_sided(
-                    &xm_func,
-                    &fixed_m,
-                    p_start + 1.0 * PI / 64.0,
-                    p0,
-                    p_start + 63.0 * PI / 32.0,
-                    p1,
-                    PI / 128.0,
-                )
-                .into_iter()
-                .map(|(_, p)| PxuPoint::new(p, consts))
-                .collect::<Vec<_>>();
-                points.push(pts);
-            }
-        }
-
-        if p_range == 0 {
-            let x0 = xp(p0, 1.0, consts);
-            let fixed_re = FixedRe::new(x0.re);
-            let start = nr::shoot(&xp_func, &fixed_re, x0.im, 0.0, p0, x0.im / 1.0)
-                .last()
-                .unwrap()
-                .1;
-            let fixed_im = FixedIm::new(0.0);
-            let t0 = consts.s();
-            let t1 = x0.re;
-            let t2 = 8.0 * consts.s();
-            let pts = nr::shoot_two_sided(
-                &xp_func,
-                &fixed_im,
-                t0,
-                t1,
-                t2,
-                start,
-                (t1 - t0).abs() / 4.0,
-            )
-            .into_iter()
-            .map(|(_, p)| PxuPoint::new(p, consts))
-            .collect::<Vec<_>>();
-
-            points.push(pts);
-        }
-
-        if p_range == 0 {
-            let p0 = C::from(p_start + 0.1 * PI);
-            let x0 = xp(p0, 1.0, consts);
-            let fixed_re = FixedRe::new(x0.re);
-
-            let pts = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0);
-            let p1 = pts.last().unwrap().1;
-
-            points.push(
-                pts.into_iter()
-                    .map(|(_, p)| PxuPoint::new(p, consts))
-                    .collect::<Vec<_>>(),
-            );
-
-            let xm_fixed_p = XmFixedP::new(p0.re, consts);
-            let pts = nr::shoot(&xp_func, &xm_fixed_p, 1.0, 0.0, p1, 0.5);
-            let p3 = pts.last().unwrap().1;
-
-            points.push(
-                pts.into_iter()
-                    .map(|(_, p)| PxuPoint::new(p, consts))
-                    .collect::<Vec<_>>(),
-            );
-
-            let xm_fixed_m = XmFixedM::new(0.0, consts);
-            let pts = nr::shoot_two_sided(
-                &xp_func,
-                &xm_fixed_m,
-                p_start + PI / 32.0,
-                p0.re,
-                p_start + 2.0 * PI - PI / 16.0,
-                p3,
-                PI / 32.0,
-            )
-            .into_iter()
-            .map(|(_, p)| PxuPoint::new(p, consts))
-            .collect::<Vec<_>>();
-
-            points.push(pts);
-        }
-
-        {
-            // let p0 = C::from(p_start + 5.5);
-            let p0 = C::from(p_start + 1.0);
-            let x0 = xp(p0, 1.0, consts);
-            let fixed_re = FixedRe::new(x0.re);
-            // let pts = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0);
-            let pts = nr::shoot(&xp_func, &fixed_re, x0.im, -x0.im, p0, x0.im / 8.0);
-            let p1 = pts.last().unwrap().1;
-            let _pts = pts
-                .into_iter()
-                .map(|(_, p)| PxuPoint::new(p, consts))
-                .collect::<Vec<_>>();
-
-            // points.push(pts);
-
-            let xm_fixed_p = XmFixedP::new(p0.re, consts);
-
-            let starts = nr::shoot(&xp_func, &xm_fixed_p, 1.0, 4.0, p1, 1.0);
-            for (m, p) in starts {
-                let xm_fixed_m = XmFixedM::new(m, consts);
-                let pts = nr::shoot_two_sided(
-                    &xp_func,
-                    &xm_fixed_m,
-                    p_start + PI / 32.0,
-                    p0.re,
-                    p_start + 2.0 * PI - PI / 16.0,
-                    p,
-                    PI / 32.0,
-                )
-                .into_iter()
-                .map(|(_, p)| PxuPoint::new(p, consts))
-                .collect::<Vec<_>>();
-
-                points.push(pts);
-            }
-        }
-
-        {
-            let p0 = nr::find_root(
-                |p| en2(p, 1.0, consts) - C::new(0.0, 0.0),
-                |p| den2_dp(p, 1.0, consts),
-                C::new(0.0, 0.5),
-                1.0e-3,
-                50,
-            );
-
-            let mut cut_p = vec![p0.unwrap()];
-            for i in 1..64 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, 0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            cut_p.reverse();
-            for i in 1..64 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, -0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            let cut_p = cut_p
-                .into_iter()
-                .map(|p| PxuPoint::new(p, consts))
-                .collect::<Vec<_>>();
-
-            points.push(cut_p);
-        }
-
-        Self { points }
     }
 }
 
