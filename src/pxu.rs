@@ -3,7 +3,9 @@ use crate::nr::{self};
 use crate::pxu2::{PInterpolator, XInterpolator};
 use num::complex::Complex;
 use num::Zero;
-use std::f64::consts::PI;
+// use std::f64::consts::PI;
+
+const PI: f64 = 0.5;
 
 type C = Complex<f64>;
 
@@ -572,8 +574,8 @@ pub struct Cut {
 impl Cut {
     pub fn get(p_range: i32, consts: CouplingConstants) -> Vec<Self> {
         vec![
-            // Self::x(p_range, consts),
-            // Self::e(p_range, consts),
+            Self::x(p_range, consts),
+            Self::e(p_range, consts),
             Self::x_log(p_range, consts),
         ]
     }

@@ -52,10 +52,11 @@ impl CouplingConstants {
     }
 }
 
-const DP_DP: f64 = 1.0;
+const DP_DP: f64 = TAU;
+const PP: f64 = 1.0;
 
 pub fn en(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
 
@@ -63,18 +64,18 @@ pub fn en(p: C, m: f64, consts: CouplingConstants) -> C {
 }
 
 pub fn den_dp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
     let m_eff = m + consts.k() as f64 * p;
 
     DP_DP * (consts.kslash() * m_eff + 2.0 * consts.h * consts.h * sin * cos)
-        / en(TAU * p, m, consts)
+        / en(PP * p, m, consts)
 }
 
 pub fn en2(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
@@ -83,7 +84,7 @@ pub fn en2(p: C, m: f64, consts: CouplingConstants) -> C {
 }
 
 pub fn den2_dp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
@@ -93,61 +94,61 @@ pub fn den2_dp(p: C, m: f64, consts: CouplingConstants) -> C {
 }
 
 fn x(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
 
-    let numerator = m_eff + en(TAU * p, m, consts);
+    let numerator = m_eff + en(PP * p, m, consts);
     let denominator = 2.0 * consts.h * sin;
 
     numerator / denominator
 }
 
 fn dx_dp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
 
-    let term1 = -x(TAU * p, m, consts) * (cos / sin) / 2.0;
+    let term1 = -x(PP * p, m, consts) * (cos / sin) / 2.0;
     let term2 = consts.kslash() / (2.0 * consts.h * sin);
     let term3 = (consts.kslash() * (m + consts.k() as f64 * p)
         + 2.0 * consts.h * consts.h * sin * cos)
-        / (en(TAU * p, m, consts) * 2.0 * consts.h * sin);
+        / (en(PP * p, m, consts) * 2.0 * consts.h * sin);
 
     DP_DP * (term1 + term2 + term3)
 }
 
 pub fn xp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
-    x(TAU * p, m, consts) * (C::i() * PI * p).exp()
+    let p = p / PP;
+    x(PP * p, m, consts) * (C::i() * PI * p).exp()
 }
 
 pub fn dxp_dp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let exp = (C::i() * PI * p).exp();
-    DP_DP * (dx_dp(TAU * p, m, consts) / DP_DP * exp + (C::i() / 2.0) * x(TAU * p, m, consts) * exp)
+    DP_DP * (dx_dp(PP * p, m, consts) / DP_DP * exp + (C::i() / 2.0) * x(PP * p, m, consts) * exp)
 }
 
 pub fn xm(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
-    x(TAU * p, m, consts) * (-C::i() * PI * p).exp()
+    x(PP * p, m, consts) * (-C::i() * PI * p).exp()
 }
 
 pub fn dxm_dp(p: C, m: f64, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let exp = (-C::i() * PI * p).exp();
-    DP_DP * (dx_dp(TAU * p, m, consts) / DP_DP * exp - (C::i() / 2.0) * x(TAU * p, m, consts) * exp)
+    DP_DP * (dx_dp(PP * p, m, consts) / DP_DP * exp - (C::i() / 2.0) * x(PP * p, m, consts) * exp)
 }
 
 pub fn u(p: C, p_range: i32, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
-    let xp = xp(TAU * p, 1.0, consts);
+    let xp = xp(PP * p, 1.0, consts);
 
     xp + 1.0 / xp
         - 2.0 * consts.kslash() / consts.h * xp.ln()
@@ -155,15 +156,15 @@ pub fn u(p: C, p_range: i32, consts: CouplingConstants) -> C {
 }
 
 pub fn du_dp(p: C, consts: CouplingConstants) -> C {
-    let p = p / TAU;
+    let p = p / PP;
 
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();
 
-    let term1 = den_dp(TAU * p, 1.0, consts) / DP_DP * cot;
-    let term2 = -en(TAU * p, 1.0, consts) / (2.0 * sin * sin);
+    let term1 = den_dp(PP * p, 1.0, consts) / DP_DP * cot;
+    let term2 = -en(PP * p, 1.0, consts) / (2.0 * sin * sin);
     let term3 =
-        -2.0 * consts.kslash() * dx_dp(TAU * p, 1.0, consts) / DP_DP / x(TAU * p, 1.0, consts);
+        -2.0 * consts.kslash() * dx_dp(PP * p, 1.0, consts) / DP_DP / x(PP * p, 1.0, consts);
 
     DP_DP * (term1 + term2 + term3) * consts.h
 }

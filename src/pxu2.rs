@@ -4,7 +4,10 @@ use crate::{
     nr,
 };
 
-use std::{collections::VecDeque, f64::consts::TAU};
+use std::collections::VecDeque;
+//  use std::f64::consts::TAU;
+
+const TAU: f64 = 1.0;
 
 use itertools::Itertools;
 use num::complex::Complex64;

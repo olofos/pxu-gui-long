@@ -1,4 +1,6 @@
-use std::f64::consts::PI;
+// use std::f64::consts::PI;
+
+const PI: f64 = 0.5;
 
 use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
@@ -354,18 +356,15 @@ impl Default for TemplateApp {
         let p_range = 1;
         Self {
             consts,
-            pxu: PxuPoint::new(
-                num::complex::Complex::from(p_range as f64 * 2.0 * PI + 2.0),
-                consts,
-            ),
+            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.25), consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             new_grid: pxu::Grid::new(p_range, consts),
             cuts: pxu::Cut::get(p_range, consts),
             p_plot: Plot {
                 component: PlotComponent::P,
-                height: 2.0,
-                width_factor: 4.0,
+                height: 0.75,
+                width_factor: 1.5,
                 origin: Pos2::new(((2 * p_range + 1) as f32) * PI as f32, 0.0),
             },
             x_plot: Plot {
