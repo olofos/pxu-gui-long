@@ -270,12 +270,30 @@ impl Plot {
                                 pxu.shift_u(Complex64::new(new_value.x as f64, -new_value.y as f64))
                             {
                                 *pxu = new_pxu;
+                            } else {
+                                log::info!("Can't drag u");
                             }
                         }
                         shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
                             center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
                             radius: 4.0,
                             fill: Color32::BLUE,
+                            stroke,
+                        }));
+
+                        let z = pxu.u + Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
+                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
+                            radius: 4.0,
+                            fill: Color32::RED,
+                            stroke,
+                        }));
+
+                        let z = pxu.u - Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
+                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
+                            radius: 4.0,
+                            fill: Color32::GREEN,
                             stroke,
                         }));
                     }
@@ -331,16 +349,6 @@ impl Plot {
                     }
                 }
 
-                let center = to_screen * egui::pos2(0.0, 0.0);
-                let x = to_screen * egui::pos2(1.0, 0.0);
-
-                shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                    center,
-                    radius: (x - center).x,
-                    fill: Color32::TRANSPARENT,
-                    stroke: Stroke::new(1.0, Color32::GRAY),
-                }));
-
                 painter.extend(shapes);
             });
     }
@@ -353,10 +361,10 @@ impl Plot {
 impl Default for TemplateApp {
     fn default() -> Self {
         let consts = CouplingConstants::new(2.0, 5);
-        let p_range = 1;
+        let p_range = 0;
         Self {
             consts,
-            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.25), consts),
+            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.85), consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             new_grid: pxu::Grid::new(p_range, consts),

@@ -123,12 +123,18 @@ pub fn dxm_dp(p: C, m: f64, consts: CouplingConstants) -> C {
     dx_dp(p, m, consts) * exp - TAU * (C::i() / 2.0) * x(p, m, consts) * exp
 }
 
-pub fn u(p: C, p_range: i32, consts: CouplingConstants) -> C {
+pub fn u(p: C, consts: CouplingConstants) -> C {
     let xp = xp(p, 1.0, consts);
+    let xm = xm(p, 1.0, consts);
 
-    xp + 1.0 / xp
-        - 2.0 * consts.kslash() / consts.h * xp.ln()
-        - C::i() * (1.0 + consts.k() as f64 * p_range as f64) / consts.h
+    let p_range = (p + C::i() * (xp.ln() - xm.ln()) / std::f64::consts::TAU + 0.1)
+        .re
+        .floor();
+
+    ((xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln() - C::i() * (1.0) / consts.h)
+        + (xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln() + C::i() * (1.0) / consts.h))
+        / 2.0
+        + C::i() * (xp.im.signum() + xm.im.signum()) / 2.0 * consts.k() as f64 / consts.h
 }
 
 pub fn du_dp(p: C, consts: CouplingConstants) -> C {

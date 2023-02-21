@@ -18,7 +18,7 @@ pub enum InterpolationPoint {
 }
 
 impl InterpolationPoint {
-    fn evaluate(&self, consts: CouplingConstants) -> Complex64 {
+    pub fn evaluate(&self, consts: CouplingConstants) -> Complex64 {
         match self {
             Self::Xp(p, m) => xp(Complex64::from(p), *m, consts),
             Self::Xm(p, m) => xm(Complex64::from(p), *m, consts),
@@ -44,30 +44,25 @@ impl InterpolationStrategy {
 
         if let (Xp(p1, m1), Xp(p2, m2)) = pts {
             if p1 == p2 {
-                log::debug!("const p xp {p1} {m1} {m2}");
                 return XpConstP(p1, m1, m2);
             } else if m1 == m2 {
-                log::debug!("const m xp {m1} {p1} {p2}");
                 return XpConstM(m1, p1, p2);
             }
         } else if let (Xm(p1, m1), Xm(p2, m2)) = pts {
             if p1 == p2 {
-                log::debug!("const p xm {p1} {m1} {m2}");
                 return XmConstP(p1, m1, m2);
             } else if m1 == m2 {
-                log::debug!("const m xm {m1} {p1} {p2}");
                 return XmConstM(m1, p1, p2);
             }
         }
-        log::debug!("lerp {:?} {:?}", pts.0, pts.1);
         Lerp(pts.0, pts.1)
     }
 
     fn max_step(&self) -> f64 {
         match self {
-            Self::XpConstP(_, _, _) | Self::XmConstP(_, _, _) => 1.0 / 32.0,
-            Self::XpConstM(_, _, _) | Self::XmConstM(_, _, _) => 1.0 / 32.0,
-            Self::Lerp(_, _) => 1.0 / 128.0,
+            Self::XpConstP(_, _, _) | Self::XmConstP(_, _, _) => 1.0 / 8.0,
+            Self::XpConstM(_, _, _) | Self::XmConstM(_, _, _) => 1.0 / 8.0,
+            Self::Lerp(_, _) => 1.0 / 16.0,
         }
     }
 
@@ -233,6 +228,7 @@ impl XInterpolator {
 
 #[derive(Debug, Clone)]
 pub struct PInterpolator {
+    valid: bool,
     pub component: InterpolationComponent,
     pub p: Complex64,
     pub pt: InterpolationPoint,
@@ -249,6 +245,7 @@ impl PInterpolator {
         let pt = InterpolationPoint::Xp(p, 1.0);
         let p = Complex64::from(p);
         Self {
+            valid: true,
             component: InterpolationComponent::Xp,
             p,
             pt,
@@ -262,6 +259,8 @@ impl PInterpolator {
         let pt = InterpolationPoint::Xm(p, 1.0);
         let p = Complex64::from(p);
         Self {
+            valid: true,
+
             component: InterpolationComponent::Xm,
             p,
             pt,
@@ -300,12 +299,18 @@ impl PInterpolator {
     pub fn goto_xm(self, p: f64, m: f64) -> Self {
         let pt = InterpolationPoint::Xm(p, m);
         let mut result = self.goto(pt);
-        log::debug!("{:?} {:?}", pt, result.pt);
         result.pt = pt;
         result
     }
 
     pub fn goto(mut self, pt: InterpolationPoint) -> Self {
+        if !self.valid {
+            return Self {
+                valid: false,
+                ..self
+            };
+        }
+
         let strategy = InterpolationStrategy::new(self.pt, pt);
         let mut pt = self.pt;
         let mut p = self.p;
@@ -314,27 +319,40 @@ impl PInterpolator {
         let mut x_path = std::mem::take(&mut self.x_path);
 
         let mut t = 0.0;
-        while t < 1.0 {
+
+        'outer: while t < 1.0 {
             let mut step = strategy.max_step().min(1.0 - t);
 
-            loop {
+            for i in 0.. {
                 pt = strategy.evaluate(t + step, self.consts);
                 let w = pt.evaluate(self.consts);
                 let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
                 if let Some(next_p) = next_p {
-                    t += step;
-                    p = next_p;
-                    p_path.push(p);
-                    x_path.push(w);
-                    break;
+                    if (next_p.re - p.re).abs() < 0.25 {
+                        t += step;
+                        p = next_p;
+                        p_path.push(p);
+                        x_path.push(w);
+                        break;
+                    } else {
+                        log::info!(
+                            "Too large jump ({}): {}",
+                            1.0 / step,
+                            (next_p.re - p.re).abs()
+                        );
+                    }
                 }
+                if i > 8 {
+                    log::info!("Failed at {t} {step}");
+                    break 'outer;
+                }
+                // log::info!("{i} {t}");
                 step /= 2.0;
             }
         }
 
-        log::debug!("{pt:?}");
-
         Self {
+            valid: t == 1.0,
             pt,
             component: self.component,
             p,
