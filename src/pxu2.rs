@@ -275,6 +275,16 @@ impl PInterpolator {
         self.x_path = vec![*self.x_path.last().unwrap()];
     }
 
+    pub fn clear(self) -> Self {
+        let p_path = vec![*self.p_path.last().unwrap()];
+        let x_path = vec![*self.x_path.last().unwrap()];
+        Self {
+            p_path,
+            x_path,
+            ..self
+        }
+    }
+
     pub fn goto_re(self, re: f64) -> Self {
         let im = self.pt.evaluate(self.consts).im;
         let x = Complex64::new(re, im);
@@ -303,12 +313,33 @@ impl PInterpolator {
         result
     }
 
-    pub fn goto(mut self, pt: InterpolationPoint) -> Self {
+    pub fn go_towards_xp(self, p: f64, m: f64) -> Self {
+        self.go_towards(InterpolationPoint::Xp(p, m))
+    }
+
+    pub fn go_towards_xm(self, p: f64, m: f64) -> Self {
+        self.go_towards(InterpolationPoint::Xm(p, m))
+    }
+
+    pub fn go_towards(self, pt: InterpolationPoint) -> Self {
         if !self.valid {
-            return Self {
-                valid: false,
-                ..self
-            };
+            return self;
+        }
+        let (_, int_pt) = self.do_goto(pt);
+        int_pt
+    }
+
+    pub fn goto(self, pt: InterpolationPoint) -> Self {
+        if !self.valid {
+            return self;
+        }
+        let (valid, int_pt) = self.do_goto(pt);
+        Self { valid, ..int_pt }
+    }
+
+    fn do_goto(mut self, pt: InterpolationPoint) -> (bool, Self) {
+        if !self.valid {
+            return (false, self);
         }
 
         let strategy = InterpolationStrategy::new(self.pt, pt);
@@ -328,7 +359,7 @@ impl PInterpolator {
                 let w = pt.evaluate(self.consts);
                 let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
                 if let Some(next_p) = next_p {
-                    if (next_p.re - p.re).abs() < 0.25 {
+                    if (next_p.re - p.re).abs() < 0.25 && (next_p.im - p.im).abs() < 0.5 {
                         t += step;
                         p = next_p;
                         p_path.push(p);
@@ -336,30 +367,46 @@ impl PInterpolator {
                         break;
                     } else {
                         log::info!(
-                            "Too large jump ({}): {}",
+                            "Too large jump ({},{}): {}",
+                            t,
                             1.0 / step,
                             (next_p.re - p.re).abs()
                         );
                     }
                 }
-                if i > 8 {
+                if i > 5 {
                     log::info!("Failed at {t} {step}");
                     break 'outer;
                 }
-                // log::info!("{i} {t}");
                 step /= 2.0;
             }
         }
 
-        Self {
-            valid: t == 1.0,
-            pt,
-            component: self.component,
-            p,
-            consts: self.consts,
-            p_path,
-            x_path,
+        (
+            t == 1.0,
+            Self {
+                pt,
+                p,
+                p_path,
+                x_path,
+                ..self
+            },
+        )
+    }
+
+    pub fn contour(&self) -> Vec<Complex64> {
+        if !self.valid {
+            return vec![];
         }
+
+        if let InterpolationPoint::C(_) = self.pt {
+            log::info!("Can only generate contour from Xp or Xm");
+            return vec![];
+        }
+
+        let mut result = vec![];
+
+        result
     }
 
     fn f(&self, z: Complex64) -> Complex64 {
