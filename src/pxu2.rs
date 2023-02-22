@@ -103,12 +103,12 @@ pub enum InterpolationComponent {
 pub struct XInterpolator {}
 
 #[derive(Debug)]
-enum XAsymptote {
+enum Asymptote {
     Num(Complex64),
     Infinity,
 }
 
-impl XAsymptote {
+impl Asymptote {
     fn is_infinite(&self) -> bool {
         match self {
             Self::Infinity => true,
@@ -136,26 +136,26 @@ impl XInterpolator {
         let mut points = VecDeque::new();
         const INFINITY: f64 = 256.0;
 
-        let start: XAsymptote;
-        let end: XAsymptote;
+        let start: Asymptote;
+        let end: Asymptote;
 
         if (p_range == 0 && m == 0.0) || (p_range == -1 && m == consts.k() as f64) {
-            start = XAsymptote::num(consts.s());
+            start = Asymptote::num(consts.s());
         } else if p_range < 0 {
-            start = XAsymptote::num(0.0);
+            start = Asymptote::num(0.0);
         } else {
-            start = XAsymptote::Infinity;
+            start = Asymptote::Infinity;
         }
 
         if (p_range == -1 && m == 0.0) || (p_range == -2 && m == consts.k() as f64) {
-            end = XAsymptote::num(-1.0 / consts.s());
+            end = Asymptote::num(-1.0 / consts.s());
         } else if p_range < -1 {
-            end = XAsymptote::num(0.0);
+            end = Asymptote::num(0.0);
         } else {
-            end = XAsymptote::Infinity;
+            end = Asymptote::Infinity;
         }
 
-        if let XAsymptote::Num(n) = start {
+        if let Asymptote::Num(n) = start {
             points.push_back((p_start + 0.0, n));
         }
 
@@ -165,7 +165,7 @@ impl XInterpolator {
             points.push_back((p, f(p)));
         }
 
-        if let XAsymptote::Num(n) = end {
+        if let Asymptote::Num(n) = end {
             points.push_back((p_start + 1.0, n));
         }
 
