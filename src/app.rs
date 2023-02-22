@@ -436,7 +436,11 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::right("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
 
-            ui.add(egui::Slider::new(&mut self.consts.h, 0.5..=5.5).text("h"));
+            ui.add(
+                egui::Slider::new(&mut self.consts.h, 0.1..=10.0)
+                    .text("h")
+                    .logarithmic(true),
+            );
 
             ui.add(
                 egui::Slider::from_get_set(0.0..=10.0, |v| self.consts.get_set_k(v))
