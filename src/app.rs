@@ -361,7 +361,7 @@ impl Plot {
 impl Default for TemplateApp {
     fn default() -> Self {
         let consts = CouplingConstants::new(2.0, 5);
-        let p_range = 0;
+        let p_range = -1;
         Self {
             consts,
             pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.85), consts),

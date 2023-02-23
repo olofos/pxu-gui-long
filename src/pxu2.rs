@@ -270,12 +270,7 @@ impl PInterpolator {
         }
     }
 
-    pub fn clear_path(&mut self) {
-        self.p_path = vec![*self.p_path.last().unwrap()];
-        self.x_path = vec![*self.x_path.last().unwrap()];
-    }
-
-    pub fn clear(self) -> Self {
+    pub fn clear_path(self) -> Self {
         let p_path = vec![*self.p_path.last().unwrap()];
         let x_path = vec![*self.x_path.last().unwrap()];
         Self {
