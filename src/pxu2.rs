@@ -354,7 +354,8 @@ impl PInterpolator {
                 let w = pt.evaluate(self.consts);
                 let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
                 if let Some(next_p) = next_p {
-                    if (next_p.re - p.re).abs() < 0.25 && (next_p.im - p.im).abs() < 0.5 {
+                    if (next_p.re - p.re).abs() < 1.0 / 8.0 || (next_p.im - p.im).abs() < 1.0 / 4.0
+                    {
                         t += step;
                         p = next_p;
                         p_path.push(p);
