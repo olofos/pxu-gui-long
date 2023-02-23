@@ -193,7 +193,7 @@ impl Grid {
 
         // let p_start = p_range as f64;
 
-        for m in 0..=consts.k() {
+        for m in -4..=consts.k() as i32 {
             // for m in 1..=1 {
             // let mut xp_points = vec![];
 
@@ -582,7 +582,7 @@ impl Cut {
 
         let p_s = {
             let p0 = 1.0 / 8.0;
-            let mut p_int = PInterpolator::xp(p0, consts)
+            let p_int = PInterpolator::xp(p0, consts)
                 .goto_im(0.0)
                 .goto_re(consts.s());
             let p_int = p_int.clear_path();
@@ -591,7 +591,7 @@ impl Cut {
 
         let p_min_one_over_s = {
             let p0 = -1.0 / 64.0;
-            let mut p_int = PInterpolator::xp(p0, consts)
+            let p_int = PInterpolator::xp(p0, consts)
                 .goto_im(0.0)
                 .goto_re(-1.0 / consts.s());
             let p_int = p_int.clear_path();
@@ -603,7 +603,7 @@ impl Cut {
             p_points.push(C::from(p_start));
             if p_range != -1 {
                 let p0 = p_start + 0.25;
-                let mut p_int = PInterpolator::xp(p0, consts)
+                let p_int = PInterpolator::xp(p0, consts)
                     .goto_xm(p0, 1.0)
                     .goto_xm(p0, 0.0);
                 let p_int = p_int.clear_path();
@@ -623,7 +623,7 @@ impl Cut {
 
             {
                 let p0 = p_start + 1.0 / 8.0;
-                let mut p_int = PInterpolator::xp(p0, consts).goto_xp(p0, 0.0);
+                let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, 0.0);
                 let p_int = p_int.clear_path();
 
                 let p_int2 = p_int.clone().goto_xp(p_start + 1.0 / 64.0, 0.0);
@@ -641,7 +641,7 @@ impl Cut {
 
             if p_range == -1 {
                 let p0 = p_start + 0.9;
-                let mut p_int = PInterpolator::xp(p0, consts)
+                let p_int = PInterpolator::xp(p0, consts)
                     .goto_xm(p0, 1.0)
                     .goto_xm(p0, 0.0);
                 let p_int = p_int.clear_path();
@@ -907,43 +907,135 @@ impl Cut {
         }
 
         if p_range == -1 {
-            let p0 = p_range as f64 + 8.0 / 32.0;
-            let p1 = p_range as f64 + 31.0 / 32.0;
+            let m = 1.0;
+            let p1 = {
+                let u_of_x = |x: C| -> C {
+                    let s = consts.s();
+                    x + 1.0 / x - (s - 1.0 / s) * x.ln()
+                };
+                let du_dx = |x: C| -> C {
+                    let s = consts.s();
+                    (x - s) * (x + 1.0 / s) / (x * x)
+                };
 
-            let p_int = PInterpolator::xp(p0, consts).goto_im(0.0);
+                let x = nr::find_root(
+                    |x| u_of_x(x) - u_of_x(C::from(consts.s())) - 2.0 * m * C::i() / consts.h,
+                    du_dx,
+                    C::new(0.0, 1.0),
+                    1.0e-3,
+                    10,
+                );
+                let x = x.unwrap();
+                branch_points_x.push(x);
+                x.arg() / std::f64::consts::PI + p_range as f64
+            };
 
-            // let p_int = p_int.clear_path();
+            let mut p_points = vec![];
 
-            let p_int2 = p_int.clone().goto_re(0.01);
-            x_cuts.push(p_int2.x_path);
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            let p0 = p_range as f64 + 1.0 / 32.0;
+            let p2 = p_range as f64 + 1.0 - 1.0 / 32.0;
 
-            let p_int2 = p_int.goto_re(100.0);
-            x_cuts.push(p_int2.x_path);
+            let m = consts.k() as f64 + 2.0;
 
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            let p_int = PInterpolator::xp(p2, consts)
+                .goto_xp(p2, m + 4.0)
+                .goto_xp(p0, m + 4.0)
+                .goto_xp(p0, m);
 
-            let mut p_int = PInterpolator::xp(p1, consts)
-                .goto_xm(p1, 1.0)
-                .goto_xm(p1, consts.k() as f64 - 0.5)
-                .goto_xm(p0, consts.k() as f64 - 0.5)
-                .goto_im(0.0);
+            let p_int = p_int.clear_path();
 
-            // let p_int = p_int.clear_path();
+            let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.01, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path.into_iter().rev());
 
-            let p_int2 = p_int.clone().goto_re(0.01);
-            x_cuts.push(p_int2.x_path);
+            let p_int2 = p_int.goto_xp(p1, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path);
 
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            let p_int = PInterpolator::xp(p2, consts)
+                .goto_xp(p2, m - 0.5)
+                .goto_xp(p0, m - 0.5)
+                .goto_xp(p0, m);
 
-            let p_int2 = p_int.goto_re(100.0);
-            x_cuts.push(p_int2.x_path);
+            let p_int = p_int.clear_path();
 
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+
+            let p_int2 = p_int.goto_xp(p_range as f64 + 0.01, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path);
+
+            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
+            p_cuts.push(p_points);
+
+            let m = p_range as f64 * consts.k() as f64 + 1.0;
+            let p1 = {
+                let s = consts.s();
+                let u_of_x = |x: C| -> C { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
+                let du_dx = |x: C| -> C {
+                    let s = consts.s();
+                    (x - s) * (x + 1.0 / s) / (x * x)
+                };
+
+                let x = nr::find_root(
+                    |x| {
+                        u_of_x(x)
+                            - (s + 1.0 / s - (s - 1.0 / s) * s.ln())
+                            - 2.0 * (m) * C::i() / consts.h
+                    },
+                    du_dx,
+                    C::new(0.0, 0.1),
+                    1.0e-3,
+                    10,
+                );
+                let x = x.unwrap();
+                branch_points_x.push(x);
+                x.arg() / std::f64::consts::PI + p_range as f64
+            };
+
+            let mut p_points = vec![];
+
+            let m = p_range as f64 * consts.k() as f64 + 2.0;
+
+            let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, m);
+
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.01, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+
+            let p_int2 = p_int.goto_xp(p1, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path);
+
+            let p_int = PInterpolator::xp(p2, consts)
+                .goto_xp(p2, m - 1.0)
+                .goto_xp(p0, m - 1.0)
+                .goto_xp(p0, m);
+
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+
+            let p_int2 = p_int.goto_xp(p_range as f64 + 0.01, m);
+            // p_cuts.push(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+            p_points.extend(p_int2.p_path);
+
+            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
+            p_cuts.push(p_points);
         }
 
         if p_range > 0 {
@@ -1079,7 +1171,7 @@ impl Cut {
             let p0 = p_range as f64 + 8.0 / 32.0;
             let p1 = p_range as f64 + 24.0 / 32.0;
 
-            let mut p_int = PInterpolator::xp(p0, consts).goto_im(0.0);
+            let p_int = PInterpolator::xp(p0, consts).goto_im(0.0);
 
             let p_int = p_int.clear_path();
 
@@ -1093,7 +1185,7 @@ impl Cut {
             p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
             p_cuts.push(p_int2.p_path);
 
-            let mut p_int = PInterpolator::xp(p1, consts).goto_im(0.0);
+            let p_int = PInterpolator::xp(p1, consts).goto_im(0.0);
 
             let p_int = p_int.clear_path();
 
