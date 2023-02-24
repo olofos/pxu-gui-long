@@ -19,7 +19,7 @@ impl XpFixedM {
 
 impl nr::OneParameterFunction for XpFixedM {
     fn evaluate(&self, p: f64) -> C {
-        xp(C::from(p), self.m, self.consts)
+        xp(p, self.m, self.consts)
     }
 }
 
@@ -36,7 +36,7 @@ impl XmFixedM {
 
 impl nr::OneParameterFunction for XmFixedM {
     fn evaluate(&self, p: f64) -> C {
-        xm(C::from(p), self.m, self.consts)
+        xm(p, self.m, self.consts)
     }
 }
 
@@ -193,7 +193,7 @@ impl Grid {
 
         // let p_start = p_range as f64;
 
-        for m in -4..=consts.k() as i32 {
+        for m in -(consts.k() as i32)..=(2 * consts.k()) as i32 {
             // for m in 1..=1 {
             // let mut xp_points = vec![];
 
@@ -209,7 +209,7 @@ impl Grid {
 
             // for i in 1..=(steps - 1) {
             //     let p = p_start + i as f64 / (steps as f64);
-            //     xp_points.push(xp(C::from(p), m as f64, consts));
+            //     xp_points.push(xp(p, m as f64, consts));
             // }
 
             // if m == 0 && p_range == -1 {
@@ -219,7 +219,7 @@ impl Grid {
             // } else if p_range < -1 {
             //     xp_points.push(C::zero());
             // }
-            let xp_points = XInterpolator::generate_xp(p_range, m as f64, consts);
+            let xp_points = XInterpolator::generate_xp_full(p_range, m as f64, consts);
 
             lines.push(xp_points.iter().map(|z| z.conj()).collect::<Vec<_>>());
             lines.push(xp_points);
@@ -233,7 +233,7 @@ impl Grid {
             lines.push(vec![C::from(-1000.0), C::from(-1.0 / consts.s())]);
         }
 
-        {
+        if false {
             let p0 = nr::find_root(
                 |p| en2(p, 1.0, consts) - C::new(0.0, 0.0),
                 |p| den2_dp(p, 1.0, consts),
@@ -558,9 +558,10 @@ impl Grid {
 // struct GridLine {}
 
 pub struct Cut {
-    pub p: Vec<Vec<C>>,
-    pub x: Vec<Vec<C>>,
-    pub u: Vec<Vec<C>>,
+    pub cut_p: Vec<Vec<C>>,
+    pub cut_xp: Vec<Vec<C>>,
+    pub cut_xm: Vec<Vec<C>>,
+    pub cut_u: Vec<Vec<C>>,
 
     pub branch_points_p: Vec<C>,
     pub branch_points_x: Vec<C>,
@@ -570,15 +571,14 @@ pub struct Cut {
 impl Cut {
     pub fn get(p_range: i32, consts: CouplingConstants) -> Vec<Self> {
         vec![
-            Self::x(p_range, consts),
-            Self::e(p_range, consts),
+            // Self::x(p_range, consts),
+            // Self::e(p_range, consts),
             Self::x_log(p_range, consts),
         ]
     }
 
     fn x(p_range: i32, consts: CouplingConstants) -> Self {
         let p_start = p_range as f64;
-        let xp_func = XpFunc { consts };
 
         let p_s = {
             let p0 = 1.0 / 8.0;
@@ -670,7 +670,7 @@ impl Cut {
 
         for i in 1..=(steps - 1) {
             let p = p_start + i as f64 / (steps as f64);
-            x_points.push(xp(C::from(p), 0.0, consts));
+            x_points.push(xp(p, 0.0, consts));
         }
 
         if p_range == -1 {
@@ -696,16 +696,21 @@ impl Cut {
             u_points.push(C::new(100.0, -1.0 / consts.h));
         }
 
-        let x_cut = vec![
+        let cut_xp = vec![
             x_points.iter().rev().map(|z| *z).collect::<Vec<_>>(),
             x_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
         ];
 
-        let p_cut = vec![
+        let cut_xm = vec![
+            x_points.iter().rev().map(|z| *z).collect::<Vec<_>>(),
+            x_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+        ];
+
+        let cut_p = vec![
             p_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
             p_points,
         ];
-        let u_cut = vec![
+        let cut_u = vec![
             u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
             u_points,
         ];
@@ -727,9 +732,10 @@ impl Cut {
         };
 
         Self {
-            p: p_cut,
-            x: x_cut,
-            u: u_cut,
+            cut_p,
+            cut_xp,
+            cut_xm,
+            cut_u,
             branch_points_p,
             branch_points_x,
             branch_points_u,
@@ -789,14 +795,14 @@ impl Cut {
         u_points.extend(cut_p.iter().rev().map(|p| u(*p + C::from(1.0e-5), consts)));
         u_points.extend(cut_p.iter().map(|p| u(*p + C::from(-1.0e-5), consts)));
 
-        let p = vec![cut_p.iter().map(|z| z.conj()).collect::<Vec<_>>(), cut_p];
+        let cut_p = vec![cut_p.iter().map(|z| z.conj()).collect::<Vec<_>>(), cut_p];
         let x = vec![
             xp_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
             xp_points,
             xm_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
             xm_points,
         ];
-        let u_cuts = vec![
+        let cut_u = vec![
             u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
             u_points,
         ];
@@ -812,9 +818,10 @@ impl Cut {
         let branch_points_u = vec![u(p0, consts), u(p0, consts).conj()];
 
         Self {
-            p,
-            x,
-            u: u_cuts,
+            cut_p,
+            cut_xp: x.clone(),
+            cut_xm: x,
+            cut_u,
             branch_points_p,
             branch_points_x,
             branch_points_u,
@@ -835,8 +842,9 @@ impl Cut {
             branch_points_x = vec![C::from(consts.s()), C::from(-1.0 / consts.s())]
         }
 
-        let mut p_cuts = vec![];
-        let mut x_cuts = vec![x_points];
+        let mut cut_p = vec![];
+        let mut cut_xp = vec![x_points.clone()];
+        let mut cut_xm = vec![x_points];
 
         if p_range == 0 {
             let m = consts.k() as f64 + 2.0;
@@ -866,6 +874,20 @@ impl Cut {
                 x.arg() / std::f64::consts::PI
             };
 
+            cut_xp.push(XInterpolator::generate_xp(
+                p1,
+                p_range as f64 + 1.0,
+                m,
+                consts,
+            ));
+
+            cut_xm.push(XInterpolator::generate_xm(
+                p1,
+                p_range as f64 + 1.0,
+                m,
+                consts,
+            ));
+
             let mut p_points = vec![];
 
             let p0 = 1.0 / 8.0;
@@ -878,32 +900,31 @@ impl Cut {
                 .goto_xp(p2, m + 1.0)
                 .goto_xp(p2, m);
 
-            x_cuts.push(p_int.x_path.clone());
+            // x_cuts.push(p_int.x_path);
 
             let p_int = p_int.clear_path();
 
             let p_int2 = p_int.clone().goto_xp(0.99, m);
             p_points.extend(p_int2.p_path.into_iter().rev());
-            x_cuts.push(p_int2.x_path.clone());
+            // x_cuts.push(p_int2.x_path);
 
             let p_int2 = p_int.clone().goto_xp(p1, m);
             p_points.extend(p_int2.p_path);
-            x_cuts.push(p_int2.x_path.clone());
+            // x_cuts.push(p_int2.x_path);
 
             let p_int = PInterpolator::xp(p2, consts).goto_xp(p2, m);
-            x_cuts.push(p_int.x_path.clone());
             let p_int = p_int.clear_path();
 
             let p_int2 = p_int.clone().goto_xp(p1, m);
             p_points.extend(p_int2.p_path.into_iter().rev());
-            x_cuts.push(p_int2.x_path.clone());
+            // x_cuts.push(p_int2.x_path);
 
             let p_int2 = p_int.clone().goto_xp(0.99, m);
             p_points.extend(p_int2.p_path);
-            x_cuts.push(p_int2.x_path.clone());
+            // x_cuts.push(p_int2.x_path);
 
-            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_points);
+            cut_p.push(p_points.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_points);
         }
 
         if p_range == -1 {
@@ -936,6 +957,9 @@ impl Cut {
             let p2 = p_range as f64 + 1.0 - 1.0 / 32.0;
 
             let m = consts.k() as f64 + 2.0;
+
+            cut_xp.push(XInterpolator::generate_xp(p_range as f64, p1, m, consts));
+            cut_xm.push(XInterpolator::generate_xm(p_range as f64, p1, m, consts));
 
             let p_int = PInterpolator::xp(p2, consts)
                 .goto_xp(p2, m + 4.0)
@@ -971,8 +995,8 @@ impl Cut {
             // x_cuts.push(p_int2.x_path);
             p_points.extend(p_int2.p_path);
 
-            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_points);
+            cut_p.push(p_points.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_points);
 
             let m = p_range as f64 * consts.k() as f64 + 1.0;
             let p1 = {
@@ -1002,6 +1026,9 @@ impl Cut {
             let mut p_points = vec![];
 
             let m = p_range as f64 * consts.k() as f64 + 2.0;
+
+            cut_xp.push(XInterpolator::generate_xp(p_range as f64, p1, m, consts));
+            cut_xm.push(XInterpolator::generate_xm(p_range as f64, p1, m, consts));
 
             let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, m);
 
@@ -1034,8 +1061,8 @@ impl Cut {
             // x_cuts.push(p_int2.x_path);
             p_points.extend(p_int2.p_path);
 
-            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_points);
+            cut_p.push(p_points.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_points);
         }
 
         if p_range > 0 {
@@ -1065,6 +1092,19 @@ impl Cut {
                 branch_points_x.push(x);
                 x.arg() / std::f64::consts::PI + p_range as f64
             };
+
+            cut_xp.push(XInterpolator::generate_xp(
+                p1,
+                p_range as f64 + 1.0,
+                m,
+                consts,
+            ));
+            cut_xm.push(XInterpolator::generate_xm(
+                p1,
+                p_range as f64 + 1.0,
+                m,
+                consts,
+            ));
 
             let p0 = p_range as f64 + 1.0 / 8.0;
             let p2 = p_range as f64 + 7.0 / 8.0;
@@ -1104,8 +1144,8 @@ impl Cut {
             // p_cuts.push(p_int2.p_path);
             p_points.extend(p_int2.p_path);
 
-            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_points);
+            cut_p.push(p_points.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_points);
 
             let m = (p_range) as f64 * consts.k() as f64 + 2.0;
             let p1 = {
@@ -1133,6 +1173,9 @@ impl Cut {
                 branch_points_x.push(x);
                 x.arg() / std::f64::consts::PI + p_range as f64
             };
+
+            cut_xp.push(XInterpolator::generate_xp(p_range as f64, p1, m, consts));
+            cut_xm.push(XInterpolator::generate_xm(p_range as f64, p1, m, consts));
 
             let mut p_points = vec![];
 
@@ -1163,8 +1206,8 @@ impl Cut {
             //x_cuts.push(p_int2.x_path);
             p_points.extend(p_int2.p_path);
 
-            p_cuts.push(p_points.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_points);
+            cut_p.push(p_points.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_points);
         }
 
         if p_range < -1 {
@@ -1177,13 +1220,13 @@ impl Cut {
 
             let p_int2 = p_int.clone().goto_re(10.0).goto_re(100.0);
             // x.push(p_int2.x_path);
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            cut_p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_int2.p_path);
 
             let p_int2 = p_int.goto_re(0.01);
             // x.push(p_int2.x_path);
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            cut_p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_int2.p_path);
 
             let p_int = PInterpolator::xp(p1, consts).goto_im(0.0);
 
@@ -1191,23 +1234,24 @@ impl Cut {
 
             let p_int2 = p_int.clone().goto_re(-10.0).goto_re(-100.0);
             // x.push(p_int2.x_path);
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            cut_p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_int2.p_path);
 
             let p_int2 = p_int.goto_re(-0.01);
             // x.push(p_int2.x_path);
-            p_cuts.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
-            p_cuts.push(p_int2.p_path);
+            cut_p.push(p_int2.p_path.iter().map(|p| p.conj()).collect());
+            cut_p.push(p_int2.p_path);
         }
 
-        let u_cuts = vec![];
+        let cut_u = vec![];
         let branch_points_p = vec![];
         let branch_points_u = vec![];
 
         Self {
-            p: p_cuts,
-            x: x_cuts,
-            u: u_cuts,
+            cut_p,
+            cut_xp,
+            cut_xm,
+            cut_u,
             branch_points_p,
             branch_points_x,
             branch_points_u,

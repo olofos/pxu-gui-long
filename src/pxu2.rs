@@ -122,73 +122,106 @@ impl Asymptote {
 }
 
 impl XInterpolator {
-    pub fn generate_xp(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
-        Self::generate_x(p_range, m, consts, |p| xp(Complex64::from(p), m, consts))
+    pub fn generate_xp_full(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
+        Self::generate_xp(p_range as f64, (p_range + 1) as f64, m, consts)
     }
 
-    fn generate_x(
-        p_range: i32,
+    pub fn generate_xm_full(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
+        Self::generate_xm(p_range as f64, (p_range + 1) as f64, m, consts)
+    }
+
+    pub fn generate_xp(
+        p_start: f64,
+        p_end: f64,
         m: f64,
         consts: CouplingConstants,
-        f: impl Fn(f64) -> Complex64,
     ) -> Vec<Complex64> {
-        let p_start = p_range as f64;
-        let mut points = VecDeque::new();
+        if p_start > p_end {
+            return Self::generate_xp(p_end, p_start, m, consts);
+        }
+        assert!(p_start.floor() == p_end.ceil() - 1.0);
+
+        let x_start: Asymptote;
+        let x_end: Asymptote;
+
+        if p_start.floor() == p_start {
+            let p_range = p_start as i32;
+            // if (p_range == 0 && m == 0.0) || (p_range == -1 && m == consts.k() as f64) {
+            if (p_start * consts.k() as f64) + m == 0.0 {
+                x_start = Asymptote::num(consts.s());
+            } else if p_range < 0 {
+                x_start = Asymptote::num(0.0);
+            } else {
+                x_start = Asymptote::Infinity;
+            }
+        } else {
+            x_start = Asymptote::num(xp(p_start, m, consts));
+        }
+
+        if p_end.ceil() == p_end {
+            let p_range = p_end as i32 - 1;
+            if (p_range == -1 && m == 0.0) || (p_range == -2 && m == consts.k() as f64) {
+                x_end = Asymptote::num(-1.0 / consts.s());
+            } else if p_range < -1 {
+                x_end = Asymptote::num(0.0);
+            } else {
+                x_end = Asymptote::Infinity;
+            }
+        } else {
+            x_end = Asymptote::num(xp(p_end, m, consts));
+        }
+
         const INFINITY: f64 = 256.0;
+        let mut points = VecDeque::new();
 
-        let start: Asymptote;
-        let end: Asymptote;
-
-        if (p_range == 0 && m == 0.0) || (p_range == -1 && m == consts.k() as f64) {
-            start = Asymptote::num(consts.s());
-        } else if p_range < 0 {
-            start = Asymptote::num(0.0);
-        } else {
-            start = Asymptote::Infinity;
-        }
-
-        if (p_range == -1 && m == 0.0) || (p_range == -2 && m == consts.k() as f64) {
-            end = Asymptote::num(-1.0 / consts.s());
-        } else if p_range < -1 {
-            end = Asymptote::num(0.0);
-        } else {
-            end = Asymptote::Infinity;
-        }
-
-        if let Asymptote::Num(n) = start {
+        if let Asymptote::Num(n) = x_start {
             points.push_back((p_start + 0.0, n));
         }
 
-        let steps = 16;
-        for i in 1..steps {
-            let p = p_start + i as f64 / steps as f64;
-            points.push_back((p, f(p)));
+        let step_size = 1.0 / 16.0;
+        if p_end - p_start > 2.0 * step_size {
+            let i1 = ((p_start + step_size) / step_size).floor() as i32;
+            let i2 = ((p_end - step_size) / step_size).floor() as i32;
+            log::info!(
+                "{p_start} {p_end} {i1} {i2} {} {} {x_start:?} {x_end:?}",
+                i1 as f64 * step_size,
+                i2 as f64 * step_size,
+            );
+
+            for i in i1..=i2 {
+                let p = i as f64 * step_size;
+                points.push_back((p, xp(p, m, consts)));
+            }
+        } else {
+            let p = (p_start + p_end) / 2.0;
+            points.push_back((p, xp(p, m, consts)));
         }
 
-        if let Asymptote::Num(n) = end {
-            points.push_back((p_start + 1.0, n));
+        if let Asymptote::Num(n) = x_end {
+            points.push_back((p_end, n));
         }
 
-        if start.is_infinite() {
+        if x_start.is_infinite() {
             loop {
                 let (p, x) = points.front().unwrap();
-                if x.norm_sqr() > INFINITY * INFINITY || (p - p_start) < 1.0 / 16384.0 {
-                    break;
-                }
-                let p = p_start + (p - p_start) / 4.0;
-                points.push_front((p, f(p)));
-            }
-        }
-
-        if end.is_infinite() {
-            loop {
-                let (p, x) = points.back().unwrap();
-                let dp = 1.0 - (p - p_start);
+                let dp = p - p_start;
                 if x.norm_sqr() > INFINITY * INFINITY || dp < 1.0 / 16384.0 {
                     break;
                 }
-                let p = p_start + 1.0 - dp / 4.0;
-                points.push_back((p, f(p)));
+                let p = p_start + dp / 4.0;
+                points.push_front((p, xp(p, m, consts)));
+            }
+        }
+
+        if x_end.is_infinite() {
+            loop {
+                let (p, x) = points.back().unwrap();
+                let dp = p_end - p;
+                if x.norm_sqr() > INFINITY * INFINITY || dp < 1.0 / 16384.0 {
+                    break;
+                }
+                let p = p_end - dp / 4.0;
+                points.push_back((p, xp(p, m, consts)));
             }
         }
 
@@ -219,10 +252,21 @@ impl XInterpolator {
             if refinements.is_empty() || i >= 6 {
                 break;
             }
-            points.extend(refinements.into_iter().map(|p| (p, f(p))));
+            points.extend(refinements.into_iter().map(|p| (p, xp(p, m, consts))));
         }
-
         points.into_iter().map(|(_, x)| x).collect()
+    }
+
+    pub fn generate_xm(
+        p_start: f64,
+        p_end: f64,
+        m: f64,
+        consts: CouplingConstants,
+    ) -> Vec<Complex64> {
+        Self::generate_xp(p_start, p_end, m, consts)
+            .into_iter()
+            .map(|x| x.conj())
+            .collect()
     }
 }
 
