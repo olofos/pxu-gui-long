@@ -86,12 +86,14 @@ pub fn den2_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     TAU * (2.0 * consts.kslash() * m_eff + 4.0 * consts.h * consts.h * sin * cos)
 }
 
+const SIGN: f64 = 1.0;
+
 fn x(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
 
-    let numerator = m_eff + en(p, m, consts);
+    let numerator = m_eff + SIGN * en(p, m, consts);
     let denominator = 2.0 * consts.h * sin;
 
     numerator / denominator
@@ -108,7 +110,7 @@ fn dx_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
         + 2.0 * consts.h * consts.h * sin * cos)
         / (en(p, m, consts) * 2.0 * consts.h * sin);
 
-    TAU * (term1 + term2 + term3)
+    TAU * (term1 + term2 + SIGN * term3)
 }
 
 pub fn xp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
