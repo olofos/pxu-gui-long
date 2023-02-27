@@ -178,11 +178,14 @@ pub struct Grid {
 impl Grid {
     pub fn new(p_range: i32, consts: CouplingConstants) -> Self {
         // let p = Self::fill_p(p_range, consts);
-        let x = Self::fill_x(p_range, consts);
+        let mut x = vec![];
+        for i in -1..=1 {
+            x.extend(Self::fill_x(p_range + i, consts));
+        }
         let u = Self::fill_u(p_range, consts);
 
         let mut p = vec![];
-        for i in 0..=0 {
+        for i in -1..=1 {
             p.extend(Self::fill_p(p_range + i, consts));
         }
         Self { p, x, u }
@@ -190,36 +193,8 @@ impl Grid {
 
     fn fill_x(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
         let mut lines = vec![];
-
-        // let p_start = p_range as f64;
-
-        for m in -(consts.k() as i32)..=(2 * consts.k()) as i32 {
-            // for m in 1..=1 {
-            // let mut xp_points = vec![];
-
-            // if m == 0 && p_range == 0 {
-            //     xp_points.push(C::from(consts.s()));
-            // } else if m == consts.k() && p_range == -1 {
-            //     xp_points.push(C::from(consts.s()));
-            // } else if p_range < 0 {
-            //     xp_points.push(C::zero());
-            // }
-
-            // let steps = 64;
-
-            // for i in 1..=(steps - 1) {
-            //     let p = p_start + i as f64 / (steps as f64);
-            //     xp_points.push(xp(p, m as f64, consts));
-            // }
-
-            // if m == 0 && p_range == -1 {
-            //     xp_points.push(C::from(-1.0 / consts.s()));
-            // } else if m == consts.k() && p_range == -2 {
-            //     xp_points.push(C::from(-1.0 / consts.s()));
-            // } else if p_range < -1 {
-            //     xp_points.push(C::zero());
-            // }
-            let xp_points = XInterpolator::generate_xp_full(p_range, m as f64, consts);
+        for m in (p_range * consts.k() as i32)..=((p_range + 1) * consts.k() as i32) {
+            let xp_points = XInterpolator::generate_xp_full(0, m as f64, consts);
 
             lines.push(xp_points.iter().map(|z| z.conj()).collect::<Vec<_>>());
             lines.push(xp_points);
@@ -231,61 +206,6 @@ impl Grid {
 
         if p_range == -1 {
             lines.push(vec![C::from(-1000.0), C::from(-1.0 / consts.s())]);
-        }
-
-        if false {
-            let p0 = nr::find_root(
-                |p| en2(p, 1.0, consts) - C::new(0.0, 0.0),
-                |p| den2_dp(p, 1.0, consts),
-                C::new(0.0, 0.5),
-                1.0e-3,
-                50,
-            );
-
-            let mut cut_p = vec![p0.unwrap()];
-            for i in 1..256 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, 0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            cut_p.reverse();
-            for i in 1..256 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, -0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            let mut cut_xp = vec![C::zero()];
-            cut_xp.extend(cut_p.iter().map(|p| xp(*p, 1.0, consts)));
-            cut_xp.push(C::zero());
-
-            let cut_xm = cut_p
-                .iter()
-                .map(|p| xm(*p, 1.0, consts))
-                .collect::<Vec<_>>();
-
-            lines.push(cut_xp.iter().map(|z| z.conj()).collect::<Vec<_>>());
-            lines.push(cut_xm.iter().map(|z| z.conj()).collect::<Vec<_>>());
-
-            lines.push(cut_xp);
-            lines.push(cut_xm);
         }
 
         lines
