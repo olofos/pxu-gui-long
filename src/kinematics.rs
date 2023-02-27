@@ -119,7 +119,7 @@ pub fn xp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
 pub fn dxp_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (C::i() * PI * p).exp();
-    dx_dp(p, m, consts) * exp + TAU * (C::i() / 2.0) * x(p, m, consts) * exp
+    dx_dp(p, m, consts) * exp + (C::i() * PI) * x(p, m, consts) * exp
 }
 
 pub fn xm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
@@ -130,7 +130,7 @@ pub fn xm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
 pub fn dxm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (-C::i() * PI * p).exp();
-    dx_dp(p, m, consts) * exp - TAU * (C::i() / 2.0) * x(p, m, consts) * exp
+    dx_dp(p, m, consts) * exp - (C::i() * PI) * x(p, m, consts) * exp
 }
 
 pub fn u(p: impl Into<C>, consts: CouplingConstants) -> C {
