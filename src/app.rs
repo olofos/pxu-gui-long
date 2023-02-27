@@ -356,6 +356,37 @@ impl Plot {
                     }
                 }
 
+                {
+                    let f = ui.fonts();
+
+                    let text = match self.component {
+                        PlotComponent::P => "p",
+                        PlotComponent::U => "u",
+                        PlotComponent::Xp => "X+",
+                        PlotComponent::Xm => "X-",
+                    };
+
+                    let text_shape = egui::epaint::Shape::text(
+                        &f,
+                        rect.right_top() + vec2(-10.0, 10.0),
+                        egui::Align2::RIGHT_TOP,
+                        text,
+                        egui::TextStyle::Monospace.resolve(ui.style()),
+                        Color32::BLACK,
+                    );
+                    shapes.push(egui::epaint::Shape::rect_filled(
+                        text_shape.visual_bounding_rect().expand(6.0),
+                        egui::Rounding::none(),
+                        Color32::WHITE,
+                    ));
+                    shapes.push(egui::epaint::Shape::rect_stroke(
+                        text_shape.visual_bounding_rect().expand(4.0),
+                        egui::Rounding::none(),
+                        egui::Stroke::new(0.5, Color32::BLACK),
+                    ));
+                    shapes.push(text_shape);
+                }
+
                 painter.extend(shapes);
             });
     }
