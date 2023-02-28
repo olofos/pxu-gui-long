@@ -69,6 +69,12 @@ pub fn den_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     TAU * (consts.kslash() * m_eff + 2.0 * consts.h * consts.h * sin * cos) / en(p, m, consts)
 }
 
+pub fn den_dm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let m_eff = m + consts.k() as f64 * p;
+    m_eff / en(p, m, consts)
+}
+
 pub fn en2(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let sin = (PI * p).sin();
@@ -113,6 +119,12 @@ fn dx_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     TAU * (term1 + term2 + SIGN * term3)
 }
 
+fn dx_dm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let sin = (PI * p).sin();
+    (1.0 + den_dm(p, m, consts)) * (2.0 * consts.h * sin)
+}
+
 pub fn xp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     x(p, m, consts) * (C::i() * PI * p).exp()
@@ -122,6 +134,18 @@ pub fn dxp_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (C::i() * PI * p).exp();
     dx_dp(p, m, consts) * exp + (C::i() * PI) * x(p, m, consts) * exp
+}
+
+pub fn dxp_dm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let exp = (C::i() * PI * p).exp();
+    dx_dm(p, m, consts) * exp
+}
+
+pub fn dxm_dm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let exp = (-C::i() * PI * p).exp();
+    dx_dm(p, m, consts) * exp
 }
 
 pub fn xm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
