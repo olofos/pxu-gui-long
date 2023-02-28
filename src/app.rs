@@ -24,7 +24,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     branch: i32,
     #[serde(skip)]
-    new_grid: pxu::Grid,
+    grid: pxu::Grid,
     #[serde(skip)]
     cuts: Vec<pxu::Cut>,
     #[serde(skip)]
@@ -41,15 +41,8 @@ pub struct TemplateApp {
     show_dots: bool,
 }
 
-enum PlotComponent {
-    P,
-    Xp,
-    Xm,
-    U,
-}
-
 struct Plot {
-    component: PlotComponent,
+    component: pxu::Component,
     height: f32,
     width_factor: f32,
     origin: Pos2,
@@ -66,9 +59,9 @@ impl Plot {
         pxu: &mut PxuPoint,
     ) {
         let contours = match self.component {
-            PlotComponent::P => &grid.p,
-            PlotComponent::Xp | PlotComponent::Xm => &grid.x,
-            PlotComponent::U => &grid.u,
+            pxu::Component::P => &grid.p,
+            pxu::Component::Xp | pxu::Component::Xm => &grid.x,
+            pxu::Component::U => &grid.u,
         };
 
         egui::Frame::canvas(ui.style())
@@ -146,7 +139,7 @@ impl Plot {
                 }
 
                 match self.component {
-                    PlotComponent::P => {
+                    pxu::Component::P => {
                         let z = pxu.p;
 
                         let size = egui::epaint::Vec2::splat(8.0);
@@ -186,7 +179,7 @@ impl Plot {
                             stroke,
                         }));
                     }
-                    PlotComponent::Xp => {
+                    pxu::Component::Xp => {
                         let z = pxu.xp;
 
                         let size = egui::epaint::Vec2::splat(8.0);
@@ -209,6 +202,30 @@ impl Plot {
                                 .shift_xp(Complex64::new(new_value.x as f64, -new_value.y as f64))
                             {
                                 *pxu = new_pxu;
+
+                                let p = pxu.xp.arg() / std::f64::consts::PI;
+                                let m = if p >= 0.0 {
+                                    crate::nr::find_root(
+                                        |m| crate::kinematics::xp(p, m.re, pxu.consts) - pxu.xp,
+                                        |m| crate::kinematics::dxp_dm(p, m.re, pxu.consts),
+                                        Complex64::from(1.0),
+                                        0.001,
+                                        50,
+                                    )
+                                } else {
+                                    crate::nr::find_root(
+                                        |m| crate::kinematics::xm(-p, m.re, pxu.consts) - pxu.xp,
+                                        |m| crate::kinematics::dxm_dm(-p, m.re, pxu.consts),
+                                        Complex64::from(1.0),
+                                        0.001,
+                                        50,
+                                    )
+                                };
+                                if m.is_none() || m.unwrap().im.abs() > 10e-8 {
+                                    log::info!("Could not find m for p={p:.2}");
+                                } else {
+                                    log::info!("p={p:.2} m={:.2}", m.unwrap().re);
+                                }
                             }
                         }
 
@@ -220,7 +237,7 @@ impl Plot {
                         }));
                     }
 
-                    PlotComponent::Xm => {
+                    pxu::Component::Xm => {
                         let z = pxu.xm;
 
                         let size = egui::epaint::Vec2::splat(8.0);
@@ -252,7 +269,7 @@ impl Plot {
                             stroke,
                         }));
                     }
-                    PlotComponent::U => {
+                    pxu::Component::U => {
                         let z = pxu.u;
 
                         let size = egui::epaint::Vec2::splat(8.0);
@@ -304,22 +321,36 @@ impl Plot {
                     }
                 };
 
-                for cut in cuts {
-                    let contours = match self.component {
-                        PlotComponent::P => &cut.cut_p,
-                        PlotComponent::Xp => &cut.cut_xp,
-                        PlotComponent::Xm => &cut.cut_xm,
-                        PlotComponent::U => &cut.cut_u,
-                    };
-                    for points in contours {
+                for cut in cuts.iter().filter(|c| {
+                    c.component == self.component && c.is_visible(&pxu, pxu.p.re.floor() as i32)
+                }) {
+                    for points in cut.paths.iter() {
                         let points = points
                             .iter()
                             .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
                             .collect::<Vec<_>>();
 
+                        let color = match cut.typ {
+                            pxu::CutType::U(comp) => {
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 0)
+                                } else {
+                                    Color32::from_rgb(0, 192, 0)
+                                }
+                            }
+                            pxu::CutType::LogX(comp) => {
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 128, 128)
+                                } else {
+                                    Color32::from_rgb(128, 255, 128)
+                                }
+                            }
+                            _ => Color32::BLUE,
+                        };
+
                         shapes.push(egui::epaint::Shape::line(
                             points.clone(),
-                            Stroke::new(3.0, Color32::RED),
+                            Stroke::new(3.0, color),
                         ));
 
                         if show_dots {
@@ -334,25 +365,21 @@ impl Plot {
                                 ));
                             }
                         }
-                    }
 
-                    let branch_points = match self.component {
-                        PlotComponent::P => &cut.branch_points_p,
-                        PlotComponent::Xp => &cut.branch_points_x,
-                        PlotComponent::Xm => &cut.branch_points_x,
-                        PlotComponent::U => &cut.branch_points_u,
-                    }
-                    .iter()
-                    .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
-                    .collect::<Vec<_>>();
+                        let branch_points = cut
+                            .branch_points
+                            .iter()
+                            .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                            .collect::<Vec<_>>();
 
-                    for center in branch_points {
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center,
-                            radius: 4.0,
-                            fill: Color32::RED,
-                            stroke: Stroke::NONE,
-                        }));
+                        for center in branch_points {
+                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                                center,
+                                radius: 4.0,
+                                fill: color,
+                                stroke: Stroke::NONE,
+                            }));
+                        }
                     }
                 }
 
@@ -360,10 +387,10 @@ impl Plot {
                     let f = ui.fonts();
 
                     let text = match self.component {
-                        PlotComponent::P => "p",
-                        PlotComponent::U => "u",
-                        PlotComponent::Xp => "X+",
-                        PlotComponent::Xm => "X-",
+                        pxu::Component::P => "p",
+                        pxu::Component::U => "u",
+                        pxu::Component::Xp => "X+",
+                        pxu::Component::Xm => "X-",
                     };
 
                     let text_shape = egui::epaint::Shape::text(
@@ -399,34 +426,34 @@ impl Plot {
 impl Default for TemplateApp {
     fn default() -> Self {
         let consts = CouplingConstants::new(2.0, 5);
-        let p_range = -1;
+        let p_range = 1;
         Self {
             consts,
-            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.85), consts),
+            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.25), consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
-            new_grid: pxu::Grid::new(p_range, consts),
+            grid: pxu::Grid::new(p_range, consts),
             cuts: pxu::Cut::get(p_range, consts),
             p_plot: Plot {
-                component: PlotComponent::P,
+                component: pxu::Component::P,
                 height: 0.75,
                 width_factor: 1.5,
                 origin: Pos2::new(((2 * p_range + 1) as f32) * PI as f32, 0.0),
             },
             xp_plot: Plot {
-                component: PlotComponent::Xp,
+                component: pxu::Component::Xp,
                 height: (8.0 * consts.s()) as f32,
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
             xm_plot: Plot {
-                component: PlotComponent::Xm,
+                component: pxu::Component::Xm,
                 height: (8.0 * consts.s()) as f32,
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
             u_plot: Plot {
-                component: PlotComponent::U,
+                component: pxu::Component::U,
                 height: ((2 * consts.k() + 1) as f64 / consts.h) as f32,
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
@@ -496,7 +523,7 @@ impl eframe::App for TemplateApp {
                 egui::Slider::from_get_set(1.00001..=5.0, |v| self.consts.get_set_s(v)).text("s"),
             );
 
-            ui.add(egui::Slider::new(&mut self.p_range, -5..=5).text("Range"));
+            ui.add(egui::Slider::new(&mut self.p_range, -10..=5).text("Range"));
 
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
 
@@ -520,23 +547,25 @@ impl eframe::App for TemplateApp {
         });
 
         if old_consts != self.consts || old_p_range != self.p_range {
-            self.pxu = PxuPoint::new(
-                self.pxu.p + 2.0 * PI * (self.p_range - old_p_range) as f64,
-                self.consts,
-            );
+            // self.pxu = PxuPoint::new(
+            //     self.pxu.p + 2.0 * PI * (self.p_range - old_p_range) as f64,
+            //     self.consts,
+            // );
 
-            self.new_grid = pxu::Grid::new(self.p_range, self.consts);
+            self.grid = pxu::Grid::new(self.p_range, self.consts);
             self.cuts = pxu::Cut::get(self.p_range, self.consts);
         }
 
         if old_consts != self.consts {
-            self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
+            self.pxu = PxuPoint::new(self.pxu.p, self.consts);
 
-            self.u_plot.height /= (self.consts.h / old_consts.h) as f32;
-            if self.consts.k() > 1 && old_consts.k() > 1 {
-                self.xp_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
-                self.u_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
-            }
+            // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
+
+            // self.u_plot.height /= (self.consts.h / old_consts.h) as f32;
+            // if self.consts.k() > 1 && old_consts.k() > 1 {
+            //     self.xp_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
+            //     self.u_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
+            // }
         }
 
         if old_p_range != self.p_range {
@@ -549,7 +578,7 @@ impl eframe::App for TemplateApp {
                 self.p_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.new_grid,
+                    &self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -558,7 +587,7 @@ impl eframe::App for TemplateApp {
                 self.u_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.new_grid,
+                    &self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -568,7 +597,7 @@ impl eframe::App for TemplateApp {
                 self.xp_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.new_grid,
+                    &self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -577,7 +606,7 @@ impl eframe::App for TemplateApp {
                 self.xm_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.new_grid,
+                    &self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,

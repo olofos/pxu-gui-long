@@ -182,11 +182,6 @@ impl XInterpolator {
         if p_end - p_start > 2.0 * step_size {
             let i1 = ((p_start + step_size) / step_size).floor() as i32;
             let i2 = ((p_end - step_size) / step_size).floor() as i32;
-            log::info!(
-                "{p_start} {p_end} {i1} {i2} {} {} {x_start:?} {x_end:?}",
-                i1 as f64 * step_size,
-                i2 as f64 * step_size,
-            );
 
             for i in i1..=i2 {
                 let p = i as f64 * step_size;
