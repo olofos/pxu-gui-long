@@ -1,6 +1,7 @@
 use crate::kinematics::{den2_dp, du_dp, dxm_dp, dxp_dp, en2, u, xm, xp, CouplingConstants};
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
+use itertools::Itertools;
 use num::complex::Complex;
 use num::Zero;
 
@@ -185,8 +186,7 @@ impl Grid {
         u.extend(Self::fill_u(p_range, consts));
 
         let mut p = vec![];
-        // for i in -1..=1 {
-        for i in 0..=0 {
+        for i in -1..=1 {
             p.extend(Self::fill_p(p_range + i, consts));
         }
         Self { p, x, u }
@@ -614,6 +614,32 @@ impl Cut {
         cuts.extend(Self::e_cuts(p_range, consts));
 
         cuts
+    }
+
+    pub fn intersection(&self, p1: C, p2: C) -> Option<C> {
+        fn cross(v: C, w: C) -> f64 {
+            v.re * w.im - v.im * w.re
+        }
+
+        let p = p1;
+        let r = p2 - p1;
+
+        for path in self.paths.iter() {
+            for (q1, q2) in path.iter().tuple_windows::<(_, _)>() {
+                let q = q1;
+                let s = q2 - q1;
+
+                if cross(r, s) != 0.0 {
+                    let t = cross(q - p, s) / cross(r, s);
+                    let u = cross(q - p, r) / cross(r, s);
+
+                    if 0.0 <= t && t <= 1.0 && 0.0 <= u && u <= 1.0 {
+                        return Some(p + t * r);
+                    }
+                }
+            }
+        }
+        None
     }
 
     pub fn is_visible(&self, pt: &PxuPoint, branch: i32) -> bool {
