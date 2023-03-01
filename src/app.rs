@@ -123,7 +123,7 @@ impl Plot {
 
                     shapes.push(egui::epaint::Shape::line(
                         points.clone(),
-                        Stroke::new(1.0, Color32::BLUE),
+                        Stroke::new(0.5, Color32::GRAY),
                     ));
 
                     if show_dots {
@@ -138,188 +138,65 @@ impl Plot {
                     }
                 }
 
-                match self.component {
-                    pxu::Component::P => {
-                        let z = pxu.p;
-
-                        let size = egui::epaint::Vec2::splat(8.0);
-                        let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-                        let point_rect = egui::Rect::from_center_size(center, size);
-                        let point_id = response.id.with(0);
-                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                        let stroke = if point_response.hovered() || point_response.dragged() {
-                            egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
-                        } else {
-                            egui::epaint::Stroke::NONE
-                        };
-
-                        let radius = if point_response.hovered() || point_response.dragged() {
-                            6.0
-                        } else {
-                            4.0
-                        };
-
-                        if point_response.dragged() {
-                            let new_value =
-                                to_screen.inverse() * (center + point_response.drag_delta());
-
-                            *pxu = PxuPoint::new(
-                                Complex64::new(new_value.x as f64, -new_value.y as f64),
-                                pxu.consts,
-                            );
-                        }
-
-                        let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center,
-                            radius,
-                            fill: Color32::BLUE,
-                            stroke,
-                        }));
-                    }
-                    pxu::Component::Xp => {
-                        let z = pxu.xp;
-
-                        let size = egui::epaint::Vec2::splat(8.0);
-                        let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-                        let point_rect = egui::Rect::from_center_size(center, size);
-                        let point_id = response.id.with(0);
-                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                        let stroke = if point_response.hovered() || point_response.dragged() {
-                            egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
-                        } else {
-                            egui::epaint::Stroke::NONE
-                        };
-
-                        if point_response.dragged() {
-                            let new_value =
-                                to_screen.inverse() * (center + point_response.drag_delta());
-
-                            if let Some(new_pxu) = pxu
-                                .shift_xp(Complex64::new(new_value.x as f64, -new_value.y as f64))
-                            {
-                                *pxu = new_pxu;
-
-                                let p = pxu.xp.arg() / std::f64::consts::PI;
-                                let m = if p >= 0.0 {
-                                    crate::nr::find_root(
-                                        |m| crate::kinematics::xp(p, m.re, pxu.consts) - pxu.xp,
-                                        |m| crate::kinematics::dxp_dm(p, m.re, pxu.consts),
-                                        Complex64::from(1.0),
-                                        0.001,
-                                        50,
-                                    )
-                                } else {
-                                    crate::nr::find_root(
-                                        |m| crate::kinematics::xm(-p, m.re, pxu.consts) - pxu.xp,
-                                        |m| crate::kinematics::dxm_dm(-p, m.re, pxu.consts),
-                                        Complex64::from(1.0),
-                                        0.001,
-                                        50,
-                                    )
-                                };
-                                if m.is_none() || m.unwrap().im.abs() > 10e-8 {
-                                    log::info!("Could not find m for p={p:.2}");
-                                } else {
-                                    log::info!("p={p:.2} m={:.2}", m.unwrap().re);
-                                }
-                            }
-                        }
-
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
-                            radius: 4.0,
-                            fill: Color32::BLUE,
-                            stroke,
-                        }));
-                    }
-
-                    pxu::Component::Xm => {
-                        let z = pxu.xm;
-
-                        let size = egui::epaint::Vec2::splat(8.0);
-                        let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-                        let point_rect = egui::Rect::from_center_size(center, size);
-                        let point_id = response.id.with(1);
-                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                        let stroke = if point_response.hovered() || point_response.dragged() {
-                            egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
-                        } else {
-                            egui::epaint::Stroke::NONE
-                        };
-
-                        if point_response.dragged() {
-                            let new_value =
-                                to_screen.inverse() * (center + point_response.drag_delta());
-
-                            if let Some(new_pxu) = pxu
-                                .shift_xm(Complex64::new(new_value.x as f64, -new_value.y as f64))
-                            {
-                                *pxu = new_pxu;
-                            }
-                        }
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
-                            radius: 4.0,
-                            fill: Color32::BLUE,
-                            stroke,
-                        }));
-                    }
-                    pxu::Component::U => {
-                        let z = pxu.u;
-
-                        let size = egui::epaint::Vec2::splat(8.0);
-                        let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-                        let point_rect = egui::Rect::from_center_size(center, size);
-                        let point_id = response.id.with(0);
-                        let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
-
-                        let stroke = if point_response.hovered() || point_response.dragged() {
-                            egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
-                        } else {
-                            egui::epaint::Stroke::NONE
-                        };
-
-                        if point_response.dragged() {
-                            let new_value =
-                                to_screen.inverse() * (center + point_response.drag_delta());
-
-                            if let Some(new_pxu) =
-                                pxu.shift_u(Complex64::new(new_value.x as f64, -new_value.y as f64))
-                            {
-                                *pxu = new_pxu;
-                            } else {
-                                log::info!("Can't drag u");
-                            }
-                        }
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
-                            radius: 4.0,
-                            fill: Color32::BLUE,
-                            stroke,
-                        }));
-
-                        let z = pxu.u + Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
-                            radius: 4.0,
-                            fill: Color32::RED,
-                            stroke,
-                        }));
-
-                        let z = pxu.u - Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
-                        shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                            center: to_screen * egui::pos2(z.re as f32, -z.im as f32),
-                            radius: 4.0,
-                            fill: Color32::GREEN,
-                            stroke,
-                        }));
-                    }
+                let z = match self.component {
+                    pxu::Component::P => pxu.p,
+                    pxu::Component::U => pxu.u,
+                    pxu::Component::Xp => pxu.xp,
+                    pxu::Component::Xm => pxu.xm,
                 };
+
+                let size = egui::epaint::Vec2::splat(8.0);
+                let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+                let point_rect = egui::Rect::from_center_size(center, size);
+                let point_id = response.id.with(0);
+                let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
+
+                let stroke = if point_response.hovered() || point_response.dragged() {
+                    egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
+                } else {
+                    egui::epaint::Stroke::NONE
+                };
+
+                let radius = if point_response.hovered() || point_response.dragged() {
+                    6.0
+                } else {
+                    4.0
+                };
+
+                if point_response.dragged() {
+                    let new_value = to_screen.inverse() * (center + point_response.drag_delta());
+                    let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
+
+                    match self.component {
+                        pxu::Component::P => {
+                            *pxu = PxuPoint::new(new_value, pxu.consts);
+                        }
+                        pxu::Component::Xp => {
+                            if let Some(new_pxu) = pxu.shift_xp(new_value) {
+                                *pxu = new_pxu;
+                            }
+                        }
+                        pxu::Component::Xm => {
+                            if let Some(new_pxu) = pxu.shift_xm(new_value) {
+                                *pxu = new_pxu;
+                            }
+                        }
+                        pxu::Component::U => {
+                            if let Some(new_pxu) = pxu.shift_u(new_value) {
+                                *pxu = new_pxu;
+                            }
+                        }
+                    };
+                }
+
+                let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+
+                shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                    center,
+                    radius,
+                    fill: Color32::BLUE,
+                    stroke,
+                }));
 
                 for cut in cuts.iter().filter(|c| {
                     c.component == self.component && c.is_visible(&pxu, pxu.p.re.floor() as i32)
@@ -345,7 +222,7 @@ impl Plot {
                                     Color32::from_rgb(128, 255, 128)
                                 }
                             }
-                            _ => Color32::BLUE,
+                            pxu::CutType::E => Color32::BLACK,
                         };
 
                         shapes.push(egui::epaint::Shape::line(
