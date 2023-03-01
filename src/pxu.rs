@@ -611,6 +611,7 @@ impl Cut {
         cuts.extend(Self::x_cuts_x(p_range, consts));
         cuts.extend(Self::x_cuts_p(p_range, consts));
         cuts.extend(Self::p_cuts_x(p_range, consts));
+        cuts.extend(Self::e_cuts(p_range, consts));
 
         cuts
     }
@@ -1057,6 +1058,195 @@ impl Cut {
             branch_points,
             typ: CutType::LogX(Component::Xp),
             visibility: CutVisibility::new(),
+        });
+
+        cuts
+    }
+
+    fn e_cuts(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {
+        let p_start = p_range as f64;
+
+        let p0 = nr::find_root(
+            |p| en2(p, 1.0, consts),
+            |p| den2_dp(p, 1.0, consts),
+            C::new(p_start, 2.5),
+            1.0e-3,
+            50,
+        );
+
+        let Some(p0) = p0 else { return vec![] };
+
+        let mut cut = vec![];
+
+        cut.push((0.0, p0));
+        let mut p_prev = p0;
+
+        const STEP: i32 = 16;
+
+        for i in 1.. {
+            let im = i as f64 * i as f64 / (STEP as f64);
+
+            let p = nr::find_root(
+                |p| en2(p, 1.0, consts) - C::new(-im, 0.001),
+                |p| den2_dp(p, 1.0, consts),
+                p_prev,
+                1.0e-3,
+                50,
+            );
+
+            if let Some(p) = p {
+                cut.push((im, p));
+                p_prev = p;
+
+                if p.im.abs() > 2.0 {
+                    log::info!("done at {i}");
+
+                    break;
+                }
+            } else {
+                log::info!("p not found at {i}");
+                break;
+            }
+        }
+
+        let cut = cut
+            .into_iter()
+            .map(|(im, p)| {
+                (
+                    im,
+                    p,
+                    xp(p + 0.001, 1.0, consts),
+                    xp(p - 0.001, 1.0, consts),
+                    xm(p + 0.001, 1.0, consts),
+                    xm(p - 0.001, 1.0, consts),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        log::info!("{:?}", cut[1]);
+
+        let mut cuts = vec![];
+
+        // p
+
+        let paths = vec![cut.iter().map(|(_, p, _, _, _, _)| *p).collect()];
+        let branch_points = vec![p0];
+
+        cuts.push(Cut {
+            component: Component::P,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility: CutVisibility::new(),
+        });
+
+        let paths = vec![cut.iter().map(|(_, p, _, _, _, _)| p.conj()).collect()];
+        let branch_points = vec![p0.conj()];
+
+        cuts.push(Cut {
+            component: Component::P,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility: CutVisibility::new(),
+        });
+
+        // xp
+
+        let mut paths = vec![
+            cut.iter()
+                .map(|(_, _, xp, _, _, _)| *xp)
+                .collect::<Vec<_>>(),
+            cut.iter()
+                .map(|(_, _, _, xp, _, _)| *xp)
+                .collect::<Vec<_>>(),
+        ];
+        paths.push(vec![paths[0][0], paths[1][0]]);
+        let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
+        let visibility = if branch_points[0].im > 0.0 {
+            CutVisibility::new().im_xm_positive()
+        } else {
+            CutVisibility::new()
+        };
+        cuts.push(Cut {
+            component: Component::Xp,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility,
+        });
+
+        let mut paths = vec![
+            cut.iter()
+                .map(|(_, _, _, _, xm, _)| xm.conj())
+                .collect::<Vec<_>>(),
+            cut.iter()
+                .map(|(_, _, _, _, _, xm)| xm.conj())
+                .collect::<Vec<_>>(),
+        ];
+        paths.push(vec![paths[0][0], paths[1][0]]);
+        let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
+        let visibility = if branch_points[0].im > 0.0 {
+            CutVisibility::new().im_xm_positive()
+        } else {
+            CutVisibility::new()
+        };
+
+        cuts.push(Cut {
+            component: Component::Xp,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility,
+        });
+
+        // xm
+
+        let mut paths = vec![
+            cut.iter()
+                .map(|(_, _, xp, _, _, _)| xp.conj())
+                .collect::<Vec<_>>(),
+            cut.iter()
+                .map(|(_, _, _, xp, _, _)| xp.conj())
+                .collect::<Vec<_>>(),
+        ];
+        paths.push(vec![paths[0][0], paths[1][0]]);
+        let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
+        let visibility = if branch_points[0].im < 0.0 {
+            CutVisibility::new().im_xp_negative()
+        } else {
+            CutVisibility::new()
+        };
+        cuts.push(Cut {
+            component: Component::Xm,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility,
+        });
+
+        let mut paths = vec![
+            cut.iter()
+                .map(|(_, _, _, _, xm, _)| *xm)
+                .collect::<Vec<_>>(),
+            cut.iter()
+                .map(|(_, _, _, _, _, xm)| *xm)
+                .collect::<Vec<_>>(),
+        ];
+        paths.push(vec![paths[0][0], paths[1][0]]);
+        let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
+        let visibility = if branch_points[0].im < 0.0 {
+            CutVisibility::new().im_xp_negative()
+        } else {
+            CutVisibility::new()
+        };
+
+        cuts.push(Cut {
+            component: Component::Xm,
+            paths,
+            branch_points,
+            typ: CutType::E,
+            visibility,
         });
 
         cuts
