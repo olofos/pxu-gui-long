@@ -534,7 +534,7 @@ fn get_branch_point_x(m: f64, consts: CouplingConstants, branch: f64) -> C {
 #[derive(Debug)]
 pub enum CutType {
     U(Component),
-    LogX(Component),
+    LogX(Component, i32),
     E,
 }
 
@@ -941,6 +941,7 @@ impl Cut {
     fn p_cuts_x(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {
         let mut cuts = vec![];
 
+        // xp negative axis from above
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
@@ -948,10 +949,23 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp),
-            visibility: CutVisibility::new(),
+            typ: CutType::LogX(Component::Xp, p_range + 1),
+            visibility: CutVisibility::new().im_xp_positive(),
         });
 
+        // xp negative axis from below
+        let paths = vec![vec![C::from(-100.0), C::zero()]];
+        let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
+
+        cuts.push(Cut {
+            component: Component::Xp,
+            paths,
+            branch_points,
+            typ: CutType::LogX(Component::Xp, p_range - 1),
+            visibility: CutVisibility::new().im_xp_negative(),
+        });
+
+        // xp negative axis from below
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
@@ -959,8 +973,20 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm),
-            visibility: CutVisibility::new(),
+            typ: CutType::LogX(Component::Xm, p_range + 1),
+            visibility: CutVisibility::new().im_xm_negative(),
+        });
+
+        // xm negative axis from above
+        let paths = vec![vec![C::from(-100.0), C::zero()]];
+        let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
+
+        cuts.push(Cut {
+            component: Component::Xm,
+            paths,
+            branch_points,
+            typ: CutType::LogX(Component::Xm, p_range - 1),
+            visibility: CutVisibility::new().im_xm_positive(),
         });
 
         let m = 1.0 + if p_range < 0 { p_range } else { p_range + 1 } as f64 * consts.k() as f64;
@@ -980,7 +1006,7 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm),
+            typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new().im_xm_negative(),
         });
 
@@ -996,7 +1022,7 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp),
+            typ: CutType::LogX(Component::Xp, p_range),
             visibility: CutVisibility::new().im_xp_positive(),
         });
 
@@ -1017,7 +1043,7 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm),
+            typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new().im_xm_positive(),
         });
 
@@ -1033,7 +1059,7 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp),
+            typ: CutType::LogX(Component::Xp, p_range),
             visibility: CutVisibility::new().im_xp_negative(),
         });
 
@@ -1046,7 +1072,7 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp),
+            typ: CutType::LogX(Component::Xp, p_range),
             visibility: CutVisibility::new(),
         });
 
@@ -1057,7 +1083,7 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm),
+            typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new(),
         });
 
@@ -1071,7 +1097,7 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm),
+            typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new(),
         });
 
@@ -1082,7 +1108,7 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp),
+            typ: CutType::LogX(Component::Xp, p_range),
             visibility: CutVisibility::new(),
         });
 
@@ -1125,12 +1151,12 @@ impl Cut {
                 p_prev = p;
 
                 if p.im.abs() > 2.0 {
-                    log::info!("done at {i}");
+                    // log::info!("done at {i}");
 
                     break;
                 }
             } else {
-                log::info!("p not found at {i}");
+                // log::info!("p not found at {i}");
                 break;
             }
         }
@@ -1149,7 +1175,7 @@ impl Cut {
             })
             .collect::<Vec<_>>();
 
-        log::info!("{:?}", cut[1]);
+        // log::info!("{:?}", cut[1]);
 
         let mut cuts = vec![];
 
@@ -1616,8 +1642,8 @@ impl OldCut {
 
             // let p_minus_one_over_s = get_branch_point(-(consts.k() as f64) + 1.0, consts);
             let p_minus_one_over_s = get_branch_point(1.0, consts, 1.0);
-            log::info!("ps = {p_minus_one_over_s}");
-            log::info!("p1 = {p1}");
+            // log::info!("ps = {p_minus_one_over_s}");
+            // log::info!("p1 = {p1}");
 
             cut_xp.push(XInterpolator::generate_xp(
                 p1,
@@ -2027,10 +2053,11 @@ pub struct PxuPoint {
     pub xm: C,
     pub u: C,
     pub consts: CouplingConstants,
+    pub log_branch: i32,
 }
 
 impl PxuPoint {
-    pub fn new(p: C, consts: CouplingConstants) -> Self {
+    pub fn new(p: C, log_branch: i32, consts: CouplingConstants) -> Self {
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
         let u = u(p, consts);
@@ -2040,22 +2067,23 @@ impl PxuPoint {
             xm,
             u,
             consts,
+            log_branch,
         }
     }
 
-    fn limit_p(&self, p: Option<C>, consts: CouplingConstants) -> Option<Self> {
+    fn limit_p(&self, p: Option<C>, log_branch: i32, consts: CouplingConstants) -> Option<Self> {
         if let Some(p) = p {
             if (self.p - p).norm_sqr() > 4.0 {
                 None
             } else {
-                Some(Self::new(p, consts))
+                Some(Self::new(p, log_branch, consts))
             }
         } else {
             None
         }
     }
 
-    pub fn shift_xp(&self, new_xp: C) -> Option<Self> {
+    pub fn shift_xp(&self, new_xp: C, log_branch: i32) -> Option<Self> {
         let p = nr::find_root(
             |p| xp(p, 1.0, self.consts) - new_xp,
             |p| dxp_dp(p, 1.0, self.consts),
@@ -2063,10 +2091,10 @@ impl PxuPoint {
             1.0e-6,
             50,
         );
-        self.limit_p(p, self.consts)
+        self.limit_p(p, log_branch, self.consts)
     }
 
-    pub fn shift_xm(&self, new_xm: C) -> Option<Self> {
+    pub fn shift_xm(&self, new_xm: C, log_branch: i32) -> Option<Self> {
         let p = nr::find_root(
             |p| xm(p, 1.0, self.consts) - new_xm,
             |p| dxm_dp(p, 1.0, self.consts),
@@ -2074,10 +2102,10 @@ impl PxuPoint {
             1.0e-6,
             50,
         );
-        self.limit_p(p, self.consts)
+        self.limit_p(p, log_branch, self.consts)
     }
 
-    pub fn shift_u(&self, new_u: C) -> Option<Self> {
+    pub fn shift_u(&self, new_u: C, log_branch: i32) -> Option<Self> {
         let p = nr::find_root(
             |p| u(p, self.consts) - new_u,
             |p| du_dp(p, self.consts),
@@ -2085,6 +2113,6 @@ impl PxuPoint {
             1.0e-6,
             50,
         );
-        self.limit_p(p, self.consts)
+        self.limit_p(p, log_branch, self.consts)
     }
 }

@@ -53,7 +53,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         desired_size: Vec2,
-        grid: &pxu::Grid,
+        grid: &mut pxu::Grid,
         cuts: &Vec<pxu::Cut>,
         show_dots: bool,
         pxu: &mut PxuPoint,
@@ -167,22 +167,41 @@ impl Plot {
                     let new_value = to_screen.inverse() * (center + point_response.drag_delta());
                     let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
+                    let mut new_log_branch = pxu.log_branch;
+
+                    for cut in cuts {
+                        if cut.component == self.component
+                            && cut.is_visible(&pxu, pxu.p.re.floor() as i32)
+                            && cut.intersection(z, new_value).is_some()
+                        {
+                            match cut.typ {
+                                pxu::CutType::LogX(_, branch) => {
+                                    new_log_branch = branch;
+                                }
+                                _ => {}
+                            }
+                            log::info!("Intersection with {:?}", cut.typ);
+                        }
+                    }
+
+                    log::info!("new_log_branch = {new_log_branch}");
+
                     match self.component {
                         pxu::Component::P => {
-                            *pxu = PxuPoint::new(new_value, pxu.consts);
+                            *pxu = PxuPoint::new(new_value, new_log_branch, pxu.consts);
                         }
                         pxu::Component::Xp => {
-                            if let Some(new_pxu) = pxu.shift_xp(new_value) {
+                            if let Some(new_pxu) = pxu.shift_xp(new_value, new_log_branch) {
                                 *pxu = new_pxu;
                             }
                         }
                         pxu::Component::Xm => {
-                            if let Some(new_pxu) = pxu.shift_xm(new_value) {
+                            if let Some(new_pxu) = pxu.shift_xm(new_value, new_log_branch) {
                                 *pxu = new_pxu;
                             }
                         }
                         pxu::Component::U => {
-                            if let Some(new_pxu) = pxu.shift_u(new_value) {
+                            if let Some(new_pxu) = pxu.shift_u(new_value, new_log_branch) {
                                 *pxu = new_pxu;
                             }
                         }
@@ -215,7 +234,7 @@ impl Plot {
                                     Color32::from_rgb(0, 192, 0)
                                 }
                             }
-                            pxu::CutType::LogX(comp) => {
+                            pxu::CutType::LogX(comp, _) => {
                                 if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
                                 } else {
@@ -306,7 +325,11 @@ impl Default for TemplateApp {
         let p_range = 1;
         Self {
             consts,
-            pxu: PxuPoint::new(num::complex::Complex::from(p_range as f64 + 0.25), consts),
+            pxu: PxuPoint::new(
+                num::complex::Complex::from(p_range as f64 + 0.25),
+                p_range,
+                consts,
+            ),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             grid: pxu::Grid::new(p_range, consts),
@@ -434,7 +457,7 @@ impl eframe::App for TemplateApp {
         }
 
         if old_consts != self.consts {
-            self.pxu = PxuPoint::new(self.pxu.p, self.consts);
+            self.pxu = PxuPoint::new(self.pxu.p, self.pxu.log_branch, self.consts);
 
             // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
 
@@ -449,13 +472,16 @@ impl eframe::App for TemplateApp {
             self.p_plot.origin.x += (self.p_range - old_p_range) as f32 * (2.0 * PI) as f32;
         }
 
+        self.grid = pxu::Grid::new(self.pxu.log_branch, self.consts);
+        self.cuts = pxu::Cut::get(self.pxu.log_branch, self.consts);
+
         egui::CentralPanel::default().show(ctx, |ui| {
             let available_size = ui.available_size();
             ui.horizontal(|ui| {
                 self.p_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.grid,
+                    &mut self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -464,7 +490,7 @@ impl eframe::App for TemplateApp {
                 self.u_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.grid,
+                    &mut self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -474,7 +500,7 @@ impl eframe::App for TemplateApp {
                 self.xp_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.grid,
+                    &mut self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
@@ -483,7 +509,7 @@ impl eframe::App for TemplateApp {
                 self.xm_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &self.grid,
+                    &mut self.grid,
                     &self.cuts,
                     self.show_dots,
                     &mut self.pxu,
