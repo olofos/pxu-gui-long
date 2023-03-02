@@ -160,17 +160,6 @@ pub enum Component {
     U,
 }
 
-// impl PxuPoint {
-//     fn get(&self, component: Component) -> C {
-//         match component {
-//             Component::P => self.p,
-//             Component::U => self.u,
-//             Component::Xp => self.xp,
-//             Component::Xm => self.xm,
-//         }
-//     }
-// }
-
 #[derive(Debug)]
 pub struct Grid {
     data: HashMap<i32, GridLines>,
@@ -2169,5 +2158,37 @@ impl PxuPoint {
             50,
         );
         self.limit_p(p, log_branch, self.consts)
+    }
+
+    pub fn get(&self, component: Component) -> C {
+        match component {
+            Component::P => self.p,
+            Component::U => self.u,
+            Component::Xp => self.xp,
+            Component::Xm => self.xm,
+        }
+    }
+
+    pub fn update(&mut self, component: Component, new_value: C, new_log_branch: i32) {
+        match component {
+            Component::P => {
+                *self = PxuPoint::new(new_value, new_log_branch, self.consts);
+            }
+            Component::Xp => {
+                if let Some(new_pxu) = self.shift_xp(new_value, new_log_branch) {
+                    *self = new_pxu;
+                }
+            }
+            Component::Xm => {
+                if let Some(new_pxu) = self.shift_xm(new_value, new_log_branch) {
+                    *self = new_pxu;
+                }
+            }
+            Component::U => {
+                if let Some(new_pxu) = self.shift_u(new_value, new_log_branch) {
+                    *self = new_pxu;
+                }
+            }
+        };
     }
 }

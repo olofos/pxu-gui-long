@@ -109,12 +109,7 @@ impl Plot {
                     ),
                 ];
 
-                let z = match self.component {
-                    pxu::Component::P => pxu.p,
-                    pxu::Component::U => pxu.u,
-                    pxu::Component::Xp => pxu.xp,
-                    pxu::Component::Xm => pxu.xm,
-                };
+                let z = pxu.get(self.component);
 
                 let size = egui::epaint::Vec2::splat(8.0);
                 let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
@@ -155,26 +150,7 @@ impl Plot {
                         }
                     }
 
-                    match self.component {
-                        pxu::Component::P => {
-                            *pxu = PxuPoint::new(new_value, new_log_branch, pxu.consts);
-                        }
-                        pxu::Component::Xp => {
-                            if let Some(new_pxu) = pxu.shift_xp(new_value, new_log_branch) {
-                                *pxu = new_pxu;
-                            }
-                        }
-                        pxu::Component::Xm => {
-                            if let Some(new_pxu) = pxu.shift_xm(new_value, new_log_branch) {
-                                *pxu = new_pxu;
-                            }
-                        }
-                        pxu::Component::U => {
-                            if let Some(new_pxu) = pxu.shift_u(new_value, new_log_branch) {
-                                *pxu = new_pxu;
-                            }
-                        }
-                    };
+                    pxu.update(self.component, new_value, new_log_branch);
                 }
 
                 let contours = grid.get(pxu, self.component);
