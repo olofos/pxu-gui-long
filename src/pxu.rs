@@ -1632,8 +1632,17 @@ impl OldCut {
 
         let mut u_points = vec![];
 
-        u_points.extend(cut_p.iter().rev().map(|p| u(*p + C::from(1.0e-5), consts)));
-        u_points.extend(cut_p.iter().map(|p| u(*p + C::from(-1.0e-5), consts)));
+        u_points.extend(
+            cut_p
+                .iter()
+                .rev()
+                .map(|p| u(*p + C::from(1.0e-5), consts, p_range)),
+        );
+        u_points.extend(
+            cut_p
+                .iter()
+                .map(|p| u(*p + C::from(-1.0e-5), consts, p_range)),
+        );
 
         let cut_p = vec![cut_p.iter().map(|z| z.conj()).collect::<Vec<_>>(), cut_p];
         let x = vec![
@@ -1655,7 +1664,7 @@ impl OldCut {
             xm(p0, 1.0, consts).conj(),
             C::from(-1.0 / consts.s()),
         ];
-        let branch_points_u = vec![u(p0, consts), u(p0, consts).conj()];
+        let branch_points_u = vec![u(p0, consts, p_range), u(p0, consts, p_range).conj()];
 
         Self {
             cut_p,
@@ -2138,7 +2147,7 @@ impl PxuPoint {
     pub fn new(p: C, log_branch: i32, consts: CouplingConstants) -> Self {
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(p, consts);
+        let u = u(p, consts, log_branch);
         Self {
             p,
             xp,
@@ -2185,7 +2194,7 @@ impl PxuPoint {
 
     pub fn shift_u(&self, new_u: C, log_branch: i32) -> Option<Self> {
         let p = nr::find_root(
-            |p| u(p, self.consts) - new_u,
+            |p| u(p, self.consts, log_branch) - new_u,
             |p| du_dp(p, self.consts),
             self.p,
             1.0e-6,

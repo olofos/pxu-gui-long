@@ -159,19 +159,33 @@ pub fn dxm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     dx_dp(p, m, consts) * exp - (C::i() * PI) * x(p, m, consts) * exp
 }
 
-pub fn u(p: impl Into<C>, consts: CouplingConstants) -> C {
+pub fn u(p: impl Into<C>, consts: CouplingConstants, log_branch: i32) -> C {
     let p = p.into();
     let xp = xp(p, 1.0, consts);
     let xm = xm(p, 1.0, consts);
 
-    let p_range = (p + C::i() * (xp.ln() - xm.ln()) / std::f64::consts::TAU + 0.1)
-        .re
-        .floor();
+    let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
 
-    ((xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln() - C::i() * (1.0) / consts.h)
-        + (xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln() + C::i() * (1.0) / consts.h))
-        / 2.0
-        + C::i() * (xp.im.signum() + xm.im.signum()) / 2.0 * consts.k() as f64 / consts.h
+    let um = xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln();
+
+    let branch_shift = log_branch as f64 * consts.k() as f64 * C::i() / consts.h;
+
+    let t = 0.0;
+    let s = 0.5;
+    let u0p = up - C::i() / consts.h - (1.0 + t) * branch_shift;
+    let u0m = um + C::i() / consts.h + (1.0 - t) * branch_shift;
+
+    if (u0p - u0m).norm_sqr() > 0.01 {
+        log::info!("{:.2}", u0p - u0m);
+    }
+
+    s * u0p + (1.0 - s) * u0m
+
+    // ((xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln() - C::i() * (1.0) / consts.h)
+    //     + (xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln() + C::i() * (1.0) / consts.h))
+    //     / 2.0
+
+    // - 0.0 * log_branch as f64 * consts.k() as f64 * C::i() / consts.h)
 }
 
 pub fn du_dp(p: impl Into<C>, consts: CouplingConstants) -> C {

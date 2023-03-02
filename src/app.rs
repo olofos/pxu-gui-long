@@ -1,7 +1,5 @@
 // use std::f64::consts::PI;
 
-const PI: f64 = 0.5;
-
 use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
 use num::complex::Complex64;
