@@ -1663,6 +1663,76 @@ impl Cut {
                 component: Component::P,
                 paths: vec![p_points.iter().map(|p| p.conj()).collect()],
                 branch_points: vec![branch_point.conj()],
+                typ: CutType::LogX(Component::Xp, 0),
+                visibility: CutVisibility::new(),
+            });
+
+            cuts.push(Cut {
+                component: Component::P,
+                paths: vec![p_points.clone()],
+                branch_points: vec![branch_point],
+                typ: CutType::LogX(Component::Xm, 0),
+                visibility: CutVisibility::new(),
+            });
+        } else if p_range < -1 {
+            // Real negative axis
+
+            let mut p_points = vec![];
+            // let mut x_cuts = vec![];
+
+            let p0 = p_range as f64 + 1.0 / 8.0;
+            let p2 = p_range as f64 + 1.0 - 1.0 / 8.0;
+
+            let m = (p_start + 1.0) * consts.k() as f64 + 2.0;
+
+            let p1 = get_branch_point(m - 1.0 - consts.k() as f64, consts, -1.0) + p_start;
+
+            // let x = get_branch_point_x(m - 1.0 - consts.k() as f64, consts, -1.0);
+
+            let p_int = PInterpolator::xp(p2, consts).goto_xp(p2, m);
+
+            // x_cuts.push(p_int.x_path.clone());
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.99, m);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+            // x_cuts.push(p_int2.x_path);
+
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            let branch_point = *p_int2.p_path.last().unwrap();
+            p_points.extend(p_int2.p_path);
+            // // x_cuts.push(p_int2.x_path);
+
+            let p_int = PInterpolator::xp(p2, consts)
+                .goto_xp(p2, m - 1.5)
+                .goto_xp(p0, m - 1.5)
+                .goto_xp(p0, m + 1.5)
+                .goto_xp(p2, m + 1.5)
+                .goto_xp(p2, m);
+
+            // x_cuts.push(p_int.x_path.clone());
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+            // x_cuts.push(p_int2.x_path);
+
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.99, m);
+            p_points.extend(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+
+            // cuts.push(Cut {
+            //     component: Component::Xp,
+            //     paths: x_cuts,
+            //     branch_points: vec![x],
+            //     typ: CutType::DebugPath,
+            //     visibility: CutVisibility::new().log_branch(p_range),
+            // });
+
+            cuts.push(Cut {
+                component: Component::P,
+                paths: vec![p_points.iter().map(|p| p.conj()).collect()],
+                branch_points: vec![branch_point.conj()],
                 typ: CutType::LogX(Component::Xp, 1),
                 visibility: CutVisibility::new().log_branch_le(p_range),
             });
@@ -1690,228 +1760,77 @@ impl Cut {
                 typ: CutType::LogX(Component::Xm, -1),
                 visibility: CutVisibility::new().log_branch_gt(p_range),
             });
+
+            // Positive real axis
+
+            let mut p_points = vec![];
+            let mut x_cuts = vec![];
+
+            let p0 = p_range as f64 + 1.0 / 8.0;
+            let p2 = p_range as f64 + 1.0 - 1.0 / 8.0;
+
+            let m = (p_start) * consts.k() as f64 + 2.0;
+
+            let p1 = get_branch_point(m - 1.0, consts, 0.0) + p_start;
+
+            let x = get_branch_point_x(m - 1.0, consts, 0.0);
+
+            let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, m);
+
+            x_cuts.push(p_int.x_path.clone());
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.01, m);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+            // x_cuts.push(p_int2.x_path);
+
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            let branch_point = *p_int2.p_path.last().unwrap();
+            p_points.extend(p_int2.p_path);
+            // x_cuts.push(p_int2.x_path);
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xp(p0, m + 1.5)
+                .goto_xp(p2, m + 1.5)
+                .goto_xp(p2, m - 1.5)
+                .goto_xp(p0, m - 1.5)
+                .goto_xp(p0, m);
+
+            // x_cuts.push(p_int.x_path.clone());
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xp(p1, m);
+            p_points.extend(p_int2.p_path.into_iter().rev());
+            // // x_cuts.push(p_int2.x_path);
+
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.01, m);
+            p_points.extend(p_int2.p_path);
+            // // x_cuts.push(p_int2.x_path);
+
+            cuts.push(Cut {
+                component: Component::Xp,
+                paths: x_cuts,
+                branch_points: vec![x],
+                typ: CutType::DebugPath,
+                visibility: CutVisibility::new().log_branch(p_range),
+            });
+
+            cuts.push(Cut {
+                component: Component::P,
+                paths: vec![p_points.iter().map(|p| p.conj()).collect()],
+                branch_points: vec![branch_point.conj()],
+                typ: CutType::LogX(Component::Xp, 0),
+                visibility: CutVisibility::new(),
+            });
+
+            cuts.push(Cut {
+                component: Component::P,
+                paths: vec![p_points.clone()],
+                branch_points: vec![branch_point],
+                typ: CutType::LogX(Component::Xm, 0),
+                visibility: CutVisibility::new(),
+            });
         }
-
-        // if p_range > 0 {
-        //     let m = (p_range + 1) as f64 * consts.k() as f64 + 2.0;
-        //     let p1 = {
-        //         let u_of_x = |x: C| -> C {
-        //             let s = consts.s();
-        //             x + 1.0 / x - (s - 1.0 / s) * x.ln()
-        //         };
-        //         let du_dx = |x: C| -> C {
-        //             let s = consts.s();
-        //             (x - s) * (x + 1.0 / s) / (x * x)
-        //         };
-
-        //         let x = nr::find_root(
-        //             |x| {
-        //                 u_of_x(x)
-        //                     - u_of_x(C::from(-1.0 / consts.s()))
-        //                     - 2.0 * (m - 1.0) * C::i() / consts.h
-        //             },
-        //             du_dx,
-        //             C::new(0.0, 1.0),
-        //             1.0e-3,
-        //             10,
-        //         );
-        //         let x = x.unwrap();
-        //         branch_points_x.push(x);
-        //         x.arg() / std::f64::consts::PI + p_range as f64
-        //     };
-
-        //     cut_xp.push(XInterpolator::generate_xp(
-        //         p1,
-        //         p_range as f64 + 1.0,
-        //         m,
-        //         consts,
-        //     ));
-        //     cut_xm.push(XInterpolator::generate_xm(
-        //         p1,
-        //         p_range as f64 + 1.0,
-        //         m,
-        //         consts,
-        //     ));
-
-        //     let p0 = p_range as f64 + 1.0 / 8.0;
-        //     let p2 = p_range as f64 + 7.0 / 8.0;
-
-        //     let mut p_points: Vec<C> = vec![];
-
-        //     let p_int = PInterpolator::xp(p2, consts).goto_xp(p2, m);
-
-        //     let p_int = p_int.clear_path();
-
-        //     let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.999, m);
-        //     // x_cuts.push(p_int2.x_path);
-        //     // p_cuts.push(p_int2.p_path);
-        //     p_points.extend(p_int2.p_path.into_iter().rev());
-
-        //     let p_int2 = p_int.clone().goto_xp(p1, m);
-        //     // x_cuts.push(p_int2.x_path);
-        //     // p_cuts.push(p_int2.p_path);
-        //     p_points.extend(p_int2.p_path);
-
-        //     let p_int = PInterpolator::xp(p2, consts)
-        //         .goto_xp(p2, m - 1.0)
-        //         .goto_xp(p0, m - 1.0)
-        //         .goto_xp(p0, m + 2.0)
-        //         .goto_xp(p2, m + 2.0)
-        //         .goto_xp(p2, m);
-
-        //     let p_int = p_int.clear_path();
-
-        //     let p_int2 = p_int.clone().goto_xp(p1, m);
-        //     // x_cuts.push(p_int2.x_path);
-        //     // p_cuts.push(p_int2.p_path);
-        //     p_points.extend(p_int2.p_path.into_iter().rev());
-
-        //     let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.999, m);
-        //     // x_cuts.push(p_int2.x_path);
-        //     // p_cuts.push(p_int2.p_path);
-        //     p_points.extend(p_int2.p_path);
-
-        //     cut_p.push(p_points.iter().map(|p| p.conj()).collect());
-        //     cut_p.push(p_points);
-
-        //     let m = (p_range) as f64 * consts.k() as f64 + 2.0;
-        //     let p1 = {
-        //         let u_of_x = |x: C| -> C {
-        //             let s = consts.s();
-        //             x + 1.0 / x - (s - 1.0 / s) * x.ln()
-        //         };
-        //         let du_dx = |x: C| -> C {
-        //             let s = consts.s();
-        //             (x - s) * (x + 1.0 / s) / (x * x)
-        //         };
-
-        //         let x = nr::find_root(
-        //             |x| {
-        //                 u_of_x(x)
-        //                     - u_of_x(C::from(consts.s()))
-        //                     - 2.0 * (m - 1.0) * C::i() / consts.h
-        //             },
-        //             du_dx,
-        //             C::new(0.0, 1.0),
-        //             1.0e-3,
-        //             10,
-        //         );
-        //         let x = x.unwrap();
-        //         branch_points_x.push(x);
-        //         x.arg() / std::f64::consts::PI + p_range as f64
-        //     };
-
-        //     cut_xp.push(XInterpolator::generate_xp(p_range as f64, p1, m, consts));
-        //     cut_xm.push(XInterpolator::generate_xm(p_range as f64, p1, m, consts));
-
-        //     let mut p_points = vec![];
-
-        //     let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, m);
-
-        //     let p_int = p_int.clear_path();
-
-        //     let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.001, m);
-        //     //x_cuts.push(p_int2.x_path);
-        //     p_points.extend(p_int2.p_path.into_iter().rev());
-
-        //     let p_int2 = p_int.clone().goto_xp(p1, m);
-        //     // x_cuts.push(p_int2.x_path);
-        //     p_points.extend(p_int2.p_path);
-
-        //     let p_int = PInterpolator::xp(p2, consts)
-        //         .goto_xp(p2, m + 1.0)
-        //         .goto_xp(p0, m + 1.0)
-        //         .goto_xp(p0, m);
-
-        //     let p_int = p_int.clear_path();
-
-        //     let p_int2 = p_int.clone().goto_xp(p1, m);
-        //     //x_cuts.push(p_int2.x_path);
-        //     p_points.extend(p_int2.p_path.into_iter().rev());
-
-        //     let p_int2 = p_int.clone().goto_xp(p_range as f64 + 0.001, m);
-        //     //x_cuts.push(p_int2.x_path);
-        //     p_points.extend(p_int2.p_path);
-
-        //     cut_p.push(p_points.iter().map(|p| p.conj()).collect());
-        //     cut_p.push(p_points);
-        // }
-
-        // // xp image of xm negative real axis from below
-
-        // let m = 2.0 + if p_range < 0 { p_range } else { p_range + 1 } as f64 * consts.k() as f64;
-        // // let m = 2.0 + (p_range + 1) as f64 * consts.k() as f64;
-        // let p_minus_one_over_s = get_branch_point(m - 1.0, consts, m.signum());
-
-        // let mut paths = vec![];
-
-        // let p0 = p_start + 1.0 / 8.0;
-        // let p1 = p_start + 1.0 - 1.0 / 8.0;
-
-        // let p_int = PInterpolator::xp(p1, consts).goto_xp(p1, m);
-
-        // paths.push(
-        //     p_int
-        //         .clone()
-        //         .clear_path()
-        //         .goto_xp(p_start + 1.0 - 1.0 / 512.0, m)
-        //         .p_path,
-        // );
-        // paths.push(
-        //     p_int
-        //         .clone()
-        //         .clear_path()
-        //         .goto_xp(p_minus_one_over_s, m)
-        //         .p_path,
-        // );
-
-        // cuts.push(Cut {
-        //     component: Component::Xp,
-        //     paths: vec![p_int.goto_xp(p_minus_one_over_s, m).x_path.clone()],
-        //     branch_points: vec![],
-        //     typ: CutType::DebugPath,
-        //     visibility: CutVisibility::new(),
-        // });
-
-        // let p_int = PInterpolator::xp(p1, consts)
-        //     .goto_xp(p1, m - 1.0)
-        //     .goto_xp(p0, m - 1.0)
-        //     .goto_xp(p0, m + 1.0)
-        //     .goto_xp(p1, m + 1.0)
-        //     .goto_xp(p1, m);
-
-        // paths.push(
-        //     p_int
-        //         .clone()
-        //         .clear_path()
-        //         .goto_xp(p_start + 1.0 - 1.0 / 512.0, m)
-        //         .p_path,
-        // );
-        // paths.push(
-        //     p_int
-        //         .clone()
-        //         .clear_path()
-        //         .goto_xp(p_minus_one_over_s, m)
-        //         .p_path,
-        // );
-
-        // cuts.push(Cut {
-        //     component: Component::Xp,
-        //     paths: vec![p_int.x_path.clone()],
-        //     branch_points: vec![],
-        //     typ: CutType::DebugPath,
-        //     visibility: CutVisibility::new(),
-        // });
-
-        // let branch_points = vec![*paths.last().unwrap().last().unwrap()];
-
-        // cuts.push(Cut {
-        //     component: Component::P,
-        //     paths,
-        //     branch_points,
-        //     typ: CutType::LogX(Component::Xm, 1),
-        //     visibility: CutVisibility::new(),
-        // });
 
         cuts
     }
