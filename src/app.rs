@@ -96,14 +96,14 @@ impl Plot {
                             egui::pos2(rect.left(), origin.y),
                             egui::pos2(rect.right(), origin.y),
                         ],
-                        Stroke::new(0.75, Color32::GRAY),
+                        Stroke::new(0.75, Color32::DARK_GRAY),
                     ),
                     egui::epaint::Shape::line(
                         vec![
                             egui::pos2(origin.x, rect.bottom()),
                             egui::pos2(origin.x, rect.top()),
                         ],
-                        Stroke::new(0.75, Color32::GRAY),
+                        Stroke::new(0.75, Color32::DARK_GRAY),
                     ),
                 ];
 
@@ -137,7 +137,7 @@ impl Plot {
                         if cut.intersection(z, new_value).is_some() {
                             match cut.typ {
                                 pxu::CutType::LogX(_, branch) => {
-                                    new_log_branch = branch;
+                                    new_log_branch += branch;
                                 }
                                 _ => {}
                             }
@@ -205,6 +205,7 @@ impl Plot {
                                 }
                             }
                             pxu::CutType::E => Color32::BLACK,
+                            _ => Color32::from_rgb(255, 128, 0),
                         };
 
                         shapes.push(egui::epaint::Shape::line(
