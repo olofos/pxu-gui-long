@@ -184,31 +184,32 @@ impl Grid {
         Self { data, consts }
     }
 
-    pub fn get(&mut self, pt: &PxuPoint) -> &GridLines {
+    pub fn get(&mut self, pt: &PxuPoint, component: Component) -> &Vec<Vec<C>> {
         if let Some(consts) = self.consts {
             if consts != pt.consts {
+                log::info!("Clearing grid");
                 self.data.clear();
-                self.consts = Some(pt.consts);
             }
         }
+        self.consts = Some(pt.consts);
 
-        let line = self
+        let line: &GridLines = self
             .data
             .entry(pt.log_branch)
             .or_insert_with(|| GridLines::new(pt.log_branch, pt.consts));
-        line
+        line.get(component)
     }
 }
 
 #[derive(Debug)]
-pub struct GridLines {
-    pub p: Vec<Vec<C>>,
-    pub x: Vec<Vec<C>>,
-    pub u: Vec<Vec<C>>,
+struct GridLines {
+    p: Vec<Vec<C>>,
+    x: Vec<Vec<C>>,
+    u: Vec<Vec<C>>,
 }
 
 impl GridLines {
-    pub fn new(p_range: i32, consts: CouplingConstants) -> Self {
+    fn new(p_range: i32, consts: CouplingConstants) -> Self {
         log::info!("Generating grid lines for branch {p_range}");
         let mut x = vec![];
         for i in -4..=4 {
@@ -222,6 +223,14 @@ impl GridLines {
             p.extend(Self::fill_p(p_range + i, consts));
         }
         Self { p, x, u }
+    }
+
+    fn get(&self, component: Component) -> &Vec<Vec<C>> {
+        match component {
+            Component::P => &self.p,
+            Component::Xp | Component::Xm => &self.x,
+            Component::U => &self.u,
+        }
     }
 
     fn fill_x(p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
@@ -578,11 +587,11 @@ enum CutVisibilityCondition {
 }
 
 impl CutVisibilityCondition {
-    fn check(&self, pt: &PxuPoint, branch: i32) -> bool {
+    fn check(&self, pt: &PxuPoint) -> bool {
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i32 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i32 == sign.signum(),
-            Self::LogBranch(b) => *b == branch,
+            Self::LogBranch(b) => *b == pt.log_branch,
         }
     }
 }
@@ -623,8 +632,8 @@ impl CutVisibility {
         self
     }
 
-    fn check(&self, pt: &PxuPoint, branch: i32) -> bool {
-        self.conditions.iter().all(|cond| cond.check(pt, branch))
+    fn check(&self, pt: &PxuPoint) -> bool {
+        self.conditions.iter().all(|cond| cond.check(pt))
     }
 }
 
@@ -674,8 +683,8 @@ impl Cut {
         None
     }
 
-    pub fn is_visible(&self, pt: &PxuPoint, branch: i32) -> bool {
-        self.visibility.check(pt, branch)
+    pub fn is_visible(&self, pt: &PxuPoint) -> bool {
+        self.visibility.check(pt)
     }
 
     fn x_cuts_p(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {

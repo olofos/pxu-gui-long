@@ -58,13 +58,6 @@ impl Plot {
         show_dots: bool,
         pxu: &mut PxuPoint,
     ) {
-        let grid = grid.get(pxu);
-        let contours = match self.component {
-            pxu::Component::P => &grid.p,
-            pxu::Component::Xp | pxu::Component::Xm => &grid.x,
-            pxu::Component::U => &grid.u,
-        };
-
         egui::Frame::canvas(ui.style())
             .outer_margin(Margin::same(0.0))
             .inner_margin(Margin::same(0.0))
@@ -116,29 +109,6 @@ impl Plot {
                     ),
                 ];
 
-                for points in contours {
-                    let points = points
-                        .iter()
-                        .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
-                        .collect::<Vec<_>>();
-
-                    shapes.push(egui::epaint::Shape::line(
-                        points.clone(),
-                        Stroke::new(0.75, Color32::GRAY),
-                    ));
-
-                    if show_dots {
-                        for center in points {
-                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                                center,
-                                radius: 1.5,
-                                fill: Color32::RED,
-                                stroke: Stroke::NONE,
-                            }));
-                        }
-                    }
-                }
-
                 let z = match self.component {
                     pxu::Component::P => pxu.p,
                     pxu::Component::U => pxu.u,
@@ -172,7 +142,7 @@ impl Plot {
 
                     for cut in cuts {
                         if cut.component == self.component
-                            && cut.is_visible(&pxu, pxu.p.re.floor() as i32)
+                            && cut.is_visible(&pxu)
                             && cut.intersection(z, new_value).is_some()
                         {
                             match cut.typ {
@@ -207,6 +177,31 @@ impl Plot {
                     };
                 }
 
+                let contours = grid.get(pxu, self.component);
+
+                for points in contours {
+                    let points = points
+                        .iter()
+                        .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                        .collect::<Vec<_>>();
+
+                    shapes.push(egui::epaint::Shape::line(
+                        points.clone(),
+                        Stroke::new(0.75, Color32::GRAY),
+                    ));
+
+                    if show_dots {
+                        for center in points {
+                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                                center,
+                                radius: 1.5,
+                                fill: Color32::RED,
+                                stroke: Stroke::NONE,
+                            }));
+                        }
+                    }
+                }
+
                 let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
 
                 shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
@@ -216,9 +211,10 @@ impl Plot {
                     stroke,
                 }));
 
-                for cut in cuts.iter().filter(|c| {
-                    c.component == self.component && c.is_visible(&pxu, pxu.p.re.floor() as i32)
-                }) {
+                for cut in cuts
+                    .iter()
+                    .filter(|c| c.component == self.component && c.is_visible(&pxu))
+                {
                     for points in cut.paths.iter() {
                         let points = points
                             .iter()

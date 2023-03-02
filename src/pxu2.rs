@@ -401,12 +401,12 @@ impl PInterpolator {
                         x_path.push(w);
                         break;
                     } else {
-                        log::info!(
-                            "Too large jump ({},{}): {}",
-                            t,
-                            1.0 / step,
-                            (next_p.re - p.re).abs()
-                        );
+                        // log::info!(
+                        //     "Too large jump ({},{}): {}",
+                        //     t,
+                        //     1.0 / step,
+                        //     (next_p.re - p.re).abs()
+                        // );
                     }
                 }
                 if i > 5 {
