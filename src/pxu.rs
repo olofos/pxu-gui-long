@@ -989,6 +989,8 @@ impl Cut {
             visibility: CutVisibility::new().im_xm_positive(),
         });
 
+        // xp image of xm negative real axis from below
+
         let m = 1.0 + if p_range < 0 { p_range } else { p_range + 1 } as f64 * consts.k() as f64;
 
         let p_minus_one_over_s = get_branch_point(m, consts, m.signum());
@@ -1006,9 +1008,11 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm, p_range),
+            typ: CutType::LogX(Component::Xm, p_range + 1),
             visibility: CutVisibility::new().im_xm_negative(),
         });
+
+        // xm image of xp negative real axis from above
 
         let paths = vec![XInterpolator::generate_xm(
             p_minus_one_over_s,
@@ -1022,9 +1026,11 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp, p_range),
+            typ: CutType::LogX(Component::Xp, p_range + 1),
             visibility: CutVisibility::new().im_xp_positive(),
         });
+
+        // xp image of xm negative real axis from above
 
         let m = 1.0 + if p_range < 0 { p_range - 1 } else { p_range } as f64 * consts.k() as f64;
 
@@ -1043,9 +1049,11 @@ impl Cut {
             component: Component::Xp,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xm, p_range),
+            typ: CutType::LogX(Component::Xm, p_range - 1),
             visibility: CutVisibility::new().im_xm_positive(),
         });
+
+        // xm image of xp negative real axis from below
 
         let paths = vec![XInterpolator::generate_xm(
             p_minus_one_over_s,
@@ -1059,11 +1067,11 @@ impl Cut {
             component: Component::Xm,
             paths,
             branch_points,
-            typ: CutType::LogX(Component::Xp, p_range),
+            typ: CutType::LogX(Component::Xp, p_range - 1),
             visibility: CutVisibility::new().im_xp_negative(),
         });
 
-        // Real positive axis
+        // xp real positive axis
 
         let paths = vec![vec![C::zero(), C::from(100.0)]];
         let branch_points = vec![C::from(consts.s()), C::zero()];
@@ -1076,6 +1084,8 @@ impl Cut {
             visibility: CutVisibility::new(),
         });
 
+        // xm real positive axis
+
         let paths = vec![vec![C::zero(), C::from(100.0)]];
         let branch_points = vec![C::from(consts.s()), C::zero()];
 
@@ -1086,6 +1096,8 @@ impl Cut {
             typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new(),
         });
+
+        // xp image of xm real positive axis
 
         let m = 2.0 + (2 * p_range) as f64 * consts.k() as f64;
         let p_s = get_branch_point(m / 2.0, consts, 0.0);
@@ -1100,6 +1112,8 @@ impl Cut {
             typ: CutType::LogX(Component::Xm, p_range),
             visibility: CutVisibility::new(),
         });
+
+        // xm image of xp real positive axis
 
         let paths = vec![XInterpolator::generate_xm(p_s.floor(), p_s, m, consts)];
         let branch_points = vec![*paths[0].last().unwrap()];
