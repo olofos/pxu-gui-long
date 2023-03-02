@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::kinematics::{den2_dp, du_dp, dxm_dp, dxp_dp, en2, u, xm, xp, CouplingConstants};
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
@@ -171,13 +173,43 @@ pub enum Component {
 
 #[derive(Debug)]
 pub struct Grid {
+    data: HashMap<i32, GridLines>,
+    consts: Option<CouplingConstants>,
+}
+
+impl Grid {
+    pub fn new() -> Self {
+        let data = HashMap::new();
+        let consts = None;
+        Self { data, consts }
+    }
+
+    pub fn get(&mut self, pt: &PxuPoint) -> &GridLines {
+        if let Some(consts) = self.consts {
+            if consts != pt.consts {
+                self.data.clear();
+                self.consts = Some(pt.consts);
+            }
+        }
+
+        let line = self
+            .data
+            .entry(pt.log_branch)
+            .or_insert_with(|| GridLines::new(pt.log_branch, pt.consts));
+        line
+    }
+}
+
+#[derive(Debug)]
+pub struct GridLines {
     pub p: Vec<Vec<C>>,
     pub x: Vec<Vec<C>>,
     pub u: Vec<Vec<C>>,
 }
 
-impl Grid {
+impl GridLines {
     pub fn new(p_range: i32, consts: CouplingConstants) -> Self {
+        log::info!("Generating grid lines for branch {p_range}");
         let mut x = vec![];
         for i in -4..=4 {
             x.extend(Self::fill_x(p_range + i, consts));

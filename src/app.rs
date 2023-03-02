@@ -58,6 +58,7 @@ impl Plot {
         show_dots: bool,
         pxu: &mut PxuPoint,
     ) {
+        let grid = grid.get(pxu);
         let contours = match self.component {
             pxu::Component::P => &grid.p,
             pxu::Component::Xp | pxu::Component::Xm => &grid.x,
@@ -123,7 +124,7 @@ impl Plot {
 
                     shapes.push(egui::epaint::Shape::line(
                         points.clone(),
-                        Stroke::new(0.5, Color32::GRAY),
+                        Stroke::new(0.75, Color32::GRAY),
                     ));
 
                     if show_dots {
@@ -183,8 +184,6 @@ impl Plot {
                             log::info!("Intersection with {:?}", cut.typ);
                         }
                     }
-
-                    log::info!("new_log_branch = {new_log_branch}");
 
                     match self.component {
                         pxu::Component::P => {
@@ -322,7 +321,7 @@ impl Plot {
 impl Default for TemplateApp {
     fn default() -> Self {
         let consts = CouplingConstants::new(2.0, 5);
-        let p_range = 1;
+        let p_range = 0;
         Self {
             consts,
             pxu: PxuPoint::new(
@@ -332,7 +331,7 @@ impl Default for TemplateApp {
             ),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
-            grid: pxu::Grid::new(p_range, consts),
+            grid: pxu::Grid::new(),
             cuts: pxu::Cut::get(p_range, consts),
             p_plot: Plot {
                 component: pxu::Component::P,
@@ -452,7 +451,6 @@ impl eframe::App for TemplateApp {
             //     self.consts,
             // );
 
-            self.grid = pxu::Grid::new(self.p_range, self.consts);
             self.cuts = pxu::Cut::get(self.p_range, self.consts);
         }
 
@@ -472,7 +470,6 @@ impl eframe::App for TemplateApp {
             self.p_plot.origin.x += (self.p_range - old_p_range) as f32 * (2.0 * PI) as f32;
         }
 
-        self.grid = pxu::Grid::new(self.pxu.log_branch, self.consts);
         self.cuts = pxu::Cut::get(self.pxu.log_branch, self.consts);
 
         egui::CentralPanel::default().show(ctx, |ui| {
