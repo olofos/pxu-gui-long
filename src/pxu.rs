@@ -627,6 +627,40 @@ impl CutVisibility {
 }
 
 #[derive(Debug)]
+pub struct Cuts {
+    data: HashMap<i32, Vec<Cut>>,
+    consts: Option<CouplingConstants>,
+}
+
+impl Cuts {
+    pub fn new() -> Self {
+        let data = HashMap::new();
+        let consts = None;
+        Self { data, consts }
+    }
+
+    pub fn visible(&mut self, pt: &PxuPoint, component: Component) -> impl Iterator<Item = &Cut> {
+        let pt = pt.clone();
+
+        if let Some(consts) = self.consts {
+            if consts != pt.consts {
+                log::info!("Clearing grid");
+                self.data.clear();
+            }
+        }
+        self.consts = Some(pt.consts);
+
+        let cuts: &Vec<_> = self
+            .data
+            .entry(pt.log_branch)
+            .or_insert_with(|| Cut::get(pt.log_branch, pt.consts));
+
+        cuts.iter()
+            .filter(move |c| c.component == component && c.is_visible(&pt))
+    }
+}
+
+#[derive(Debug)]
 pub struct Cut {
     pub component: Component,
     pub paths: Vec<Vec<C>>,

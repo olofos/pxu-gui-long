@@ -26,7 +26,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     grid: pxu::Grid,
     #[serde(skip)]
-    cuts: Vec<pxu::Cut>,
+    cuts: pxu::Cuts,
     #[serde(skip)]
     p_plot: Plot,
     #[serde(skip)]
@@ -54,7 +54,7 @@ impl Plot {
         ui: &mut Ui,
         desired_size: Vec2,
         grid: &mut pxu::Grid,
-        cuts: &Vec<pxu::Cut>,
+        cuts: &mut pxu::Cuts,
         show_dots: bool,
         pxu: &mut PxuPoint,
     ) {
@@ -135,11 +135,8 @@ impl Plot {
 
                     let mut new_log_branch = pxu.log_branch;
 
-                    for cut in cuts {
-                        if cut.component == self.component
-                            && cut.is_visible(&pxu)
-                            && cut.intersection(z, new_value).is_some()
-                        {
+                    for cut in cuts.visible(pxu, self.component) {
+                        if cut.intersection(z, new_value).is_some() {
                             match cut.typ {
                                 pxu::CutType::LogX(_, branch) => {
                                     new_log_branch = branch;
@@ -187,10 +184,7 @@ impl Plot {
                     stroke,
                 }));
 
-                for cut in cuts
-                    .iter()
-                    .filter(|c| c.component == self.component && c.is_visible(&pxu))
-                {
+                for cut in cuts.visible(pxu, self.component) {
                     for points in cut.paths.iter() {
                         let points = points
                             .iter()
@@ -304,7 +298,7 @@ impl Default for TemplateApp {
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             grid: pxu::Grid::new(),
-            cuts: pxu::Cut::get(p_range, consts),
+            cuts: pxu::Cuts::new(),
             p_plot: Plot {
                 component: pxu::Component::P,
                 height: 0.75,
@@ -389,11 +383,6 @@ impl eframe::App for TemplateApp {
                     .integer()
                     .text("k"),
             );
-
-            ui.add(
-                egui::Slider::from_get_set(1.00001..=5.0, |v| self.consts.get_set_s(v)).text("s"),
-            );
-
             ui.add(egui::Slider::new(&mut self.p_range, -10..=5).text("Range"));
 
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
@@ -422,8 +411,6 @@ impl eframe::App for TemplateApp {
             //     self.pxu.p + 2.0 * PI * (self.p_range - old_p_range) as f64,
             //     self.consts,
             // );
-
-            self.cuts = pxu::Cut::get(self.p_range, self.consts);
         }
 
         if old_consts != self.consts {
@@ -451,7 +438,7 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.grid,
-                    &self.cuts,
+                    &mut self.cuts,
                     self.show_dots,
                     &mut self.pxu,
                 );
@@ -460,7 +447,7 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.grid,
-                    &self.cuts,
+                    &mut self.cuts,
                     self.show_dots,
                     &mut self.pxu,
                 );
@@ -470,7 +457,7 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.grid,
-                    &self.cuts,
+                    &mut self.cuts,
                     self.show_dots,
                     &mut self.pxu,
                 );
@@ -479,7 +466,7 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.grid,
-                    &self.cuts,
+                    &mut self.cuts,
                     self.show_dots,
                     &mut self.pxu,
                 );
