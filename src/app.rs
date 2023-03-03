@@ -131,21 +131,11 @@ impl Plot {
                     let new_value = to_screen.inverse() * (center + point_response.drag_delta());
                     let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                    let mut new_log_branch = pxu.log_branch;
+                    let crossed_cuts = cuts
+                        .crossed(pxu, self.component, new_value)
+                        .collect::<Vec<_>>();
 
-                    for cut in cuts.visible(pxu, self.component) {
-                        if cut.intersection(z, new_value).is_some() {
-                            match cut.typ {
-                                pxu::CutType::LogX(_, branch) => {
-                                    new_log_branch += branch;
-                                }
-                                _ => {}
-                            }
-                            log::info!("Intersection with {:?}", cut.typ);
-                        }
-                    }
-
-                    pxu.update(self.component, new_value, new_log_branch);
+                    pxu.update(self.component, new_value, &crossed_cuts);
                 }
 
                 let contours = grid.get(pxu, self.component);
@@ -289,11 +279,7 @@ impl Default for TemplateApp {
         let p_range = 0;
         Self {
             consts,
-            pxu: PxuPoint::new(
-                num::complex::Complex::from(p_range as f64 + 0.25),
-                p_range,
-                consts,
-            ),
+            pxu: PxuPoint::new(p_range as f64 + 0.25, consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             grid: pxu::Grid::new(),
@@ -302,7 +288,7 @@ impl Default for TemplateApp {
                 component: pxu::Component::P,
                 height: 0.75,
                 width_factor: 1.5,
-                origin: Pos2::new(((2 * p_range + 1) as f32) * PI as f32, 0.0),
+                origin: Pos2::new(((2 * p_range + 1) as f32) * 0.5 as f32, 0.0),
             },
             xp_plot: Plot {
                 component: pxu::Component::Xp,
@@ -413,7 +399,7 @@ impl eframe::App for TemplateApp {
         }
 
         if old_consts != self.consts {
-            self.pxu = PxuPoint::new(self.pxu.p, self.pxu.log_branch, self.consts);
+            self.pxu.set_coupling_constants(self.consts);
 
             // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
 
@@ -425,10 +411,8 @@ impl eframe::App for TemplateApp {
         }
 
         if old_p_range != self.p_range {
-            self.p_plot.origin.x += (self.p_range - old_p_range) as f32 * (2.0 * PI) as f32;
+            self.p_plot.origin.x += (self.p_range - old_p_range) as f32;
         }
-
-        self.cuts = pxu::Cut::get(self.pxu.log_branch, self.consts);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let available_size = ui.available_size();

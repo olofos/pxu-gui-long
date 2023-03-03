@@ -5,7 +5,7 @@ use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
 use itertools::Itertools;
 use num::complex::Complex;
-use num::Zero;
+use num::{Integer, Zero};
 
 type C = Complex<f64>;
 
@@ -184,8 +184,8 @@ impl Grid {
 
         let line: &GridLines = self
             .data
-            .entry(pt.log_branch)
-            .or_insert_with(|| GridLines::new(pt.log_branch, pt.consts));
+            .entry(pt.sheet_data.log_branch)
+            .or_insert_with(|| GridLines::new(pt.sheet_data.log_branch, pt.consts));
         line.get(component)
     }
 }
@@ -575,9 +575,9 @@ impl CutVisibilityCondition {
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i8 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
-            Self::LogBranch(b) => *b == pt.log_branch,
-            Self::LogBranchGT(b) => pt.log_branch > *b,
-            Self::LogBranchLE(b) => pt.log_branch <= *b,
+            Self::LogBranch(b) => *b == pt.sheet_data.log_branch,
+            Self::LogBranchGT(b) => pt.sheet_data.log_branch > *b,
+            Self::LogBranchLE(b) => pt.sheet_data.log_branch <= *b,
         }
     }
 }
@@ -649,9 +649,7 @@ impl Cuts {
         Self { cuts, consts }
     }
 
-    pub fn visible(&mut self, pt: &PxuPoint, component: Component) -> impl Iterator<Item = &Cut> {
-        let pt = pt.clone();
-
+    fn populate(&mut self, pt: &PxuPoint) {
         if let Some(consts) = self.consts {
             if consts != pt.consts {
                 log::info!("Clearing grid");
@@ -666,16 +664,34 @@ impl Cuts {
             for p_range in -5..=5 {
                 self.cuts.extend(Cut::get(p_range, pt.consts));
             }
+            log::info!("Created {} cuts", self.cuts.len());
         }
+    }
 
-        // let cuts: &Vec<_> = self
-        //     .data
-        //     .entry(pt.log_branch)
-        //     .or_insert_with(|| Cut::get(pt.log_branch, pt.consts));
+    pub fn visible(&mut self, pt: &PxuPoint, component: Component) -> impl Iterator<Item = &Cut> {
+        self.populate(pt);
+
+        let pt = pt.clone();
 
         self.cuts
             .iter()
             .filter(move |c| c.component == component && c.is_visible(&pt))
+    }
+    pub fn crossed(
+        &mut self,
+        pt: &PxuPoint,
+        component: Component,
+        new_value: C,
+    ) -> impl Iterator<Item = &Cut> {
+        self.populate(pt);
+
+        let pt = pt.clone();
+
+        self.cuts.iter().filter(move |c| {
+            c.component == component
+                && c.is_visible(&pt)
+                && c.intersection(pt.get(component), new_value).is_some()
+        })
     }
 }
 
@@ -1049,7 +1065,7 @@ impl Cut {
             visibility: CutVisibility::new().log_branch(p_range).im_xp_negative(),
         });
 
-        // xp negative axis from below
+        // xm negative axis from below
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
@@ -2272,19 +2288,19 @@ impl OldCut {
         );
         xm_points.extend(cut_p.iter().map(|p| xm(*p + C::from(-1.0e-5), 1.0, consts)));
 
-        let mut u_points = vec![];
+        // let mut u_points = vec![];
 
-        u_points.extend(
-            cut_p
-                .iter()
-                .rev()
-                .map(|p| u(*p + C::from(1.0e-5), consts, p_range)),
-        );
-        u_points.extend(
-            cut_p
-                .iter()
-                .map(|p| u(*p + C::from(-1.0e-5), consts, p_range)),
-        );
+        // u_points.extend(
+        //     cut_p
+        //         .iter()
+        //         .rev()
+        //         .map(|p| u(*p + C::from(1.0e-5), consts, p_range)),
+        // );
+        // u_points.extend(
+        //     cut_p
+        //         .iter()
+        //         .map(|p| u(*p + C::from(-1.0e-5), consts, p_range)),
+        // );
 
         let cut_p = vec![cut_p.iter().map(|z| z.conj()).collect::<Vec<_>>(), cut_p];
         let x = vec![
@@ -2294,8 +2310,8 @@ impl OldCut {
             xm_points,
         ];
         let cut_u = vec![
-            u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
-            u_points,
+            // u_points.iter().map(|z| z.conj()).collect::<Vec<_>>(),
+            // u_points,
         ];
 
         let branch_points_p = vec![p0, p0.conj()];
@@ -2306,7 +2322,9 @@ impl OldCut {
             xm(p0, 1.0, consts).conj(),
             C::from(-1.0 / consts.s()),
         ];
-        let branch_points_u = vec![u(p0, consts, p_range), u(p0, consts, p_range).conj()];
+        let branch_points_u = vec![
+        // u(p0, consts, p_range), u(p0, consts, p_range).conj()
+        ];
 
         Self {
             cut_p,
@@ -2776,73 +2794,129 @@ impl OldCut {
 }
 
 #[derive(Debug, Clone)]
+pub struct SheetData {
+    pub log_branch: i32,
+    pub log_branch_sum: i32,
+}
+
+#[derive(Debug, Clone)]
 pub struct PxuPoint {
     pub p: C,
     pub xp: C,
     pub xm: C,
     pub u: C,
     pub consts: CouplingConstants,
-    pub log_branch: i32,
+    pub sheet_data: SheetData,
 }
 
 impl PxuPoint {
-    pub fn new(p: C, log_branch: i32, consts: CouplingConstants) -> Self {
+    pub fn new(p: impl Into<C>, consts: CouplingConstants) -> Self {
+        let p = p.into();
+        let log_branch = p.re.floor() as i32;
+        let log_branch_sum = if log_branch.is_odd() { 1 } else { 0 };
+
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(p, consts, log_branch);
+        let u = u(p, consts, log_branch, log_branch_sum);
         Self {
             p,
             xp,
             xm,
             u,
             consts,
-            log_branch,
+            sheet_data: SheetData {
+                log_branch,
+                log_branch_sum,
+            },
         }
     }
 
-    fn limit_p(&self, p: Option<C>, log_branch: i32, consts: CouplingConstants) -> Option<Self> {
-        if let Some(p) = p {
-            if (self.p - p).norm_sqr() > 4.0 {
-                None
-            } else {
-                Some(Self::new(p, log_branch, consts))
-            }
-        } else {
-            None
-        }
+    pub fn set_coupling_constants(&mut self, consts: CouplingConstants) {
+        self.consts = consts;
+        self.set(self.p);
     }
 
-    pub fn shift_xp(&self, new_xp: C, log_branch: i32) -> Option<Self> {
-        let p = nr::find_root(
+    fn set(&mut self, p: C) {
+        self.p = p;
+        self.xp = xp(p, 1.0, self.consts);
+        self.xm = xm(p, 1.0, self.consts);
+        self.u = u(
+            p,
+            self.consts,
+            self.sheet_data.log_branch,
+            self.sheet_data.log_branch_sum,
+        );
+    }
+
+    fn try_set(&mut self, p: Option<C>, sheet_data: SheetData) {
+        let Some(p) = p else {return};
+        if (self.p - p).norm_sqr() > 4.0 {
+            log::info!("p jump too large");
+            return;
+        }
+        let xp = xp(p, 1.0, self.consts);
+        if (self.xp - xp).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+            log::info!("xp jump too large");
+            // return;
+        }
+        let xm = xm(p, 1.0, self.consts);
+        if (self.xm - xm).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+            log::info!("xm jump too large");
+            // return;
+        }
+        let u = u(
+            p,
+            self.consts,
+            sheet_data.log_branch,
+            sheet_data.log_branch_sum,
+        );
+        if (self.u - u).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+            log::info!("u jump too large");
+            // return;
+        }
+
+        self.sheet_data = sheet_data;
+        self.p = p;
+        self.xp = xp;
+        self.xm = xm;
+        self.u = u;
+    }
+
+    fn shift_xp(&self, new_xp: C) -> Option<C> {
+        nr::find_root(
             |p| xp(p, 1.0, self.consts) - new_xp,
             |p| dxp_dp(p, 1.0, self.consts),
             self.p,
             1.0e-6,
             50,
-        );
-        self.limit_p(p, log_branch, self.consts)
+        )
     }
 
-    pub fn shift_xm(&self, new_xm: C, log_branch: i32) -> Option<Self> {
-        let p = nr::find_root(
+    fn shift_xm(&self, new_xm: C) -> Option<C> {
+        nr::find_root(
             |p| xm(p, 1.0, self.consts) - new_xm,
             |p| dxm_dp(p, 1.0, self.consts),
             self.p,
             1.0e-6,
             50,
-        );
-        self.limit_p(p, log_branch, self.consts)
+        )
     }
 
-    pub fn shift_u(&self, new_u: C, log_branch: i32) -> Option<Self> {
-        let p = nr::find_root(
-            |p| u(p, self.consts, log_branch) - new_u,
+    fn shift_u(&self, new_u: C, sheet_data: &SheetData) -> Option<C> {
+        nr::find_root(
+            |p| {
+                u(
+                    p,
+                    self.consts,
+                    sheet_data.log_branch,
+                    sheet_data.log_branch_sum,
+                ) - new_u
+            },
             |p| du_dp(p, self.consts),
             self.p,
             1.0e-6,
             50,
-        );
-        self.limit_p(p, log_branch, self.consts)
+        )
     }
 
     pub fn get(&self, component: Component) -> C {
@@ -2854,26 +2928,29 @@ impl PxuPoint {
         }
     }
 
-    pub fn update(&mut self, component: Component, new_value: C, new_log_branch: i32) {
-        match component {
-            Component::P => {
-                *self = PxuPoint::new(new_value, new_log_branch, self.consts);
-            }
-            Component::Xp => {
-                if let Some(new_pxu) = self.shift_xp(new_value, new_log_branch) {
-                    *self = new_pxu;
+    pub fn update(&mut self, component: Component, new_value: C, crossed_cuts: &[&Cut]) {
+        let mut new_sheet_data = self.sheet_data.clone();
+        for cut in crossed_cuts {
+            match cut.typ {
+                CutType::LogX(Component::Xp, branch) => {
+                    new_sheet_data.log_branch += branch;
+                    new_sheet_data.log_branch_sum += branch;
                 }
-            }
-            Component::Xm => {
-                if let Some(new_pxu) = self.shift_xm(new_value, new_log_branch) {
-                    *self = new_pxu;
+                CutType::LogX(Component::Xm, branch) => {
+                    new_sheet_data.log_branch += branch;
+                    new_sheet_data.log_branch_sum -= branch;
                 }
+                _ => {}
             }
-            Component::U => {
-                if let Some(new_pxu) = self.shift_u(new_value, new_log_branch) {
-                    *self = new_pxu;
-                }
-            }
+            log::info!("Intersection with {:?}", cut.typ);
+        }
+        let p = match component {
+            Component::P => Some(new_value),
+            Component::Xp => self.shift_xp(new_value),
+            Component::Xm => self.shift_xm(new_value),
+            Component::U => self.shift_u(new_value, &new_sheet_data),
         };
+
+        self.try_set(p, new_sheet_data);
     }
 }
