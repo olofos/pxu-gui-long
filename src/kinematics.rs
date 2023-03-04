@@ -162,30 +162,12 @@ pub fn dxm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
 pub fn u(p: impl Into<C>, consts: CouplingConstants, log_branch: i32, log_branch_sum: i32) -> C {
     let p = p.into();
     let xp = xp(p, 1.0, consts);
-    // let xm = xm(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-
-    // let um = xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln();
     let branch_shift = (log_branch + log_branch_sum) as f64 * consts.k() as f64 * C::i() / consts.h;
 
-    // let t = 0.0;
-    // let s = 0.5;
     let u0p = up - C::i() / consts.h - branch_shift;
-    // let u0m = um + C::i() / consts.h + (1.0 - t) * branch_shift;
-
-    // if (u0p - u0m).norm_sqr() > 0.01 {
-    //     log::info!("{:.2}", u0p - u0m);
-    // }
-
-    // s * u0p + (1.0 - s) * u0m
     u0p
-
-    // ((xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln() - C::i() * (1.0) / consts.h)
-    //     + (xm + 1.0 / xm - 2.0 * consts.kslash() / consts.h * xm.ln() + C::i() * (1.0) / consts.h))
-    //     / 2.0
-
-    // - 0.0 * log_branch as f64 * consts.k() as f64 * C::i() / consts.h)
 }
 
 pub fn du_dp(p: impl Into<C>, consts: CouplingConstants) -> C {
@@ -245,4 +227,27 @@ pub fn dxhm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (-C::i() * PI * p).exp();
     dxh_dp(p, m, consts) * exp - (C::i() * PI) * xh(p, m, consts) * exp
+}
+
+pub fn uh(p: impl Into<C>, consts: CouplingConstants, log_branch: i32, log_branch_sum: i32) -> C {
+    let p = p.into();
+    let xp = xhp(p, 1.0, consts);
+
+    let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
+    let branch_shift = (log_branch + log_branch_sum) as f64 * consts.k() as f64 * C::i() / consts.h;
+
+    let u0p = up - C::i() / consts.h - branch_shift;
+    u0p
+}
+
+pub fn duh_dp(p: impl Into<C>, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let cot = 1.0 / (PI * p).tan();
+    let sin = (PI * p).sin();
+
+    let term1 = -den_dp(p, 1.0, consts) * cot;
+    let term2 = TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
+    let term3 = -2.0 * consts.kslash() * dxh_dp(p, 1.0, consts) / xh(p, 1.0, consts);
+
+    (term1 + term2 + term3) * consts.h
 }

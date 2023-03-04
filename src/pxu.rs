@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::kinematics::{
-    den2_dp, du_dp, dxhm_dp, dxhp_dp, dxm_dp, dxp_dp, en2, u, xhm, xhp, xm, xp, CouplingConstants,
+    den2_dp, du_dp, duh_dp, dxhm_dp, dxhp_dp, dxm_dp, dxp_dp, en2, u, uh, xhm, xhp, xm, xp,
+    CouplingConstants,
 };
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
@@ -2783,7 +2784,7 @@ impl OldCut {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SheetData {
     pub log_branch: i32,
     pub log_branch_sum: i32,
@@ -2830,64 +2831,95 @@ impl PxuPoint {
 
     fn set(&mut self, p: C) {
         self.p = p;
-        self.xp = if self.sheet_data.e_branch > 0 {
-            xp(p, 1.0, self.consts)
+        if self.sheet_data.e_branch > 0 {
+            self.xp = xp(p, 1.0, self.consts);
+            self.xm = xm(p, 1.0, self.consts);
+
+            self.u = u(
+                p,
+                self.consts,
+                self.sheet_data.log_branch,
+                self.sheet_data.log_branch_sum,
+            );
         } else {
-            xhp(p, 1.0, self.consts)
+            self.xp = xhp(p, 1.0, self.consts);
+            self.xm = xhm(p, 1.0, self.consts);
+            self.u = uh(
+                p,
+                self.consts,
+                self.sheet_data.log_branch,
+                self.sheet_data.log_branch_sum,
+            );
+
+            log::info!(
+                "{:2} {:2}",
+                u(
+                    p,
+                    self.consts,
+                    self.sheet_data.log_branch,
+                    self.sheet_data.log_branch_sum,
+                ),
+                uh(
+                    p,
+                    self.consts,
+                    self.sheet_data.log_branch,
+                    self.sheet_data.log_branch_sum,
+                )
+            );
         };
-        self.xm = if self.sheet_data.e_branch > 0 {
-            xm(p, 1.0, self.consts)
-        } else {
-            xhm(p, 1.0, self.consts)
-        };
-        self.u = u(
-            p,
-            self.consts,
-            self.sheet_data.log_branch,
-            self.sheet_data.log_branch_sum,
-        );
     }
 
     fn try_set(&mut self, p: Option<C>, sheet_data: SheetData) -> bool {
         let Some(p) = p else {return false};
-        if (self.p - p).norm_sqr() > 4.0 {
+        let new_xp: C;
+        let new_xm: C;
+        let new_u: C;
+
+        if sheet_data.e_branch > 0 {
+            new_xp = xp(p, 1.0, self.consts);
+            new_xm = xm(p, 1.0, self.consts);
+            new_u = u(
+                p,
+                self.consts,
+                sheet_data.log_branch,
+                sheet_data.log_branch_sum,
+            );
+        } else {
+            new_xp = xhp(p, 1.0, self.consts);
+            new_xm = xhm(p, 1.0, self.consts);
+            new_u = uh(
+                p,
+                self.consts,
+                sheet_data.log_branch,
+                sheet_data.log_branch_sum,
+            );
+        }
+
+        if (self.p - p).norm_sqr() > 4.0 || (self.p - p).re.abs() > 0.5 {
             log::info!("p jump too large");
             return false;
         }
-        let xp = if sheet_data.e_branch > 0 {
-            xp(p, 1.0, self.consts)
-        } else {
-            xhp(p, 1.0, self.consts)
-        };
-        if (self.xp - xp).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+
+        if (self.xp - new_xp).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("xp jump too large");
             return false;
         }
-        let xm = if sheet_data.e_branch > 0 {
-            xm(p, 1.0, self.consts)
-        } else {
-            xhm(p, 1.0, self.consts)
-        };
-        if (self.xm - xm).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+
+        if (self.xm - new_xm).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("xm jump too large");
             return false;
         }
-        let u = u(
-            p,
-            self.consts,
-            sheet_data.log_branch,
-            sheet_data.log_branch_sum,
-        );
-        if (self.u - u).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+
+        if (self.u - new_u).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("u jump too large");
-            // return false;
+            return false;
         }
 
         self.sheet_data = sheet_data;
         self.p = p;
-        self.xp = xp;
-        self.xm = xm;
-        self.u = u;
+        self.xp = new_xp;
+        self.xm = new_xm;
+        self.u = new_u;
 
         true
     }
@@ -2912,12 +2944,12 @@ impl PxuPoint {
         }
     }
 
-    fn shift_xm(&self, new_xm: C, sheet_data: &SheetData) -> Option<C> {
+    fn shift_xm(&self, new_xm: C, sheet_data: &SheetData, guess: C) -> Option<C> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
                 |p| xm(p, 1.0, self.consts) - new_xm,
                 |p| dxm_dp(p, 1.0, self.consts),
-                self.p,
+                guess,
                 1.0e-6,
                 50,
             )
@@ -2925,28 +2957,45 @@ impl PxuPoint {
             nr::find_root(
                 |p| xhm(p, 1.0, self.consts) - new_xm,
                 |p| dxhm_dp(p, 1.0, self.consts),
-                self.p,
+                guess,
                 1.0e-6,
                 50,
             )
         }
     }
 
-    fn shift_u(&self, new_u: C, sheet_data: &SheetData) -> Option<C> {
-        nr::find_root(
-            |p| {
-                u(
-                    p,
-                    self.consts,
-                    sheet_data.log_branch,
-                    sheet_data.log_branch_sum,
-                ) - new_u
-            },
-            |p| du_dp(p, self.consts),
-            self.p,
-            1.0e-6,
-            50,
-        )
+    fn shift_u(&self, new_u: C, sheet_data: &SheetData, guess: C) -> Option<C> {
+        if sheet_data.e_branch > 0 {
+            nr::find_root(
+                |p| {
+                    u(
+                        p,
+                        self.consts,
+                        sheet_data.log_branch,
+                        sheet_data.log_branch_sum,
+                    ) - new_u
+                },
+                |p| du_dp(p, self.consts),
+                guess,
+                1.0e-6,
+                50,
+            )
+        } else {
+            nr::find_root(
+                |p| {
+                    uh(
+                        p,
+                        self.consts,
+                        sheet_data.log_branch,
+                        sheet_data.log_branch_sum,
+                    ) - new_u
+                },
+                |p| duh_dp(p, self.consts),
+                guess,
+                1.0e-6,
+                50,
+            )
+        }
     }
 
     pub fn get(&self, component: Component) -> C {
@@ -2982,11 +3031,17 @@ impl PxuPoint {
             let p = match component {
                 Component::P => Some(new_value),
                 Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess),
-                Component::Xm => self.shift_xm(new_value, &new_sheet_data),
-                Component::U => self.shift_u(new_value, &new_sheet_data),
+                Component::Xm => self.shift_xm(new_value, &new_sheet_data, guess),
+                Component::U => self.shift_u(new_value, &new_sheet_data, guess),
             };
 
+            let prev_p = self.p;
+            let crossed_cut = new_sheet_data != self.sheet_data;
+
             if self.try_set(p, new_sheet_data.clone()) {
+                if crossed_cut {
+                    log::info!("{:.2} {:.2}", self.p - prev_p, guess - prev_p);
+                }
                 break;
             }
         }
