@@ -199,3 +199,50 @@ pub fn du_dp(p: impl Into<C>, consts: CouplingConstants) -> C {
 
     (term1 + term2 + term3) * consts.h
 }
+
+fn xh(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let sin = (PI * p).sin();
+    let m_eff = m + consts.k() as f64 * p;
+
+    let numerator = m_eff - SIGN * en(p, m, consts);
+    let denominator = 2.0 * consts.h * sin;
+
+    numerator / denominator
+}
+
+fn dxh_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let sin = (PI * p).sin();
+    let cos = (PI * p).cos();
+
+    let term1 = -xh(p, m, consts) * (cos / sin) / 2.0;
+    let term2 = consts.kslash() / (2.0 * consts.h * sin);
+    let term3 = (consts.kslash() * (m + consts.k() as f64 * p)
+        + 2.0 * consts.h * consts.h * sin * cos)
+        / (en(p, m, consts) * 2.0 * consts.h * sin);
+
+    TAU * (term1 + term2 - SIGN * term3)
+}
+
+pub fn xhp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    xh(p, m, consts) * (C::i() * PI * p).exp()
+}
+
+pub fn dxhp_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let exp = (C::i() * PI * p).exp();
+    dxh_dp(p, m, consts) * exp + (C::i() * PI) * xh(p, m, consts) * exp
+}
+
+pub fn xhm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    xh(p, m, consts) * (-C::i() * PI * p).exp()
+}
+
+pub fn dxhm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+    let p = p.into();
+    let exp = (-C::i() * PI * p).exp();
+    dxh_dp(p, m, consts) * exp - (C::i() * PI) * xh(p, m, consts) * exp
+}

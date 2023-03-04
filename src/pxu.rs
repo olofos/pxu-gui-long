@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::kinematics::{den2_dp, du_dp, dxm_dp, dxp_dp, en2, u, xm, xp, CouplingConstants};
+use crate::kinematics::{
+    den2_dp, du_dp, dxhm_dp, dxhp_dp, dxm_dp, dxp_dp, en2, u, xhm, xhp, xm, xp, CouplingConstants,
+};
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
 use itertools::Itertools;
@@ -1137,8 +1139,6 @@ impl Cut {
         let p_minus_one_over_s = get_branch_point(m, consts, m.signum());
         let m = 2.0 + (2 * p_range - 1) as f64 * consts.k() as f64;
 
-        // log::info!("p_minus_one_over_s={p_minus_one_over_s}");
-
         let paths = vec![XInterpolator::generate_xp(
             p_minus_one_over_s,
             p_minus_one_over_s.ceil(),
@@ -1875,24 +1875,19 @@ impl Cut {
             let im = i as f64 * i as f64 / (STEP as f64);
 
             let p = nr::find_root(
-                |p| en2(p, 1.0, consts) - C::new(-im, 0.001),
+                |p| en2(p, 1.0, consts) - C::new(-im, 0.0),
                 |p| den2_dp(p, 1.0, consts),
                 p_prev,
                 1.0e-3,
                 50,
             );
 
-            if let Some(p) = p {
-                cut.push((im, p));
-                p_prev = p;
+            let Some(p) = p else {break;};
 
-                if p.im.abs() > 2.0 {
-                    // log::info!("done at {i}");
+            cut.push((im, p));
+            p_prev = p;
 
-                    break;
-                }
-            } else {
-                // log::info!("p not found at {i}");
+            if p.im.abs() > 2.0 {
                 break;
             }
         }
@@ -1910,8 +1905,6 @@ impl Cut {
                 )
             })
             .collect::<Vec<_>>();
-
-        // log::info!("{:?}", cut[1]);
 
         let mut cuts = vec![];
 
@@ -2387,10 +2380,7 @@ impl OldCut {
                 x.arg() / std::f64::consts::PI
             };
 
-            // let p_minus_one_over_s = get_branch_point(-(consts.k() as f64) + 1.0, consts);
             let p_minus_one_over_s = get_branch_point(1.0, consts, 1.0);
-            // log::info!("ps = {p_minus_one_over_s}");
-            // log::info!("p1 = {p1}");
 
             cut_xp.push(XInterpolator::generate_xp(
                 p1,
@@ -2797,6 +2787,7 @@ impl OldCut {
 pub struct SheetData {
     pub log_branch: i32,
     pub log_branch_sum: i32,
+    pub e_branch: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -2827,6 +2818,7 @@ impl PxuPoint {
             sheet_data: SheetData {
                 log_branch,
                 log_branch_sum,
+                e_branch: 1,
             },
         }
     }
@@ -2838,8 +2830,16 @@ impl PxuPoint {
 
     fn set(&mut self, p: C) {
         self.p = p;
-        self.xp = xp(p, 1.0, self.consts);
-        self.xm = xm(p, 1.0, self.consts);
+        self.xp = if self.sheet_data.e_branch > 0 {
+            xp(p, 1.0, self.consts)
+        } else {
+            xhp(p, 1.0, self.consts)
+        };
+        self.xm = if self.sheet_data.e_branch > 0 {
+            xm(p, 1.0, self.consts)
+        } else {
+            xhm(p, 1.0, self.consts)
+        };
         self.u = u(
             p,
             self.consts,
@@ -2848,21 +2848,29 @@ impl PxuPoint {
         );
     }
 
-    fn try_set(&mut self, p: Option<C>, sheet_data: SheetData) {
-        let Some(p) = p else {return};
+    fn try_set(&mut self, p: Option<C>, sheet_data: SheetData) -> bool {
+        let Some(p) = p else {return false};
         if (self.p - p).norm_sqr() > 4.0 {
             log::info!("p jump too large");
-            return;
+            return false;
         }
-        let xp = xp(p, 1.0, self.consts);
+        let xp = if sheet_data.e_branch > 0 {
+            xp(p, 1.0, self.consts)
+        } else {
+            xhp(p, 1.0, self.consts)
+        };
         if (self.xp - xp).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("xp jump too large");
-            // return;
+            return false;
         }
-        let xm = xm(p, 1.0, self.consts);
+        let xm = if sheet_data.e_branch > 0 {
+            xm(p, 1.0, self.consts)
+        } else {
+            xhm(p, 1.0, self.consts)
+        };
         if (self.xm - xm).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("xm jump too large");
-            // return;
+            return false;
         }
         let u = u(
             p,
@@ -2872,7 +2880,7 @@ impl PxuPoint {
         );
         if (self.u - u).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
             log::info!("u jump too large");
-            // return;
+            // return false;
         }
 
         self.sheet_data = sheet_data;
@@ -2880,26 +2888,48 @@ impl PxuPoint {
         self.xp = xp;
         self.xm = xm;
         self.u = u;
+
+        true
     }
 
-    fn shift_xp(&self, new_xp: C) -> Option<C> {
-        nr::find_root(
-            |p| xp(p, 1.0, self.consts) - new_xp,
-            |p| dxp_dp(p, 1.0, self.consts),
-            self.p,
-            1.0e-6,
-            50,
-        )
+    fn shift_xp(&self, new_xp: C, sheet_data: &SheetData, guess: C) -> Option<C> {
+        if sheet_data.e_branch > 0 {
+            nr::find_root(
+                |p| xp(p, 1.0, self.consts) - new_xp,
+                |p| dxp_dp(p, 1.0, self.consts),
+                guess,
+                1.0e-6,
+                50,
+            )
+        } else {
+            nr::find_root(
+                |p| xhp(p, 1.0, self.consts) - new_xp,
+                |p| dxhp_dp(p, 1.0, self.consts),
+                guess,
+                1.0e-6,
+                50,
+            )
+        }
     }
 
-    fn shift_xm(&self, new_xm: C) -> Option<C> {
-        nr::find_root(
-            |p| xm(p, 1.0, self.consts) - new_xm,
-            |p| dxm_dp(p, 1.0, self.consts),
-            self.p,
-            1.0e-6,
-            50,
-        )
+    fn shift_xm(&self, new_xm: C, sheet_data: &SheetData) -> Option<C> {
+        if sheet_data.e_branch > 0 {
+            nr::find_root(
+                |p| xm(p, 1.0, self.consts) - new_xm,
+                |p| dxm_dp(p, 1.0, self.consts),
+                self.p,
+                1.0e-6,
+                50,
+            )
+        } else {
+            nr::find_root(
+                |p| xhm(p, 1.0, self.consts) - new_xm,
+                |p| dxhm_dp(p, 1.0, self.consts),
+                self.p,
+                1.0e-6,
+                50,
+            )
+        }
     }
 
     fn shift_u(&self, new_u: C, sheet_data: &SheetData) -> Option<C> {
@@ -2940,17 +2970,25 @@ impl PxuPoint {
                     new_sheet_data.log_branch += branch;
                     new_sheet_data.log_branch_sum -= branch;
                 }
+                CutType::E => {
+                    new_sheet_data.e_branch = -new_sheet_data.e_branch;
+                }
                 _ => {}
             }
-            log::info!("Intersection with {:?}", cut.typ);
+            log::info!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
-        let p = match component {
-            Component::P => Some(new_value),
-            Component::Xp => self.shift_xp(new_value),
-            Component::Xm => self.shift_xm(new_value),
-            Component::U => self.shift_u(new_value, &new_sheet_data),
-        };
 
-        self.try_set(p, new_sheet_data);
+        for guess in vec![self.p, self.p - 0.01, self.p + 0.01] {
+            let p = match component {
+                Component::P => Some(new_value),
+                Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess),
+                Component::Xm => self.shift_xm(new_value, &new_sheet_data),
+                Component::U => self.shift_u(new_value, &new_sheet_data),
+            };
+
+            if self.try_set(p, new_sheet_data.clone()) {
+                break;
+            }
+        }
     }
 }
