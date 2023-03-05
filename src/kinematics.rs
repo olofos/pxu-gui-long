@@ -158,18 +158,20 @@ pub fn dxm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     dx_dp(p, m, consts) * exp - (C::i() * PI) * x(p, m, consts) * exp
 }
 
-pub fn u(p: impl Into<C>, consts: CouplingConstants, log_branch: i32, log_branch_sum: i32) -> C {
+pub fn u(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
     let xp = xp(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-    let branch_shift = (log_branch + log_branch_sum) as f64 * consts.k() as f64 * C::i() / consts.h;
+    let branch_shift =
+        (sheet_data.log_branch + sheet_data.log_branch_sum) as f64 * consts.k() as f64 * C::i()
+            / consts.h;
 
     let u0p = up - C::i() / consts.h - branch_shift;
     u0p
 }
 
-pub fn du_dp(p: impl Into<C>, consts: CouplingConstants) -> C {
+pub fn du_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();
@@ -228,18 +230,20 @@ pub fn dxhm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     dxh_dp(p, m, consts) * exp - (C::i() * PI) * xh(p, m, consts) * exp
 }
 
-pub fn uh(p: impl Into<C>, consts: CouplingConstants, log_branch: i32, log_branch_sum: i32) -> C {
+pub fn uh(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
     let xp = xhp(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-    let branch_shift = (log_branch + log_branch_sum) as f64 * consts.k() as f64 * C::i() / consts.h;
+    let branch_shift =
+        (sheet_data.log_branch + sheet_data.log_branch_sum) as f64 * consts.k() as f64 * C::i()
+            / consts.h;
 
     let u0p = up - C::i() / consts.h - branch_shift;
     u0p
 }
 
-pub fn duh_dp(p: impl Into<C>, consts: CouplingConstants) -> C {
+pub fn duh_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();

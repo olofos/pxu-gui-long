@@ -2800,20 +2800,22 @@ impl PxuPoint {
         let log_branch = p.re.floor() as i32;
         let log_branch_sum = if log_branch.is_odd() { 1 } else { 0 };
 
+        let sheet_data = SheetData {
+            log_branch,
+            log_branch_sum,
+            e_branch: 1,
+        };
+
         let xp = xp(p, 1.0, consts);
         let xm = xm(p, 1.0, consts);
-        let u = u(p, consts, log_branch, log_branch_sum);
+        let u = u(p, consts, &sheet_data);
         Self {
             p,
             xp,
             xm,
             u,
             consts,
-            sheet_data: SheetData {
-                log_branch,
-                log_branch_sum,
-                e_branch: 1,
-            },
+            sheet_data,
         }
     }
 
@@ -2828,36 +2830,16 @@ impl PxuPoint {
             self.xp = xp(p, 1.0, self.consts);
             self.xm = xm(p, 1.0, self.consts);
 
-            self.u = u(
-                p,
-                self.consts,
-                self.sheet_data.log_branch,
-                self.sheet_data.log_branch_sum,
-            );
+            self.u = u(p, self.consts, &self.sheet_data);
         } else {
             self.xp = xhp(p, 1.0, self.consts);
             self.xm = xhm(p, 1.0, self.consts);
-            self.u = uh(
-                p,
-                self.consts,
-                self.sheet_data.log_branch,
-                self.sheet_data.log_branch_sum,
-            );
+            self.u = uh(p, self.consts, &self.sheet_data);
 
             log::info!(
                 "{:2} {:2}",
-                u(
-                    p,
-                    self.consts,
-                    self.sheet_data.log_branch,
-                    self.sheet_data.log_branch_sum,
-                ),
-                uh(
-                    p,
-                    self.consts,
-                    self.sheet_data.log_branch,
-                    self.sheet_data.log_branch_sum,
-                )
+                u(p, self.consts, &self.sheet_data,),
+                uh(p, self.consts, &self.sheet_data)
             );
         };
     }
@@ -2871,21 +2853,11 @@ impl PxuPoint {
         if sheet_data.e_branch > 0 {
             new_xp = xp(p, 1.0, self.consts);
             new_xm = xm(p, 1.0, self.consts);
-            new_u = u(
-                p,
-                self.consts,
-                sheet_data.log_branch,
-                sheet_data.log_branch_sum,
-            );
+            new_u = u(p, self.consts, &self.sheet_data);
         } else {
             new_xp = xhp(p, 1.0, self.consts);
             new_xm = xhm(p, 1.0, self.consts);
-            new_u = uh(
-                p,
-                self.consts,
-                sheet_data.log_branch,
-                sheet_data.log_branch_sum,
-            );
+            new_u = uh(p, self.consts, &self.sheet_data);
         }
 
         if (self.p - p).norm_sqr() > 4.0 || (self.p - p).re.abs() > 0.5 {
@@ -2960,30 +2932,16 @@ impl PxuPoint {
     fn shift_u(&self, new_u: C, sheet_data: &SheetData, guess: C) -> Option<C> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| {
-                    u(
-                        p,
-                        self.consts,
-                        sheet_data.log_branch,
-                        sheet_data.log_branch_sum,
-                    ) - new_u
-                },
-                |p| du_dp(p, self.consts),
+                |p| u(p, self.consts, &self.sheet_data) - new_u,
+                |p| du_dp(p, self.consts, &self.sheet_data),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| {
-                    uh(
-                        p,
-                        self.consts,
-                        sheet_data.log_branch,
-                        sheet_data.log_branch_sum,
-                    ) - new_u
-                },
-                |p| duh_dp(p, self.consts),
+                |p| uh(p, self.consts, &self.sheet_data) - new_u,
+                |p| duh_dp(p, self.consts, &self.sheet_data),
                 guess,
                 1.0e-6,
                 50,
