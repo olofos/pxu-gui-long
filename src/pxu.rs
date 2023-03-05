@@ -586,59 +586,6 @@ impl CutVisibilityCondition {
 }
 
 #[derive(Debug)]
-struct CutVisibility {
-    conditions: Vec<CutVisibilityCondition>,
-}
-
-impl CutVisibility {
-    fn new() -> Self {
-        Self { conditions: vec![] }
-    }
-
-    fn im_xp_positive(mut self) -> Self {
-        self.conditions.push(CutVisibilityCondition::ImXp(1));
-        self
-    }
-
-    fn im_xp_negative(mut self) -> Self {
-        self.conditions.push(CutVisibilityCondition::ImXp(-1));
-        self
-    }
-
-    fn im_xm_positive(mut self) -> Self {
-        self.conditions.push(CutVisibilityCondition::ImXm(1));
-        self
-    }
-
-    fn im_xm_negative(mut self) -> Self {
-        self.conditions.push(CutVisibilityCondition::ImXm(-1));
-        self
-    }
-
-    fn log_branch(mut self, branch: i32) -> Self {
-        self.conditions
-            .push(CutVisibilityCondition::LogBranch(branch));
-        self
-    }
-
-    fn log_branch_gt(mut self, branch: i32) -> Self {
-        self.conditions
-            .push(CutVisibilityCondition::LogBranchGT(branch));
-        self
-    }
-
-    fn log_branch_le(mut self, branch: i32) -> Self {
-        self.conditions
-            .push(CutVisibilityCondition::LogBranchLE(branch));
-        self
-    }
-
-    fn check(&self, pt: &PxuPoint) -> bool {
-        self.conditions.iter().all(|cond| cond.check(pt))
-    }
-}
-
-#[derive(Debug)]
 pub struct Cuts {
     cuts: Vec<Cut>,
     consts: Option<CouplingConstants>,
@@ -704,24 +651,56 @@ pub struct Cut {
     pub paths: Vec<Vec<C>>,
     pub branch_points: Vec<C>,
     pub typ: CutType,
-    visibility: CutVisibility,
+    visibility: Vec<CutVisibilityCondition>,
 }
 
 impl Cut {
-    fn new(
-        component: Component,
-        paths: Vec<Vec<C>>,
-        branch_points: Vec<C>,
-        typ: CutType,
-        visibility: CutVisibility,
-    ) -> Self {
+    fn new(component: Component, paths: Vec<Vec<C>>, branch_points: Vec<C>, typ: CutType) -> Self {
         Self {
             component,
             paths,
             branch_points,
             typ,
-            visibility,
+            visibility: vec![],
         }
+    }
+
+    fn im_xp_positive(mut self) -> Self {
+        self.visibility.push(CutVisibilityCondition::ImXp(1));
+        self
+    }
+
+    fn im_xp_negative(mut self) -> Self {
+        self.visibility.push(CutVisibilityCondition::ImXp(-1));
+        self
+    }
+
+    fn im_xm_positive(mut self) -> Self {
+        self.visibility.push(CutVisibilityCondition::ImXm(1));
+        self
+    }
+
+    fn im_xm_negative(mut self) -> Self {
+        self.visibility.push(CutVisibilityCondition::ImXm(-1));
+        self
+    }
+
+    fn log_branch(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::LogBranch(branch));
+        self
+    }
+
+    fn log_branch_gt(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::LogBranchGT(branch));
+        self
+    }
+
+    fn log_branch_le(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::LogBranchLE(branch));
+        self
     }
 
     pub fn get(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {
@@ -762,7 +741,7 @@ impl Cut {
     }
 
     pub fn is_visible(&self, pt: &PxuPoint) -> bool {
-        self.visibility.check(pt)
+        self.visibility.iter().all(|cond| cond.check(pt))
     }
 
     fn x_cuts_p(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {
@@ -844,7 +823,6 @@ impl Cut {
                 vec![p_points.clone()],
                 vec![],
                 CutType::U(Component::Xp),
-                CutVisibility::new(),
             ));
 
             cuts.push(Cut::new(
@@ -852,7 +830,6 @@ impl Cut {
                 vec![p_points.iter().map(|x| x.conj()).collect()],
                 vec![],
                 CutType::U(Component::Xm),
-                CutVisibility::new(),
             ));
 
             cuts
@@ -870,38 +847,46 @@ impl Cut {
             vec![]
         };
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            vec![XInterpolator::generate_xp_full(p_range, 0.0, consts)],
-            branch_points.clone(),
-            CutType::U(Component::Xp),
-            CutVisibility::new().log_branch(p_range),
-        ));
-
-        cuts.push(Cut::new(
-            Component::Xm,
-            vec![XInterpolator::generate_xm_full(p_range, 0.0, consts)],
-            branch_points.clone(),
-            CutType::U(Component::Xm),
-            CutVisibility::new().log_branch(p_range),
-        ));
-
-        if p_range >= -1 {
-            cuts.push(Cut::new(
+        cuts.push(
+            Cut::new(
                 Component::Xp,
-                vec![XInterpolator::generate_xm_full(p_range, 0.0, consts)],
-                branch_points.clone(),
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range),
-            ));
-
-            cuts.push(Cut::new(
-                Component::Xm,
                 vec![XInterpolator::generate_xp_full(p_range, 0.0, consts)],
                 branch_points.clone(),
+                CutType::U(Component::Xp),
+            )
+            .log_branch(p_range),
+        );
+
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                vec![XInterpolator::generate_xm_full(p_range, 0.0, consts)],
+                branch_points.clone(),
                 CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            )
+            .log_branch(p_range),
+        );
+
+        if p_range >= -1 {
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    vec![XInterpolator::generate_xm_full(p_range, 0.0, consts)],
+                    branch_points.clone(),
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    vec![XInterpolator::generate_xp_full(p_range, 0.0, consts)],
+                    branch_points.clone(),
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
         }
 
         if p_range == 0 {
@@ -910,48 +895,56 @@ impl Cut {
             let paths = vec![XInterpolator::generate_xp(ps, 1.0, 2.0, consts)];
             let branch_points = vec![*paths[0].first().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                paths,
-                branch_points,
-                CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
 
             let paths = vec![XInterpolator::generate_xm(ps, 1.0, 2.0, consts)];
             let branch_points = vec![*paths[0].first().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xm,
-                paths,
-                branch_points,
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
 
             let ps = get_branch_point(-1.0, consts, 0.0);
 
             let paths = vec![XInterpolator::generate_xm(ps, 1.0, -2.0, consts)];
             let branch_points = vec![*paths[0].first().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                paths,
-                branch_points,
-                CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
 
             let paths = vec![XInterpolator::generate_xp(ps, 1.0, -2.0, consts)];
             let branch_points = vec![*paths[0].first().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xm,
-                paths,
-                branch_points,
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
         } else if p_range == -1 {
             let ps = get_branch_point(1.0, consts, 1.0);
 
@@ -963,13 +956,15 @@ impl Cut {
             )];
             let branch_points = vec![*paths[0].last().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                paths,
-                branch_points,
-                CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
 
             let paths = vec![XInterpolator::generate_xm(
                 ps,
@@ -979,13 +974,15 @@ impl Cut {
             )];
             let branch_points = vec![*paths[0].last().unwrap()];
 
-            cuts.push(Cut::new(
-                Component::Xm,
-                paths,
-                branch_points,
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
         } else {
             let paths = vec![XInterpolator::generate_xp(
                 0.0,
@@ -995,13 +992,16 @@ impl Cut {
             )];
             let branch_points = vec![];
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                paths,
-                branch_points,
-                CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range).im_xm_negative(),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_negative(),
+            );
 
             let paths = vec![XInterpolator::generate_xm(
                 0.0,
@@ -1011,13 +1011,16 @@ impl Cut {
             )];
             let branch_points = vec![];
 
-            cuts.push(Cut::new(
-                Component::Xm,
-                paths,
-                branch_points,
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range).im_xp_positive(),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_positive(),
+            );
         }
 
         if p_range > 0 {
@@ -1029,13 +1032,16 @@ impl Cut {
             )];
             let branch_points = vec![];
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                paths,
-                branch_points,
-                CutType::U(Component::Xm),
-                CutVisibility::new().log_branch(p_range).im_xm_positive(),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(),
+            );
 
             let paths = vec![XInterpolator::generate_xm(
                 0.0,
@@ -1045,13 +1051,16 @@ impl Cut {
             )];
             let branch_points = vec![];
 
-            cuts.push(Cut::new(
-                Component::Xm,
-                paths,
-                branch_points,
-                CutType::U(Component::Xp),
-                CutVisibility::new().log_branch(p_range).im_xp_negative(),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(),
+            );
         }
 
         cuts
@@ -1064,49 +1073,61 @@ impl Cut {
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, 1),
-            CutVisibility::new().log_branch(p_range).im_xp_positive(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, 1),
+            )
+            .log_branch(p_range)
+            .im_xp_positive(),
+        );
 
         // xp negative axis from below
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, -1),
-            CutVisibility::new().log_branch(p_range).im_xp_negative(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, -1),
+            )
+            .log_branch(p_range)
+            .im_xp_negative(),
+        );
 
         // xm negative axis from below
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, 1),
-            CutVisibility::new().log_branch(p_range).im_xm_negative(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, 1),
+            )
+            .log_branch(p_range)
+            .im_xm_negative(),
+        );
 
         // xm negative axis from above
         let paths = vec![vec![C::from(-100.0), C::zero()]];
         let branch_points = vec![C::from(-1.0 / consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, -1),
-            CutVisibility::new().log_branch(p_range).im_xm_positive(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, -1),
+            )
+            .log_branch(p_range)
+            .im_xm_positive(),
+        );
 
         // xp image of xm negative real axis from below
 
@@ -1123,13 +1144,16 @@ impl Cut {
         )];
         let branch_points = vec![paths[0][0]];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, 1),
-            CutVisibility::new().log_branch(p_range).im_xm_negative(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, 1),
+            )
+            .log_branch(p_range)
+            .im_xm_negative(),
+        );
 
         // xm image of xp negative real axis from above
 
@@ -1141,13 +1165,16 @@ impl Cut {
         )];
         let branch_points = vec![paths[0][0]];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, 1),
-            CutVisibility::new().log_branch(p_range).im_xp_positive(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, 1),
+            )
+            .log_branch(p_range)
+            .im_xp_positive(),
+        );
 
         // xp image of xm negative real axis from above
 
@@ -1164,13 +1191,16 @@ impl Cut {
         )];
         let branch_points = vec![paths[0][0]];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, -1),
-            CutVisibility::new().log_branch(p_range).im_xm_positive(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, -1),
+            )
+            .log_branch(p_range)
+            .im_xm_positive(),
+        );
 
         // xm image of xp negative real axis from below
 
@@ -1182,39 +1212,46 @@ impl Cut {
         )];
         let branch_points = vec![paths[0][0]];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, -1),
-            CutVisibility::new().log_branch(p_range).im_xp_negative(),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, -1),
+            )
+            .log_branch(p_range)
+            .im_xp_negative(),
+        );
 
         // xp real positive axis
 
         let paths = vec![vec![C::zero(), C::from(100.0)]];
         let branch_points = vec![C::from(consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, 0),
-            CutVisibility::new().log_branch(p_range),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, 0),
+            )
+            .log_branch(p_range),
+        );
 
         // xm real positive axis
 
         let paths = vec![vec![C::zero(), C::from(100.0)]];
         let branch_points = vec![C::from(consts.s()), C::zero()];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, 0),
-            CutVisibility::new().log_branch(p_range),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, 0),
+            )
+            .log_branch(p_range),
+        );
 
         // xp image of xm real positive axis
 
@@ -1224,26 +1261,30 @@ impl Cut {
         let paths = vec![XInterpolator::generate_xp(p_s.floor(), p_s, m, consts)];
         let branch_points = vec![*paths[0].last().unwrap()];
 
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xm, 0),
-            CutVisibility::new().log_branch(p_range),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xp,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xm, 0),
+            )
+            .log_branch(p_range),
+        );
 
         // xm image of xp real positive axis
 
         let paths = vec![XInterpolator::generate_xm(p_s.floor(), p_s, m, consts)];
         let branch_points = vec![*paths[0].last().unwrap()];
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::LogX(Component::Xp, 0),
-            CutVisibility::new().log_branch(p_range),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::Xm,
+                paths,
+                branch_points,
+                CutType::LogX(Component::Xp, 0),
+            )
+            .log_branch(p_range),
+        );
 
         cuts
     }
@@ -1300,40 +1341,48 @@ impl Cut {
             //     x_cuts,
             //      vec![],
             //      CutType::DebugPath,
-            //     CutVisibility::new(),
+            //
             // ));
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
             // Real positive axis
 
@@ -1382,7 +1431,7 @@ impl Cut {
             //     x_cuts,
             //      vec![],
             //      CutType::DebugPath,
-            //     CutVisibility::new(),
+            //
             // ));
 
             cuts.push(Cut::new(
@@ -1390,7 +1439,6 @@ impl Cut {
                 vec![p_points.iter().map(|p| p.conj()).collect()],
                 vec![branch_point.conj()],
                 CutType::LogX(Component::Xp, 0),
-                CutVisibility::new(),
             ));
 
             cuts.push(Cut::new(
@@ -1398,7 +1446,6 @@ impl Cut {
                 vec![p_points],
                 vec![branch_point],
                 CutType::LogX(Component::Xm, 0),
-                CutVisibility::new(),
             ));
         } else if p_range == -1 {
             // Real negative axis
@@ -1449,40 +1496,48 @@ impl Cut {
             //     x_cuts,
             //      vec![],
             //      CutType::DebugPath,
-            //     CutVisibility::new(),
+            //
             // ));
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
             // Real positive axis
 
@@ -1535,7 +1590,7 @@ impl Cut {
             //     x_cuts,
             //      vec![],
             //      CutType::DebugPath,
-            //     CutVisibility::new(),
+            //
             // ));
 
             cuts.push(Cut::new(
@@ -1543,7 +1598,6 @@ impl Cut {
                 vec![p_points.iter().map(|p| p.conj()).collect()],
                 vec![branch_point.conj()],
                 CutType::LogX(Component::Xp, 0),
-                CutVisibility::new(),
             ));
 
             cuts.push(Cut::new(
@@ -1551,7 +1605,6 @@ impl Cut {
                 vec![p_points.clone()],
                 vec![branch_point],
                 CutType::LogX(Component::Xm, 0),
-                CutVisibility::new(),
             ));
         } else if p_range > 0 {
             // Real negative axis
@@ -1605,40 +1658,48 @@ impl Cut {
             //     x_cuts,
             //      vec![x],
             //      CutType::DebugPath,
-            //     CutVisibility::new().log_branch(p_range),
-            // ));
+            //     log_branch(p_range)
+            // );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
             // Real positive axis
 
@@ -1689,15 +1750,14 @@ impl Cut {
             //     x_cuts,
             //      vec![x],
             //      CutType::DebugPath,
-            //     CutVisibility::new().log_branch(p_range),
-            // ));
+            //     log_branch(p_range)
+            // );
 
             cuts.push(Cut::new(
                 Component::P,
                 vec![p_points.iter().map(|p| p.conj()).collect()],
                 vec![branch_point.conj()],
                 CutType::LogX(Component::Xp, 0),
-                CutVisibility::new(),
             ));
 
             cuts.push(Cut::new(
@@ -1705,7 +1765,6 @@ impl Cut {
                 vec![p_points.clone()],
                 vec![branch_point],
                 CutType::LogX(Component::Xm, 0),
-                CutVisibility::new(),
             ));
         } else if p_range < -1 {
             // Real negative axis
@@ -1759,40 +1818,48 @@ impl Cut {
             //     x_cuts,
             //      vec![x],
             //      CutType::DebugPath,
-            //     CutVisibility::new().log_branch(p_range),
-            // ));
+            //     log_branch(p_range)
+            // );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, 1),
-                CutVisibility::new().log_branch_le(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, 1),
+                )
+                .log_branch_le(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.iter().map(|p| p.conj()).collect()],
-                vec![branch_point.conj()],
-                CutType::LogX(Component::Xp, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![branch_point.conj()],
+                    CutType::LogX(Component::Xp, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
-            cuts.push(Cut::new(
-                Component::P,
-                vec![p_points.clone()],
-                vec![branch_point],
-                CutType::LogX(Component::Xm, -1),
-                CutVisibility::new().log_branch_gt(p_range),
-            ));
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![branch_point],
+                    CutType::LogX(Component::Xm, -1),
+                )
+                .log_branch_gt(p_range),
+            );
 
             // Positive real axis
 
@@ -1840,20 +1907,15 @@ impl Cut {
             p_points.extend(p_int2.p_path);
             // // x_cuts.push(p_int2.x_path);
 
-            cuts.push(Cut::new(
-                Component::Xp,
-                x_cuts,
-                vec![x],
-                CutType::DebugPath,
-                CutVisibility::new().log_branch(p_range),
-            ));
+            cuts.push(
+                Cut::new(Component::Xp, x_cuts, vec![x], CutType::DebugPath).log_branch(p_range),
+            );
 
             cuts.push(Cut::new(
                 Component::P,
                 vec![p_points.iter().map(|p| p.conj()).collect()],
                 vec![branch_point.conj()],
                 CutType::LogX(Component::Xp, 0),
-                CutVisibility::new(),
             ));
 
             cuts.push(Cut::new(
@@ -1861,7 +1923,6 @@ impl Cut {
                 vec![p_points.clone()],
                 vec![branch_point],
                 CutType::LogX(Component::Xm, 0),
-                CutVisibility::new(),
             ));
         }
 
@@ -1930,24 +1991,12 @@ impl Cut {
         let paths = vec![cut.iter().map(|(_, p, _, _, _, _)| *p).collect()];
         let branch_points = vec![p0];
 
-        cuts.push(Cut::new(
-            Component::P,
-            paths,
-            branch_points,
-            CutType::E,
-            CutVisibility::new(),
-        ));
+        cuts.push(Cut::new(Component::P, paths, branch_points, CutType::E));
 
         let paths = vec![cut.iter().map(|(_, p, _, _, _, _)| p.conj()).collect()];
         let branch_points = vec![p0.conj()];
 
-        cuts.push(Cut::new(
-            Component::P,
-            paths,
-            branch_points,
-            CutType::E,
-            CutVisibility::new(),
-        ));
+        cuts.push(Cut::new(Component::P, paths, branch_points, CutType::E));
 
         // xp
 
@@ -1961,18 +2010,13 @@ impl Cut {
         ];
         paths.push(vec![paths[0][0], paths[1][0]]);
         let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
-        let visibility = if branch_points[0].im > 0.0 {
-            CutVisibility::new().log_branch(p_range).im_xm_positive()
+        cuts.push(if branch_points[0].im > 0.0 {
+            Cut::new(Component::Xp, paths, branch_points, CutType::E)
+                .log_branch(p_range)
+                .im_xm_positive()
         } else {
-            CutVisibility::new().log_branch(p_range)
-        };
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::E,
-            visibility,
-        ));
+            Cut::new(Component::Xp, paths, branch_points, CutType::E).log_branch(p_range)
+        });
 
         let mut paths = vec![
             cut.iter()
@@ -1984,19 +2028,13 @@ impl Cut {
         ];
         paths.push(vec![paths[0][0], paths[1][0]]);
         let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
-        let visibility = if branch_points[0].im > 0.0 {
-            CutVisibility::new().log_branch(p_range).im_xm_positive()
+        cuts.push(if branch_points[0].im > 0.0 {
+            Cut::new(Component::Xp, paths, branch_points, CutType::E)
+                .log_branch(p_range)
+                .im_xm_positive()
         } else {
-            CutVisibility::new().log_branch(p_range)
-        };
-
-        cuts.push(Cut::new(
-            Component::Xp,
-            paths,
-            branch_points,
-            CutType::E,
-            visibility,
-        ));
+            Cut::new(Component::Xp, paths, branch_points, CutType::E).log_branch(p_range)
+        });
 
         // xm
 
@@ -2010,18 +2048,14 @@ impl Cut {
         ];
         paths.push(vec![paths[0][0], paths[1][0]]);
         let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
-        let visibility = if branch_points[0].im < 0.0 {
-            CutVisibility::new().log_branch(p_range).im_xp_negative()
+
+        cuts.push(if branch_points[0].im > 0.0 {
+            Cut::new(Component::Xm, paths, branch_points, CutType::E)
+                .log_branch(p_range)
+                .im_xp_negative()
         } else {
-            CutVisibility::new().log_branch(p_range)
-        };
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::E,
-            visibility,
-        ));
+            Cut::new(Component::Xm, paths, branch_points, CutType::E).log_branch(p_range)
+        });
 
         let mut paths = vec![
             cut.iter()
@@ -2033,19 +2067,14 @@ impl Cut {
         ];
         paths.push(vec![paths[0][0], paths[1][0]]);
         let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
-        let visibility = if branch_points[0].im < 0.0 {
-            CutVisibility::new().log_branch(p_range).im_xp_negative()
-        } else {
-            CutVisibility::new().log_branch(p_range)
-        };
 
-        cuts.push(Cut::new(
-            Component::Xm,
-            paths,
-            branch_points,
-            CutType::E,
-            visibility,
-        ));
+        cuts.push(if branch_points[0].im < 0.0 {
+            Cut::new(Component::Xm, paths, branch_points, CutType::E)
+                .log_branch(p_range)
+                .im_xp_negative()
+        } else {
+            Cut::new(Component::Xm, paths, branch_points, CutType::E).log_branch(p_range)
+        });
 
         cuts
     }
