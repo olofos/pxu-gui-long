@@ -9,14 +9,6 @@ pub struct CouplingConstants {
     kslash_: f64,
 }
 
-struct _Context {
-    pub h: f64,
-    pub kslash: f64,
-
-    pub p_branch: i32,
-    pub log_branch: i32,
-}
-
 impl CouplingConstants {
     pub fn new(h: f64, k: u32) -> Self {
         Self {
@@ -50,6 +42,13 @@ impl CouplingConstants {
         }
         self.s()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SheetData {
+    pub log_branch: i32,
+    pub log_branch_sum: i32,
+    pub e_branch: i32,
 }
 
 pub fn en(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {

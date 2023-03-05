@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::kinematics::{
     den2_dp, du_dp, duh_dp, dxhm_dp, dxhp_dp, dxm_dp, dxp_dp, en2, u, uh, xhm, xhp, xm, xp,
-    CouplingConstants,
+    CouplingConstants, SheetData,
 };
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
@@ -2782,13 +2782,6 @@ impl OldCut {
             branch_points_u,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SheetData {
-    pub log_branch: i32,
-    pub log_branch_sum: i32,
-    pub e_branch: i32,
 }
 
 #[derive(Debug, Clone)]
