@@ -139,7 +139,9 @@ impl XInterpolator {
         if p_start > p_end {
             return Self::generate_xp(p_end, p_start, m, consts);
         }
-        assert!(p_start.floor() == p_end.ceil() - 1.0);
+        if p_start.floor() != p_end.ceil() - 1.0 {
+            log::error!("Trying to generate xp for more than one momentum region ({p_end:2} > {p_start:2}+1)");
+        }
 
         let x_start: Asymptote;
         let x_end: Asymptote;
