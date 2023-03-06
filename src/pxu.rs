@@ -2049,7 +2049,7 @@ impl Cut {
         paths.push(vec![paths[0][0], paths[1][0]]);
         let branch_points = vec![(paths[0][0] + paths[1][0]) / 2.0];
 
-        cuts.push(if branch_points[0].im > 0.0 {
+        cuts.push(if branch_points[0].im < 0.0 {
             Cut::new(Component::Xm, paths, branch_points, CutType::E)
                 .log_branch(p_range)
                 .im_xp_negative()
