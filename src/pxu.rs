@@ -204,15 +204,15 @@ impl GridLines {
     fn new(p_range: i32, consts: CouplingConstants) -> Self {
         log::info!("Generating grid lines for branch {p_range}");
         let mut x = vec![];
-        for i in -4..=4 {
-            x.extend(Self::fill_x(p_range + i, consts));
+        for i in -7..=7 {
+            x.extend(Self::fill_x(i, consts));
         }
         let mut u = vec![];
         u.extend(Self::fill_u(p_range, consts));
 
         let mut p = vec![];
-        for i in -1..=1 {
-            p.extend(Self::fill_p(p_range + i, consts));
+        for i in -7..=7 {
+            p.extend(Self::fill_p(i, consts));
         }
         Self { p, x, u }
     }
@@ -381,7 +381,7 @@ impl GridLines {
                 &xm_fixed_p,
                 0.0,
                 1.0,
-                1.0f64.max(consts.k() as f64 - 2.0),
+                1.0f64.max(4.0 * consts.k() as f64 - 2.0),
                 p1,
                 1.0,
             );
@@ -391,7 +391,7 @@ impl GridLines {
                 if m == 0.0 && p_range == 0 {
                     pts.push(p_s);
                 } else {
-                    pts.push(C::from(p_start));
+                    // pts.push(C::from(p_start));
                 }
                 pts.extend(
                     nr::shoot_two_sided(
@@ -406,7 +406,7 @@ impl GridLines {
                     .into_iter()
                     .map(|(_, p)| p),
                 );
-                pts.push(C::from(p_start));
+                // pts.push(C::from(p_start));
 
                 lines.push(pts.iter().map(|z| z.conj()).collect::<Vec<_>>());
                 lines.push(pts);
@@ -568,7 +568,7 @@ impl Cuts {
 
         if self.cuts.is_empty() {
             // self.cuts = (-5..=5).map(|n| Cut::get(n, pt.consts)).collect();
-            for p_range in -1..=1 {
+            for p_range in -3..=2 {
                 self.cuts.extend(Cut::get(p_range, pt.consts));
             }
             log::info!("Created {} cuts", self.cuts.len());
@@ -3596,7 +3596,7 @@ impl PxuPoint {
         };
     }
 
-    fn try_set(&mut self, p: Option<C>, sheet_data: SheetData) -> bool {
+    fn try_set(&mut self, p: Option<C>, sheet_data: &SheetData) -> bool {
         let Some(p) = p else {return false};
         let new_xp: C;
         let new_xm: C;
@@ -3605,34 +3605,51 @@ impl PxuPoint {
         if sheet_data.e_branch > 0 {
             new_xp = xp(p, 1.0, self.consts);
             new_xm = xm(p, 1.0, self.consts);
-            new_u = u(p, self.consts, &self.sheet_data);
+            new_u = u(p, self.consts, sheet_data);
         } else {
             new_xp = xp_crossed(p, 1.0, self.consts);
             new_xm = xm_crossed(p, 1.0, self.consts);
-            new_u = u_crossed(p, self.consts, &self.sheet_data);
+            new_u = u_crossed(p, self.consts, sheet_data);
         }
 
-        if (self.p - p).norm_sqr() > 4.0 || (self.p - p).re.abs() > 0.5 {
-            log::info!("p jump too large");
+        if (self.p - p).re.abs() > 0.125 || (self.p - p).im.abs() > 0.25 {
+            log::info!(
+                "p jump too large {} {}",
+                (self.p - p).norm_sqr(),
+                (self.p - p).re.abs()
+            );
             return false;
         }
 
-        if (self.xp - new_xp).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
-            log::info!("xp jump too large");
-            return false;
+        if (self.xp - new_xp).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
+            log::info!(
+                "xp jump too large: {} ({}) {} ({})",
+                (self.xp - new_xp).norm_sqr(),
+                (self.xp - new_xp).norm_sqr() * (self.consts.h * self.consts.h),
+                self.xp.norm_sqr(),
+                self.xp.norm_sqr() * (self.consts.h * self.consts.h)
+            );
+            // return false;
         }
 
-        if (self.xm - new_xm).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
-            log::info!("xm jump too large");
-            return false;
+        if (self.xm - new_xm).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
+            log::info!(
+                "xm jump too large: {} ({}) {} ({})",
+                (self.xm - new_xm).norm_sqr(),
+                (self.xm - new_xm).norm_sqr() * (self.consts.h * self.consts.h),
+                self.xm.norm_sqr(),
+                self.xm.norm_sqr() * (self.consts.h * self.consts.h)
+            );
+
+            // return false;
         }
 
-        if (self.u - new_u).norm_sqr() > 4.0 / (self.consts.h * self.consts.h) {
+        if (self.u - new_u).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
             log::info!("u jump too large");
-            return false;
+            // return false;
         }
 
-        self.sheet_data = sheet_data;
+        self.sheet_data = sheet_data.clone();
         self.p = p;
         self.xp = new_xp;
         self.xm = new_xm;
@@ -3730,7 +3747,16 @@ impl PxuPoint {
             log::info!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
-        for guess in vec![self.p, self.p - 0.01, self.p + 0.01] {
+        for (i, guess) in vec![
+            self.p,
+            self.p - 0.01,
+            self.p + 0.01,
+            self.p - 0.05,
+            self.p + 0.05,
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let p = match component {
                 Component::P => Some(new_value),
                 Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess),
@@ -3740,12 +3766,17 @@ impl PxuPoint {
 
             let prev_p = self.p;
             let crossed_cut = new_sheet_data != self.sheet_data;
+            let prev_u = self.u;
 
-            if self.try_set(p, new_sheet_data.clone()) {
+            if self.try_set(p, &new_sheet_data) {
                 if crossed_cut {
+                    log::info!("{i} {}", new_sheet_data.e_branch);
                     log::info!("{:.2} {:.2}", self.p - prev_p, guess - prev_p);
+                    // log::info!("{:.2}", self.u - prev_u);
                 }
                 break;
+            } else {
+                log::info!("not {i}");
             }
         }
     }
