@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::kinematics::{
-    den2_dp, du_dp, duh_dp, dxhm_dp, dxhp_dp, dxm_dp, dxp_dp, en2, u, uh, xhm, xhp, xm, xp,
-    CouplingConstants, SheetData,
+    den2_dp, du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, en2, u,
+    u_crossed, xm, xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
 };
 use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
@@ -2877,14 +2877,14 @@ impl PxuPoint {
 
             self.u = u(p, self.consts, &self.sheet_data);
         } else {
-            self.xp = xhp(p, 1.0, self.consts);
-            self.xm = xhm(p, 1.0, self.consts);
-            self.u = uh(p, self.consts, &self.sheet_data);
+            self.xp = xp_crossed(p, 1.0, self.consts);
+            self.xm = xm_crossed(p, 1.0, self.consts);
+            self.u = u_crossed(p, self.consts, &self.sheet_data);
 
             log::info!(
                 "{:2} {:2}",
                 u(p, self.consts, &self.sheet_data,),
-                uh(p, self.consts, &self.sheet_data)
+                u_crossed(p, self.consts, &self.sheet_data)
             );
         };
     }
@@ -2900,9 +2900,9 @@ impl PxuPoint {
             new_xm = xm(p, 1.0, self.consts);
             new_u = u(p, self.consts, &self.sheet_data);
         } else {
-            new_xp = xhp(p, 1.0, self.consts);
-            new_xm = xhm(p, 1.0, self.consts);
-            new_u = uh(p, self.consts, &self.sheet_data);
+            new_xp = xp_crossed(p, 1.0, self.consts);
+            new_xm = xm_crossed(p, 1.0, self.consts);
+            new_u = u_crossed(p, self.consts, &self.sheet_data);
         }
 
         if (self.p - p).norm_sqr() > 4.0 || (self.p - p).re.abs() > 0.5 {
@@ -2945,8 +2945,8 @@ impl PxuPoint {
             )
         } else {
             nr::find_root(
-                |p| xhp(p, 1.0, self.consts) - new_xp,
-                |p| dxhp_dp(p, 1.0, self.consts),
+                |p| xp_crossed(p, 1.0, self.consts) - new_xp,
+                |p| dxp_crossed_dp(p, 1.0, self.consts),
                 guess,
                 1.0e-6,
                 50,
@@ -2965,8 +2965,8 @@ impl PxuPoint {
             )
         } else {
             nr::find_root(
-                |p| xhm(p, 1.0, self.consts) - new_xm,
-                |p| dxhm_dp(p, 1.0, self.consts),
+                |p| xm_crossed(p, 1.0, self.consts) - new_xm,
+                |p| dxm_crossed_dp(p, 1.0, self.consts),
                 guess,
                 1.0e-6,
                 50,
@@ -2985,8 +2985,8 @@ impl PxuPoint {
             )
         } else {
             nr::find_root(
-                |p| uh(p, self.consts, &self.sheet_data) - new_u,
-                |p| duh_dp(p, self.consts, &self.sheet_data),
+                |p| u_crossed(p, self.consts, &self.sheet_data) - new_u,
+                |p| du_crossed_dp(p, self.consts, &self.sheet_data),
                 guess,
                 1.0e-6,
                 50,

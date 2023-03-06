@@ -183,7 +183,7 @@ pub fn du_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData)
     (term1 + term2 + term3) * consts.h
 }
 
-fn xh(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+fn x_crossed(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
@@ -194,12 +194,12 @@ fn xh(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     numerator / denominator
 }
 
-fn dxh_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+fn dx_crossed_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
 
-    let term1 = -xh(p, m, consts) * (cos / sin) / 2.0;
+    let term1 = -x_crossed(p, m, consts) * (cos / sin) / 2.0;
     let term2 = consts.kslash() / (2.0 * consts.h * sin);
     let term3 = (consts.kslash() * (m + consts.k() as f64 * p)
         + 2.0 * consts.h * consts.h * sin * cos)
@@ -208,31 +208,31 @@ fn dxh_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     TAU * (term1 + term2 - SIGN * term3)
 }
 
-pub fn xhp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+pub fn xp_crossed(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
-    xh(p, m, consts) * (C::i() * PI * p).exp()
+    x_crossed(p, m, consts) * (C::i() * PI * p).exp()
 }
 
-pub fn dxhp_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+pub fn dxp_crossed_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (C::i() * PI * p).exp();
-    dxh_dp(p, m, consts) * exp + (C::i() * PI) * xh(p, m, consts) * exp
+    dx_crossed_dp(p, m, consts) * exp + (C::i() * PI) * x_crossed(p, m, consts) * exp
 }
 
-pub fn xhm(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+pub fn xm_crossed(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
-    xh(p, m, consts) * (-C::i() * PI * p).exp()
+    x_crossed(p, m, consts) * (-C::i() * PI * p).exp()
 }
 
-pub fn dxhm_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
+pub fn dxm_crossed_dp(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {
     let p = p.into();
     let exp = (-C::i() * PI * p).exp();
-    dxh_dp(p, m, consts) * exp - (C::i() * PI) * xh(p, m, consts) * exp
+    dx_crossed_dp(p, m, consts) * exp - (C::i() * PI) * x_crossed(p, m, consts) * exp
 }
 
-pub fn uh(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
+pub fn u_crossed(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
-    let xp = xhp(p, 1.0, consts);
+    let xp = xp_crossed(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
     let branch_shift =
@@ -243,14 +243,14 @@ pub fn uh(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) ->
     u0p
 }
 
-pub fn duh_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
+pub fn du_crossed_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();
 
     let term1 = -den_dp(p, 1.0, consts) * cot;
     let term2 = TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
-    let term3 = -2.0 * consts.kslash() * dxh_dp(p, 1.0, consts) / xh(p, 1.0, consts);
+    let term3 = -2.0 * consts.kslash() * dx_crossed_dp(p, 1.0, consts) / x_crossed(p, 1.0, consts);
 
     (term1 + term2 + term3) * consts.h
 }
