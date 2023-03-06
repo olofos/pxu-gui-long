@@ -376,6 +376,28 @@ impl eframe::App for TemplateApp {
                 *self = Self::default();
             }
 
+            ui.separator();
+
+            {
+                ui.label(format!("Momentum: {:.2}", self.pxu.p));
+
+                {
+                    let xp = self.pxu.xp;
+                    let xm = self.pxu.xm;
+                    let en =
+                        -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm);
+                    ui.label(format!("Energy: {:.2}", en));
+                }
+
+                ui.label(format!(
+                    "Log branches: {:+} {:+}",
+                    (self.pxu.sheet_data.log_branch + self.pxu.sheet_data.log_branch_sum) / 2,
+                    (self.pxu.sheet_data.log_branch - self.pxu.sheet_data.log_branch_sum) / 2
+                ));
+
+                ui.label(format!("E branch: {:+} ", self.pxu.sheet_data.e_branch));
+            }
+
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
