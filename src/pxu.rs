@@ -1046,6 +1046,24 @@ impl Cut {
             let paths = vec![XInterpolator::generate_xm(
                 0.0,
                 1.0,
+                -2.0 - p_range as f64 * consts.k() as f64,
+                consts,
+            )];
+            let branch_points = vec![];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
+
+            let paths = vec![XInterpolator::generate_xm(
+                0.0,
+                1.0,
                 2.0 + (3 * p_range) as f64 * consts.k() as f64,
                 consts,
             )];
@@ -1060,6 +1078,24 @@ impl Cut {
                 )
                 .log_branch(p_range)
                 .im_xp_negative(),
+            );
+
+            let paths = vec![XInterpolator::generate_xp(
+                0.0,
+                1.0,
+                -2.0 - p_range as f64 * consts.k() as f64,
+                consts,
+            )];
+            let branch_points = vec![];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
             );
         }
 
