@@ -526,6 +526,7 @@ enum CutVisibilityCondition {
     LogBranch(i32),
     LogBranchGT(i32),
     LogBranchLE(i32),
+    EBranch(i32),
 }
 
 impl CutVisibilityCondition {
@@ -536,6 +537,7 @@ impl CutVisibilityCondition {
             Self::LogBranch(b) => *b == pt.sheet_data.log_branch,
             Self::LogBranchGT(b) => pt.sheet_data.log_branch > *b,
             Self::LogBranchLE(b) => pt.sheet_data.log_branch <= *b,
+            Self::EBranch(b) => pt.sheet_data.e_branch == *b,
         }
     }
 }
@@ -655,6 +657,12 @@ impl Cut {
     fn log_branch_le(mut self, branch: i32) -> Self {
         self.visibility
             .push(CutVisibilityCondition::LogBranchLE(branch));
+        self
+    }
+
+    fn e_branch(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::EBranch(branch));
         self
     }
 
