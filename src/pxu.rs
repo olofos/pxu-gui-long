@@ -454,51 +454,6 @@ impl GridLines {
             }
         }
 
-        {
-            let p0 = nr::find_root(
-                |p| en2(p, 1.0, consts),
-                |p| den2_dp(p, 1.0, consts),
-                C::new(p_start, 2.5),
-                // C::new(0.0, 0.5),
-                1.0e-3,
-                50,
-            );
-
-            let mut cut_p = vec![p0.unwrap()];
-            for i in 1..512 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, 0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            cut_p.reverse();
-            for i in 1..64 {
-                let im = i as f64 * i as f64 / 64.0;
-
-                let p = nr::find_root(
-                    |p| en2(p, 1.0, consts) - C::new(-im, -0.001),
-                    |p| den2_dp(p, 1.0, consts),
-                    *cut_p.last().unwrap(),
-                    1.0e-3,
-                    50,
-                );
-
-                cut_p.push(p.unwrap());
-            }
-
-            let cut_p = cut_p.into_iter().map(|p| p).collect::<Vec<_>>();
-
-            lines.push(cut_p);
-        }
-
         lines
     }
 }
