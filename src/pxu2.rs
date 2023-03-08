@@ -180,7 +180,7 @@ impl XInterpolator {
             points.push_back((p_start + 0.0, n));
         }
 
-        let step_size = 1.0 / 16.0;
+        let step_size = 1.0 / 8.0;
         if p_end - p_start > 2.0 * step_size {
             let i1 = ((p_start + step_size) / step_size).floor() as i32;
             let i2 = ((p_end - step_size) / step_size).floor() as i32;
@@ -227,8 +227,6 @@ impl XInterpolator {
         let min_cos = (2.0 * TAU / 360.0).cos();
 
         for i in 0.. {
-            points.sort_by(|(p1, _), (p2, _)| p1.partial_cmp(p2).unwrap());
-
             let mut refinements = vec![];
 
             let mut prev = false;
@@ -246,10 +244,15 @@ impl XInterpolator {
                 }
             }
 
-            if refinements.is_empty() || i >= 6 {
+            if refinements.is_empty() {
                 break;
             }
             points.extend(refinements.into_iter().map(|p| (p, xp(p, m, consts))));
+            points.sort_by(|(p1, _), (p2, _)| p1.partial_cmp(p2).unwrap());
+
+            if i >= 5 {
+                break;
+            }
         }
         points.into_iter().map(|(_, x)| x).collect()
     }
