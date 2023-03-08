@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::kinematics::{
     den2_dp, du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, en2, u,
     u_crossed, xm, xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
@@ -165,13 +163,13 @@ pub enum Component {
 
 #[derive(Debug)]
 pub struct Grid {
-    data: HashMap<i32, GridLines>,
+    data: Option<GridLines>,
     consts: Option<CouplingConstants>,
 }
 
 impl Grid {
     pub fn new() -> Self {
-        let data = HashMap::new();
+        let data = None;
         let consts = None;
         Self { data, consts }
     }
@@ -180,16 +178,15 @@ impl Grid {
         if let Some(consts) = self.consts {
             if consts != pt.consts {
                 log::info!("Clearing grid");
-                self.data.clear();
+                self.data = None;
             }
         }
         self.consts = Some(pt.consts);
 
-        let line: &GridLines = self
-            .data
-            .entry(pt.sheet_data.log_branch)
-            .or_insert_with(|| GridLines::new(pt.sheet_data.log_branch, pt.consts));
-        line.get(component)
+        if self.data.is_none() {
+            self.data = Some(GridLines::new(pt.consts));
+        }
+        self.data.as_ref().unwrap().get(component)
     }
 }
 
@@ -201,19 +198,32 @@ struct GridLines {
 }
 
 impl GridLines {
-    fn new(p_range: i32, consts: CouplingConstants) -> Self {
-        log::info!("Generating grid lines for branch {p_range}");
+    fn new(consts: CouplingConstants) -> Self {
+        log::info!("Generating grid lines");
+        let start = chrono::Utc::now();
+
         let mut x = vec![];
-        for i in -7..=7 {
-            x.extend(Self::fill_x(i, consts));
+        for p_range in -7..=7 {
+            x.extend(Self::fill_x(p_range, consts));
         }
         let mut u = vec![];
-        u.extend(Self::fill_u(p_range, consts));
+        u.extend(Self::fill_u(consts));
 
         let mut p = vec![];
-        for i in -7..=7 {
-            p.extend(Self::fill_p(i, consts));
+        for p_range in -3..=3 {
+            p.extend(Self::fill_p(p_range, consts));
         }
+
+        let end = chrono::Utc::now();
+
+        let elapsed = end - start;
+        log::info!(
+            "Generated {}+{}+{} grid lines in {} ms",
+            p.len(),
+            x.len(),
+            u.len(),
+            elapsed.num_milliseconds()
+        );
         Self { p, x, u }
     }
 
@@ -245,7 +255,7 @@ impl GridLines {
         lines
     }
 
-    fn fill_u(_p_range: i32, consts: CouplingConstants) -> Vec<Vec<C>> {
+    fn fill_u(consts: CouplingConstants) -> Vec<Vec<C>> {
         let mut lines = vec![];
 
         let k = consts.k() as i32;
