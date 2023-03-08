@@ -35,8 +35,8 @@ pub struct TemplateApp {
     u_plot: Plot,
     #[serde(skip)]
     p_range: i32,
-    #[serde(skip)]
     show_dots: bool,
+    show_cuts: bool,
 }
 
 struct Plot {
@@ -54,6 +54,7 @@ impl Plot {
         grid: &mut pxu::Grid,
         cuts: &mut pxu::Cuts,
         show_dots: bool,
+        show_cuts: bool,
         pxu: &mut PxuPoint,
     ) {
         egui::Frame::canvas(ui.style())
@@ -172,63 +173,67 @@ impl Plot {
                     stroke,
                 }));
 
-                for cut in cuts.visible(pxu, self.component) {
-                    for points in cut.paths.iter() {
-                        let points = points
-                            .iter()
-                            .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
-                            .collect::<Vec<_>>();
+                if show_cuts {
+                    for cut in cuts.visible(pxu, self.component) {
+                        for points in cut.paths.iter() {
+                            let points = points
+                                .iter()
+                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                                .collect::<Vec<_>>();
 
-                        let color = match cut.typ {
-                            pxu::CutType::U(comp) => {
-                                if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 0, 0)
-                                } else {
-                                    Color32::from_rgb(0, 192, 0)
+                            let color = match cut.typ {
+                                pxu::CutType::U(comp) => {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgb(255, 0, 0)
+                                    } else {
+                                        Color32::from_rgb(0, 192, 0)
+                                    }
+                                }
+                                pxu::CutType::LogX(comp, _) => {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgb(255, 128, 128)
+                                    } else {
+                                        Color32::from_rgb(128, 255, 128)
+                                    }
+                                }
+                                pxu::CutType::E => Color32::BLACK,
+                                _ => Color32::from_rgb(255, 128, 0),
+                            };
+
+                            shapes.push(egui::epaint::Shape::line(
+                                points.clone(),
+                                Stroke::new(3.0, color),
+                            ));
+
+                            if show_dots {
+                                for center in points {
+                                    shapes.push(egui::epaint::Shape::Circle(
+                                        egui::epaint::CircleShape {
+                                            center,
+                                            radius: 2.5,
+                                            fill: Color32::RED,
+                                            stroke: Stroke::NONE,
+                                        },
+                                    ));
                                 }
                             }
-                            pxu::CutType::LogX(comp, _) => {
-                                if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 128, 128)
-                                } else {
-                                    Color32::from_rgb(128, 255, 128)
-                                }
-                            }
-                            pxu::CutType::E => Color32::BLACK,
-                            _ => Color32::from_rgb(255, 128, 0),
-                        };
 
-                        shapes.push(egui::epaint::Shape::line(
-                            points.clone(),
-                            Stroke::new(3.0, color),
-                        ));
+                            let branch_points = cut
+                                .branch_points
+                                .iter()
+                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                                .collect::<Vec<_>>();
 
-                        if show_dots {
-                            for center in points {
+                            for center in branch_points {
                                 shapes.push(egui::epaint::Shape::Circle(
                                     egui::epaint::CircleShape {
                                         center,
-                                        radius: 2.5,
-                                        fill: Color32::RED,
+                                        radius: 4.0,
+                                        fill: color,
                                         stroke: Stroke::NONE,
                                     },
                                 ));
                             }
-                        }
-
-                        let branch_points = cut
-                            .branch_points
-                            .iter()
-                            .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
-                            .collect::<Vec<_>>();
-
-                        for center in branch_points {
-                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                                center,
-                                radius: 4.0,
-                                fill: color,
-                                stroke: Stroke::NONE,
-                            }));
                         }
                     }
                 }
@@ -310,6 +315,7 @@ impl Default for TemplateApp {
             },
             p_range,
             show_dots: false,
+            show_cuts: true,
         }
     }
 }
@@ -371,6 +377,7 @@ impl eframe::App for TemplateApp {
             ui.add(egui::Slider::new(&mut self.p_range, -10..=5).text("Range"));
 
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
+            ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
 
             if ui.add(egui::Button::new("Reset")).clicked() {
                 *self = Self::default();
@@ -445,6 +452,7 @@ impl eframe::App for TemplateApp {
                     &mut self.grid,
                     &mut self.cuts,
                     self.show_dots,
+                    self.show_cuts,
                     &mut self.pxu,
                 );
 
@@ -454,6 +462,7 @@ impl eframe::App for TemplateApp {
                     &mut self.grid,
                     &mut self.cuts,
                     self.show_dots,
+                    self.show_cuts,
                     &mut self.pxu,
                 );
             });
@@ -464,6 +473,7 @@ impl eframe::App for TemplateApp {
                     &mut self.grid,
                     &mut self.cuts,
                     self.show_dots,
+                    self.show_cuts,
                     &mut self.pxu,
                 );
 
@@ -473,6 +483,7 @@ impl eframe::App for TemplateApp {
                     &mut self.grid,
                     &mut self.cuts,
                     self.show_dots,
+                    self.show_cuts,
                     &mut self.pxu,
                 );
             });
