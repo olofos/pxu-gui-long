@@ -271,11 +271,103 @@ impl GridLines {
         let p_start = p_range as f64;
         let mut lines = vec![];
 
-        if p_range == 0 {
-            let p0 = 1.0 / 8.0;
-            let p2 = 7.0 / 8.0;
+        // if p_range >= 0 {
+        {
+            let p0 = p_start + 1.0 / 8.0;
+            let p2 = p_start + 7.0 / 8.0;
 
-            // let mut p_points = vec![];
+            let mut p_points = vec![];
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xp(p0, -p_start * consts.k() as f64)
+                .clear_path();
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xp(p_start + 0.99, -p_start * consts.k() as f64)
+                    .p_path
+                    .iter()
+                    .rev(),
+            );
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xp(p_start + 0.01, -p_start * consts.k() as f64)
+                    .p_path,
+            );
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p0, -p_start * consts.k() as f64)
+                .clear_path();
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xm(p_start + 0.01, -p_start * consts.k() as f64)
+                    .p_path
+                    .iter()
+                    .rev(),
+            );
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xm(p_start + 0.99, -p_start * consts.k() as f64)
+                    .p_path,
+            );
+
+            lines.push(p_points);
+
+            let mut p_points = vec![];
+
+            let p_int = PInterpolator::xp(p2, consts)
+                .goto_xp(p2, -(p_start + 1.0) * consts.k() as f64)
+                .clear_path();
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xp(p_start + 0.99, -(p_start + 1.0) * consts.k() as f64)
+                    .p_path
+                    .iter()
+                    .rev(),
+            );
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xp(p_start + 0.01, -(p_start + 1.0) * consts.k() as f64)
+                    .p_path,
+            );
+
+            lines.push(p_points);
+
+            let mut p_points = vec![];
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p2, 1.0)
+                .goto_xm(p2, -(p_start + 1.0) * consts.k() as f64)
+                .clear_path();
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xm(p_start + 0.01, -(p_start + 1.0) * consts.k() as f64)
+                    .p_path
+                    .iter()
+                    .rev(),
+            );
+            p_points.extend(
+                p_int
+                    .clone()
+                    .goto_xm(p_start + 0.99, -(p_start + 1.0) * consts.k() as f64)
+                    .p_path,
+            );
+
+            lines.push(p_points);
+        }
+
+        if p_range == 0 {
+            let p0 = p_start + 1.0 / 8.0;
+            let p2 = p_start + 7.0 / 8.0;
+
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
 
             for m in 3..=(2 * consts.k()) {
@@ -931,6 +1023,28 @@ impl Cut {
             .e_branch(1),
         );
 
+        if p_range == -1 {
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .e_branch(-1),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|x| x.conj()).collect()],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .e_branch(-1),
+            );
+        }
+
         if p_range == 0 {
             let mut p_points: Vec<C> = vec![];
             // let mut x_cuts = vec![];
@@ -978,6 +1092,94 @@ impl Cut {
                 )
                 .e_branch(1),
             );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .e_branch(-1),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .e_branch(-1),
+            );
+
+            let mut p_points: Vec<C> = vec![];
+            let mut x_cuts = vec![];
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p2, 1.0)
+                .goto_xm(p2, -(consts.k() as f64));
+
+            x_cuts.push(p_int.x_path.clone());
+
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xm(p_start + 0.01, -(consts.k() as f64));
+            x_cuts.push(p_int2.x_path.clone());
+            p_points.extend(p_int2.p_path.into_iter().rev());
+
+            let p_int2 = p_int.clone().goto_xm(p_start + 0.99, -(consts.k() as f64));
+            x_cuts.push(p_int2.x_path.clone());
+            p_points.extend(p_int2.p_path);
+
+            p_points.push(p_min_one_over_s);
+
+            // cuts.push(
+            //     Cut::new(Component::Xp, x_cuts, vec![], CutType::DebugPath)
+            //         .log_branch(p_range)
+            //         .e_branch(1),
+            // );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .e_branch(1),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .e_branch(1),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.iter().map(|p| p.conj()).collect()],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .e_branch(-1),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::P,
+                    vec![p_points.clone()],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .e_branch(-1),
+            );
         }
 
         if p_range == -1 {
@@ -988,21 +1190,33 @@ impl Cut {
 
             // let x = get_branch_point_x(m - 1.0 - consts.k() as f64, consts, -1.0);
 
-            let p_int = PInterpolator::xp(p0, consts)
-                .goto_xp(p0, consts.k() as f64)
-                .goto_xm(p0, consts.k() as f64)
-                .goto_xm(p0, 0.0);
+            let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, consts.k() as f64);
+            // .goto_xm(p0, consts.k() as f64)
+            // .goto_xm(p0, 0.0);
 
             // x_cuts.push(p_int.x_path.clone());
 
             let p_int = p_int.clear_path();
 
-            let p_int2 = p_int.clone().goto_xm(p_start + 0.01, 0.0);
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.9999, consts.k() as f64);
             // x_cuts.push(p_int2.x_path.clone());
             p_points.extend(p_int2.p_path.into_iter().rev());
 
-            let p_int2 = p_int.clone().goto_xm(p_start + 0.9999, 0.0);
-            let branch_point = *p_int2.p_path.last().unwrap();
+            let p_int2 = p_int.clone().goto_xp(p_start + 0.01, consts.k() as f64);
+            // x_cuts.push(p_int2.x_path.clone());
+            p_points.extend(p_int2.p_path);
+
+            let p_int = PInterpolator::xp(p0, consts)
+                .goto_xp(p0, consts.k() as f64)
+                .goto_xm(p0, consts.k() as f64);
+
+            let p_int = p_int.clear_path();
+
+            let p_int2 = p_int.clone().goto_xm(p_start + 0.01, consts.k() as f64);
+            // x_cuts.push(p_int2.x_path.clone());
+            p_points.extend(p_int2.p_path.into_iter().rev());
+
+            let p_int2 = p_int.clone().goto_xm(p_start + 0.9999, consts.k() as f64);
             // x_cuts.push(p_int2.x_path.clone());
             p_points.extend(p_int2.p_path);
 
@@ -1015,30 +1229,30 @@ impl Cut {
                 Cut::new(
                     Component::P,
                     vec![p_points.iter().map(|p| p.conj()).collect()],
-                    vec![branch_point.conj()],
-                    CutType::U(Component::Xm),
+                    vec![],
+                    CutType::U(Component::Xp),
                 )
-                .e_branch(1),
+                .e_branch(-1),
             );
 
             cuts.push(
                 Cut::new(
                     Component::P,
                     vec![p_points.clone()],
-                    vec![branch_point],
-                    CutType::U(Component::Xp),
+                    vec![],
+                    CutType::U(Component::Xm),
                 )
-                .e_branch(1),
+                .e_branch(-1),
             );
         }
 
         if p_range > 0 {
-            let mut p_points: Vec<C> = vec![];
             // let mut x_cuts = vec![];
 
             let p0 = p_range as f64 + 1.0 / 8.0;
             let p2 = p_range as f64 + 7.0 / 8.0;
 
+            let mut p_points: Vec<C> = vec![];
             let m = -2.0 - 2.0 * p_range as f64 * consts.k() as f64;
 
             // let x = get_branch_point_x(m - 1.0 - consts.k() as f64, consts, -1.0);
@@ -1249,6 +1463,130 @@ impl Cut {
                     CutType::U(Component::Xp),
                 )
                 .log_branch(p_range), // .e_branch(1),
+            );
+
+            let paths = vec![XInterpolator::generate_xm(
+                0.0,
+                1.0,
+                -(consts.k() as f64),
+                consts,
+            )];
+            let branch_points = vec![];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range), // .e_branch(1),
+            );
+
+            let paths = vec![XInterpolator::generate_xp(
+                0.0,
+                1.0,
+                -(consts.k() as f64),
+                consts,
+            )];
+            let branch_points = vec![];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths,
+                    branch_points,
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range), // .e_branch(1),
+            );
+
+            let m = 1.0 - p_range as f64 * consts.k() as f64;
+            let p_minus_one_over_s = get_branch_point(m, consts, 1.0);
+            // let x = get_branch_point_x(m, consts, 1.0);
+            let m = 2.0 - (p_range + 1) as f64 * consts.k() as f64;
+
+            let paths = vec![XInterpolator::generate_xp(
+                p_minus_one_over_s.floor(),
+                p_minus_one_over_s,
+                m,
+                consts,
+            )];
+            let branch_points = vec![*paths[0].last().unwrap()];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths.clone(),
+                    branch_points.clone(),
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(), // .e_branch(1),
+            );
+
+            let paths = vec![XInterpolator::generate_xm(
+                p_minus_one_over_s.floor(),
+                p_minus_one_over_s,
+                m,
+                consts,
+            )];
+            let branch_points = vec![*paths[0].last().unwrap()];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths.clone(),
+                    branch_points.clone(),
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(), // .e_branch(1),
+            );
+
+            let m = -1.0 + (p_range + 1) as f64 * consts.k() as f64;
+            let p_minus_one_over_s = get_branch_point(m, consts, 1.0);
+            let x = get_branch_point_x(m, consts, 1.0);
+            let m = -2.0 + (p_range + 1) as f64 * consts.k() as f64;
+
+            let paths = vec![XInterpolator::generate_xp(
+                p_minus_one_over_s.floor(),
+                p_minus_one_over_s,
+                m,
+                consts,
+            )];
+            let branch_points = vec![*paths[0].last().unwrap()];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xm,
+                    paths.clone(),
+                    branch_points.clone(),
+                    // vec![x],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(), // .e_branch(1),
+            );
+
+            let paths = vec![XInterpolator::generate_xm(
+                p_minus_one_over_s.floor(),
+                p_minus_one_over_s,
+                m,
+                consts,
+            )];
+            let branch_points = vec![*paths[0].last().unwrap()];
+
+            cuts.push(
+                Cut::new(
+                    Component::Xp,
+                    paths.clone(),
+                    branch_points.clone(),
+                    // vec![x],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(), // .e_branch(1),
             );
         } else if p_range == -1 {
             let ps = get_branch_point(1.0, consts, 1.0);
@@ -1813,14 +2151,13 @@ impl Cut {
             m,
             consts,
         )];
-        let branch_points = vec![*paths[0].last().unwrap()];
+        let branch_points = vec![*paths[0].first().unwrap()];
 
         cuts.push(
             Cut::new(
                 Component::Xp,
                 paths.clone(),
-                // branch_points.clone(),
-                vec![x.conj()],
+                branch_points.clone(),
                 CutType::LogX(Component::Xm, 1),
             )
             .log_branch(p_range)
