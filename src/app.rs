@@ -139,6 +139,8 @@ impl Plot {
                     pxu.update(self.component, new_value, &crossed_cuts);
                 }
 
+                let z = pxu.get(self.component);
+
                 let contours = grid.get(pxu, self.component);
 
                 for points in contours {
