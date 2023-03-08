@@ -66,7 +66,7 @@ impl Plot {
                     let zoom = ui.input().zoom_delta();
                     self.zoom(zoom);
 
-                    if response.dragged_by(egui::PointerButton::Secondary) {
+                    if response.dragged() {
                         let delta = response.drag_delta();
                         self.origin -= Vec2::new(
                             delta.x * (self.height / desired_size.y) * (self.width_factor),
