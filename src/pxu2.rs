@@ -61,7 +61,9 @@ impl InterpolationStrategy {
     fn max_step(&self) -> f64 {
         match self {
             Self::XpConstP(_, _, _) | Self::XmConstP(_, _, _) => 1.0 / 8.0,
-            Self::XpConstM(_, _, _) | Self::XmConstM(_, _, _) => 1.0 / 8.0,
+            Self::XpConstM(_, p1, p2) | Self::XmConstM(_, p1, p2) => {
+                0.5f64.min(1.0 / 128.0 / (p2 - p1).abs())
+            }
             Self::Lerp(_, _) => 1.0 / 16.0,
         }
     }
