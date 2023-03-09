@@ -4373,16 +4373,16 @@ impl PxuPoint {
     fn shift_u(&self, new_u: C, sheet_data: &SheetData, guess: C) -> Option<C> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| u(p, self.consts, &self.sheet_data) - new_u,
-                |p| du_dp(p, self.consts, &self.sheet_data),
+                |p| u(p, self.consts, &sheet_data) - new_u,
+                |p| du_dp(p, self.consts, &sheet_data),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| u_crossed(p, self.consts, &self.sheet_data) - new_u,
-                |p| du_crossed_dp(p, self.consts, &self.sheet_data),
+                |p| u_crossed(p, self.consts, &sheet_data) - new_u,
+                |p| du_crossed_dp(p, self.consts, &sheet_data),
                 guess,
                 1.0e-6,
                 50,
