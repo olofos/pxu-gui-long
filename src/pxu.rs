@@ -1933,47 +1933,269 @@ impl Cut {
 
         let us = s + 1.0 / s - (s - 1.0 / s) * s.ln();
 
+        let k = consts.k() as f64;
+
+        let shift = p_range as f64 * k / consts.h;
+
         let mut cuts = vec![];
 
-        cuts.push(Cut::new(
-            Component::U,
-            vec![vec![
-                C::new(-INFINITY, 1.0 / consts.h),
-                C::new(us, 1.0 / consts.h),
-            ]],
-            vec![C::new(us, 1.0 / consts.h)],
-            CutType::U(Component::Xm),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::U,
+                vec![vec![
+                    C::new(INFINITY, -(1.0 + p_range as f64 * k) / consts.h + shift),
+                    C::new(us, -(1.0 + p_range as f64 * k) / consts.h + shift),
+                ]],
+                vec![C::new(us, -(1.0 + p_range as f64 * k) / consts.h + shift)],
+                CutType::LogX(Component::Xp, 0),
+            )
+            .log_branch(p_range),
+        );
 
-        cuts.push(Cut::new(
-            Component::U,
-            vec![vec![
-                C::new(-INFINITY, -1.0 / consts.h),
-                C::new(us, -1.0 / consts.h),
-            ]],
-            vec![C::new(us, -1.0 / consts.h)],
-            CutType::U(Component::Xp),
-        ));
+        cuts.push(
+            Cut::new(
+                Component::U,
+                vec![vec![
+                    C::new(INFINITY, (1.0 + p_range as f64 * k) / consts.h + shift),
+                    C::new(us, (1.0 + p_range as f64 * k) / consts.h + shift),
+                ]],
+                vec![C::new(us, (1.0 + p_range as f64 * k) / consts.h + shift)],
+                CutType::LogX(Component::Xm, 0),
+            )
+            .log_branch(p_range),
+        );
 
-        cuts.push(Cut::new(
-            Component::U,
-            vec![vec![
-                C::new(INFINITY, 1.0 / consts.h),
-                C::new(us, 1.0 / consts.h),
-            ]],
-            vec![C::new(us, 1.0 / consts.h)],
-            CutType::LogX(Component::Xm, 0),
-        ));
+        if p_range == 0 {
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-INFINITY, 1.0 / consts.h + shift),
+                        C::new(us, 1.0 / consts.h + shift),
+                    ]],
+                    vec![C::new(us, 1.0 / consts.h + shift)],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
 
-        cuts.push(Cut::new(
-            Component::U,
-            vec![vec![
-                C::new(INFINITY, -1.0 / consts.h),
-                C::new(us, -1.0 / consts.h),
-            ]],
-            vec![C::new(us, -1.0 / consts.h)],
-            CutType::LogX(Component::Xp, 0),
-        ));
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-INFINITY, -1.0 / consts.h + shift),
+                        C::new(us, -1.0 / consts.h + shift),
+                    ]],
+                    vec![C::new(us, -1.0 / consts.h + shift)],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(INFINITY, (1.0 - k) / consts.h + shift),
+                        C::new(-us, (1.0 - k) / consts.h + shift),
+                    ]],
+                    vec![C::new(-us, (1.0 - k) / consts.h + shift)],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(INFINITY, (-1.0 + k) / consts.h + shift),
+                        C::new(-us, (-1.0 + k) / consts.h + shift),
+                    ]],
+                    vec![C::new(-us, (-1.0 + k) / consts.h + shift)],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(),
+            );
+        } else if p_range == -1 {
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-us, 1.0 / consts.h + shift),
+                        C::new(INFINITY, 1.0 / consts.h + shift),
+                    ]],
+                    vec![C::new(-us, 1.0 / consts.h + shift)],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-us, -1.0 / consts.h + shift),
+                        C::new(INFINITY, -1.0 / consts.h + shift),
+                    ]],
+                    vec![C::new(-us, -1.0 / consts.h + shift)],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range),
+            );
+        } else {
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-INFINITY, 1.0 / consts.h + shift),
+                        C::new(INFINITY, 1.0 / consts.h + shift),
+                    ]],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_negative(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(-INFINITY, -1.0 / consts.h + shift),
+                        C::new(INFINITY, -1.0 / consts.h + shift),
+                    ]],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_positive(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            (1.0 + (2 * p_range) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(
+                            INFINITY,
+                            (1.0 + (2 * p_range) as f64 * k) / consts.h + shift,
+                        ),
+                    ]],
+                    vec![],
+                    CutType::U(Component::Xm),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            -(1.0 + (2 * p_range) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(
+                            INFINITY,
+                            -(1.0 + (2 * p_range) as f64 * k) / consts.h + shift,
+                        ),
+                    ]],
+                    vec![],
+                    CutType::U(Component::Xp),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(),
+            );
+        }
+
+        {
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            -(1.0 + (p_range + 1) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h + shift),
+                    ]],
+                    vec![C::new(
+                        -us,
+                        -(1.0 + (p_range + 1) as f64 * k) / consts.h + shift,
+                    )],
+                    CutType::LogX(Component::Xp, 1),
+                )
+                .log_branch(p_range)
+                .im_xp_positive(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            (1.0 + (p_range + 1) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(-us, (1.0 + (p_range + 1) as f64 * k) / consts.h + shift),
+                    ]],
+                    vec![C::new(
+                        -us,
+                        (1.0 + (p_range + 1) as f64 * k) / consts.h + shift,
+                    )],
+                    CutType::LogX(Component::Xm, 1),
+                )
+                .log_branch(p_range)
+                .im_xm_negative(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            -(1.0 + (p_range - 1) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h + shift),
+                    ]],
+                    vec![C::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h + shift,
+                    )],
+                    CutType::LogX(Component::Xp, -1),
+                )
+                .log_branch(p_range)
+                .im_xp_negative(),
+            );
+
+            cuts.push(
+                Cut::new(
+                    Component::U,
+                    vec![vec![
+                        C::new(
+                            -INFINITY,
+                            (1.0 + (p_range - 1) as f64 * k) / consts.h + shift,
+                        ),
+                        C::new(-us, (1.0 + (p_range - 1) as f64 * k) / consts.h + shift),
+                    ]],
+                    vec![C::new(
+                        -us,
+                        (1.0 + (p_range - 1) as f64 * k) / consts.h + shift,
+                    )],
+                    CutType::LogX(Component::Xm, -1),
+                )
+                .log_branch(p_range)
+                .im_xm_positive(),
+            );
+        }
 
         cuts
     }
