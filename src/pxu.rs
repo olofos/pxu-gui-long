@@ -262,7 +262,7 @@ impl GridLines {
         let mut lines = vec![];
 
         let k = consts.k() as i32;
-        for y in (-k)..=(k) {
+        for y in (-32 * k)..=(32 * k) {
             let y = y as f64 / consts.h;
             lines.push(vec![C::new(-1000.0, y), C::new(1000.0, y)]);
         }
