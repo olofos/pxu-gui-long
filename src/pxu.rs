@@ -819,7 +819,8 @@ impl Cuts {
     pub fn visible(&mut self, pt: &PxuPoint, component: Component) -> impl Iterator<Item = &Cut> {
         self.populate(pt);
 
-        let pt = pt.clone();
+        let mut pt = pt.clone();
+        pt.u += pt.sheet_data.log_branch_sum as f64 * pt.consts.k() as f64 * C::i() / pt.consts.h;
 
         self.cuts
             .iter()
@@ -834,7 +835,15 @@ impl Cuts {
     ) -> impl Iterator<Item = &Cut> {
         self.populate(pt);
 
-        let pt = pt.clone();
+        let mut pt = pt.clone();
+        pt.u += pt.sheet_data.log_branch_sum as f64 * pt.consts.k() as f64 * C::i() / pt.consts.h;
+
+        let new_value = if component == Component::U {
+            new_value
+                + pt.sheet_data.log_branch_sum as f64 * pt.consts.k() as f64 * C::i() / pt.consts.h
+        } else {
+            new_value
+        };
 
         self.cuts.iter().filter(move |c| {
             c.component == component

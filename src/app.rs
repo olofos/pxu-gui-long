@@ -158,9 +158,9 @@ impl Plot {
 
                 let z = pxu.get(self.component);
 
-                let contours = grid.get(pxu, self.component);
+                let grid_contours = grid.get(pxu, self.component);
 
-                for points in contours {
+                for points in grid_contours {
                     let points = points
                         .iter()
                         .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
@@ -193,11 +193,18 @@ impl Plot {
                 }));
 
                 if show_cuts {
+                    let shift = if self.component == pxu::Component::U {
+                        -pxu.sheet_data.log_branch_sum as f32 * pxu.consts.k() as f32
+                            / pxu.consts.h as f32
+                    } else {
+                        0.0
+                    };
+
                     for cut in cuts.visible(pxu, self.component) {
                         for points in cut.paths.iter() {
                             let points = points
                                 .iter()
-                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32 - shift))
                                 .collect::<Vec<_>>();
 
                             let color = match cut.typ {
@@ -240,7 +247,7 @@ impl Plot {
                             let branch_points = cut
                                 .branch_points
                                 .iter()
-                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
+                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32 - shift))
                                 .collect::<Vec<_>>();
 
                             for center in branch_points {
