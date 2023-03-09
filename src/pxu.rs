@@ -10,6 +10,9 @@ use num::{Integer, Zero};
 
 type C = Complex<f64>;
 
+const P_RANGE_MIN: i32 = -3;
+const P_RANGE_MAX: i32 = 3;
+
 struct XpFixedM {
     m: f64,
     consts: CouplingConstants,
@@ -203,14 +206,14 @@ impl GridLines {
         let start = chrono::Utc::now();
 
         let mut x = vec![];
-        for p_range in -7..=7 {
+        for p_range in P_RANGE_MIN..=P_RANGE_MAX {
             x.extend(Self::fill_x(p_range, consts));
         }
         let mut u = vec![];
         u.extend(Self::fill_u(consts));
 
         let mut p = vec![];
-        for p_range in -3..=3 {
+        for p_range in P_RANGE_MIN..=P_RANGE_MAX {
             p.extend(Self::fill_p(p_range, consts));
         }
 
@@ -793,8 +796,7 @@ impl Cuts {
 
         if self.cuts.is_empty() {
             let start = chrono::Utc::now();
-            // self.cuts = (-5..=5).map(|n| Cut::get(n, pt.consts)).collect();
-            for p_range in -3..=2 {
+            for p_range in P_RANGE_MIN..=P_RANGE_MAX {
                 self.cuts.extend(Cut::get(p_range, pt.consts));
             }
             let end = chrono::Utc::now();
