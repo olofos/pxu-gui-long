@@ -4221,7 +4221,7 @@ impl PxuPoint {
     pub fn new(p: impl Into<C>, consts: CouplingConstants) -> Self {
         let p: C = p.into();
         let log_branch = p.re.floor() as i32;
-        let log_branch_sum = if log_branch.is_odd() { 1 } else { 0 };
+        let log_branch_sum = -log_branch;
 
         let sheet_data = SheetData {
             log_branch,
