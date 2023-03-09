@@ -4481,12 +4481,6 @@ impl PxuPoint {
             self.xp = xp_crossed(p, 1.0, self.consts);
             self.xm = xm_crossed(p, 1.0, self.consts);
             self.u = u_crossed(p, self.consts, &self.sheet_data);
-
-            log::info!(
-                "{:2} {:2}",
-                u(p, self.consts, &self.sheet_data,),
-                u_crossed(p, self.consts, &self.sheet_data)
-            );
         };
     }
 
@@ -4666,19 +4660,8 @@ impl PxuPoint {
                 Component::U => self.shift_u(new_value, &new_sheet_data, guess),
             };
 
-            let prev_p = self.p;
-            let crossed_cut = new_sheet_data != self.sheet_data;
-            let prev_u = self.u;
-
             if self.try_set(p, &new_sheet_data) {
-                if crossed_cut {
-                    log::info!("{i} {}", new_sheet_data.e_branch);
-                    log::info!("{:.2} {:.2}", self.p - prev_p, guess - prev_p);
-                    // log::info!("{:.2}", self.u - prev_u);
-                }
                 break;
-            } else {
-                log::info!("not {i}");
             }
         }
     }

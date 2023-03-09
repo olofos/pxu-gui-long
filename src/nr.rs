@@ -77,7 +77,6 @@ pub fn shoot(
             }
             i += 1;
             if i > 6 {
-                log::info!("> ({s})");
                 return result;
             }
         }

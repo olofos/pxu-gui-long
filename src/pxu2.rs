@@ -407,17 +407,9 @@ impl PInterpolator {
                         p_path.push(p);
                         x_path.push(w);
                         break;
-                    } else {
-                        // log::info!(
-                        //     "Too large jump ({},{}): {}",
-                        //     t,
-                        //     1.0 / step,
-                        //     (next_p.re - p.re).abs()
-                        // );
                     }
                 }
                 if i > 5 {
-                    log::info!("Failed at {t} {step}");
                     break 'outer;
                 }
                 step /= 2.0;
