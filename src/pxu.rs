@@ -817,6 +817,7 @@ impl Cuts {
             .iter()
             .filter(move |c| c.component == component && c.is_visible(&pt))
     }
+
     pub fn crossed(
         &mut self,
         pt: &PxuPoint,
@@ -903,6 +904,7 @@ impl Cut {
         let mut cuts = vec![];
         cuts.extend(Self::x_cuts_x(p_range, consts));
         cuts.extend(Self::x_cuts_p(p_range, consts));
+        cuts.extend(Self::x_p_cuts_u(p_range, consts));
         cuts.extend(Self::p_cuts_x(p_range, consts));
         cuts.extend(Self::p_cuts_p(p_range, consts));
         cuts.extend(Self::e_cuts(p_range, consts));
@@ -1877,6 +1879,57 @@ impl Cut {
                 .log_branch(p_range), //.e_branch(1),
             );
         }
+
+        cuts
+    }
+
+    fn x_p_cuts_u(p_range: i32, consts: CouplingConstants) -> Vec<Cut> {
+        let s = consts.s();
+        const INFINITY: f64 = 1000.0;
+
+        let us = s + 1.0 / s - (s - 1.0 / s) * s.ln();
+
+        let mut cuts = vec![];
+
+        cuts.push(Cut::new(
+            Component::U,
+            vec![vec![
+                C::new(-INFINITY, 1.0 / consts.h),
+                C::new(us, 1.0 / consts.h),
+            ]],
+            vec![C::new(us, 1.0 / consts.h)],
+            CutType::U(Component::Xm),
+        ));
+
+        cuts.push(Cut::new(
+            Component::U,
+            vec![vec![
+                C::new(-INFINITY, -1.0 / consts.h),
+                C::new(us, -1.0 / consts.h),
+            ]],
+            vec![C::new(us, -1.0 / consts.h)],
+            CutType::U(Component::Xp),
+        ));
+
+        cuts.push(Cut::new(
+            Component::U,
+            vec![vec![
+                C::new(INFINITY, 1.0 / consts.h),
+                C::new(us, 1.0 / consts.h),
+            ]],
+            vec![C::new(us, 1.0 / consts.h)],
+            CutType::LogX(Component::Xm, 0),
+        ));
+
+        cuts.push(Cut::new(
+            Component::U,
+            vec![vec![
+                C::new(INFINITY, -1.0 / consts.h),
+                C::new(us, -1.0 / consts.h),
+            ]],
+            vec![C::new(us, -1.0 / consts.h)],
+            CutType::LogX(Component::Xp, 0),
+        ));
 
         cuts
     }
