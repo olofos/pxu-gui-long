@@ -194,7 +194,8 @@ impl Plot {
 
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
-                        -pxu.sheet_data.log_branch_sum as f32 * pxu.consts.k() as f32
+                        (pxu.sheet_data.log_branch + pxu.sheet_data.log_branch_sum) as f32
+                            * pxu.consts.k() as f32
                             / pxu.consts.h as f32
                     } else {
                         0.0
@@ -204,7 +205,9 @@ impl Plot {
                         for points in cut.paths.iter() {
                             let points = points
                                 .iter()
-                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32 - shift))
+                                .map(|z| {
+                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
+                                })
                                 .collect::<Vec<_>>();
 
                             let color = match cut.typ {
@@ -247,7 +250,9 @@ impl Plot {
                             let branch_points = cut
                                 .branch_points
                                 .iter()
-                                .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32 - shift))
+                                .map(|z| {
+                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
+                                })
                                 .collect::<Vec<_>>();
 
                             for center in branch_points {
