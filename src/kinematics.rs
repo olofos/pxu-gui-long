@@ -49,6 +49,7 @@ pub struct SheetData {
     pub log_branch: i32,
     pub log_branch_sum: i32,
     pub e_branch: i32,
+    pub u_branch: (i32, i32),
 }
 
 pub fn en(p: impl Into<C>, m: f64, consts: CouplingConstants) -> C {

@@ -755,7 +755,10 @@ enum CutVisibilityCondition {
     LogBranch(i32),
     LogBranchGT(i32),
     LogBranchLE(i32),
+    LogBranchSum(i32),
     EBranch(i32),
+    UpBranch(i32),
+    UmBranch(i32),
 }
 
 impl CutVisibilityCondition {
@@ -766,7 +769,10 @@ impl CutVisibilityCondition {
             Self::LogBranch(b) => *b == pt.sheet_data.log_branch,
             Self::LogBranchGT(b) => pt.sheet_data.log_branch > *b,
             Self::LogBranchLE(b) => pt.sheet_data.log_branch <= *b,
+            Self::LogBranchSum(b) => *b == pt.sheet_data.log_branch_sum,
             Self::EBranch(b) => pt.sheet_data.e_branch == *b,
+            Self::UpBranch(b) => pt.sheet_data.u_branch.0 == *b,
+            Self::UmBranch(b) => pt.sheet_data.u_branch.1 == *b,
         }
     }
 }
@@ -884,6 +890,12 @@ impl Cut {
         self
     }
 
+    fn log_branch_sum(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::LogBranchSum(branch));
+        self
+    }
+
     fn log_branch_gt(mut self, branch: i32) -> Self {
         self.visibility
             .push(CutVisibilityCondition::LogBranchGT(branch));
@@ -899,6 +911,18 @@ impl Cut {
     fn e_branch(mut self, branch: i32) -> Self {
         self.visibility
             .push(CutVisibilityCondition::EBranch(branch));
+        self
+    }
+
+    fn up_branch(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::UpBranch(branch));
+        self
+    }
+
+    fn um_branch(mut self, branch: i32) -> Self {
+        self.visibility
+            .push(CutVisibilityCondition::UmBranch(branch));
         self
     }
 
@@ -4177,7 +4201,7 @@ pub struct PxuPoint {
 
 impl PxuPoint {
     pub fn new(p: impl Into<C>, consts: CouplingConstants) -> Self {
-        let p = p.into();
+        let p: C = p.into();
         let log_branch = p.re.floor() as i32;
         let log_branch_sum = if log_branch.is_odd() { 1 } else { 0 };
 
@@ -4185,6 +4209,7 @@ impl PxuPoint {
             log_branch,
             log_branch_sum,
             e_branch: 1,
+            u_branch: (1, 1),
         };
 
         let xp = xp(p, 1.0, consts);
@@ -4370,6 +4395,14 @@ impl PxuPoint {
                 }
                 CutType::E => {
                     new_sheet_data.e_branch = -new_sheet_data.e_branch;
+                }
+                CutType::U(Component::Xp) => {
+                    new_sheet_data.u_branch =
+                        (-new_sheet_data.u_branch.0, new_sheet_data.u_branch.1);
+                }
+                CutType::U(Component::Xm) => {
+                    new_sheet_data.u_branch =
+                        (new_sheet_data.u_branch.0, -new_sheet_data.u_branch.1);
                 }
                 _ => {}
             }

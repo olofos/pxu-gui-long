@@ -425,6 +425,10 @@ impl eframe::App for TemplateApp {
                 ));
 
                 ui.label(format!("E branch: {:+} ", self.pxu.sheet_data.e_branch));
+                ui.label(format!(
+                    "U branch: ({:+},{:+}) ",
+                    self.pxu.sheet_data.u_branch.0, self.pxu.sheet_data.u_branch.1
+                ));
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
