@@ -87,6 +87,7 @@ impl Plot {
                 );
 
                 let to_screen = eframe::emath::RectTransform::from_to(visible_rect, rect);
+
                 ui.set_clip_rect(rect);
 
                 let origin = to_screen * egui::pos2(0.0, 0.0);
@@ -107,6 +108,22 @@ impl Plot {
                         Stroke::new(0.75, Color32::DARK_GRAY),
                     ),
                 ];
+
+                if self.component == pxu::Component::P {
+                    for i in -5..5 {
+                        if i == 0 {
+                            continue;
+                        }
+                        let origin = to_screen * egui::pos2(i as f32, 0.0);
+                        shapes.push(egui::epaint::Shape::line(
+                            vec![
+                                egui::pos2(origin.x, rect.bottom()),
+                                egui::pos2(origin.x, rect.top()),
+                            ],
+                            Stroke::new(0.75, Color32::DARK_GREEN),
+                        ));
+                    }
+                }
 
                 let z = pxu.get(self.component);
 
@@ -388,7 +405,11 @@ impl eframe::App for TemplateApp {
             ui.separator();
 
             {
-                ui.label(format!("Momentum: {:.2}", self.pxu.p));
+                ui.label(format!(
+                    "Momentum: {:.2} ({:.2})",
+                    self.pxu.p,
+                    self.pxu.xp.arg() / std::f64::consts::PI
+                ));
 
                 {
                     let xp = self.pxu.xp;
@@ -400,8 +421,7 @@ impl eframe::App for TemplateApp {
 
                 ui.label(format!(
                     "Log branches: {:+} {:+}",
-                    (self.pxu.sheet_data.log_branch + self.pxu.sheet_data.log_branch_sum) / 2,
-                    (self.pxu.sheet_data.log_branch - self.pxu.sheet_data.log_branch_sum) / 2
+                    self.pxu.sheet_data.log_branch, self.pxu.sheet_data.log_branch_sum
                 ));
 
                 ui.label(format!("E branch: {:+} ", self.pxu.sheet_data.e_branch));
