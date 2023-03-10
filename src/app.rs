@@ -229,10 +229,23 @@ impl Plot {
                                 _ => Color32::from_rgb(255, 128, 0),
                             };
 
-                            shapes.push(egui::epaint::Shape::line(
-                                points.clone(),
-                                Stroke::new(3.0, color),
-                            ));
+                            match cut.typ {
+                                pxu::CutType::LogX(_, 0) => {
+                                    egui::epaint::Shape::dashed_line_many(
+                                        &points.clone(),
+                                        Stroke::new(3.0, color),
+                                        8.0,
+                                        8.0,
+                                        &mut shapes,
+                                    );
+                                }
+                                _ => {
+                                    shapes.push(egui::epaint::Shape::line(
+                                        points.clone(),
+                                        Stroke::new(3.0, color),
+                                    ));
+                                }
+                            }
 
                             if show_dots {
                                 for center in points {
