@@ -120,7 +120,7 @@ impl Plot {
                                 egui::pos2(origin.x, rect.bottom()),
                                 egui::pos2(origin.x, rect.top()),
                             ],
-                            Stroke::new(0.75, Color32::DARK_GREEN),
+                            Stroke::new(0.75, Color32::DARK_GRAY),
                         ));
                     }
                 }
