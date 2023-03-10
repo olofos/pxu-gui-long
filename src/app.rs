@@ -353,7 +353,7 @@ impl Default for TemplateApp {
             },
             u_plot: Plot {
                 component: pxu::Component::U,
-                height: ((2 * consts.k() + 1) as f64 / consts.h) as f32,
+                height: ((4 * consts.k() + 1) as f64 / consts.h) as f32,
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
