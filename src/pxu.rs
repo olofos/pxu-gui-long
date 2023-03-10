@@ -6,7 +6,7 @@ use crate::nr::{self};
 use crate::pxu2::{InterpolationPoint, PInterpolator, XInterpolator};
 use itertools::Itertools;
 use num::complex::Complex;
-use num::{Integer, Zero};
+use num::Zero;
 
 type C = Complex<f64>;
 
