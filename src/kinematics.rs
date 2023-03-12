@@ -35,13 +35,6 @@ impl CouplingConstants {
         }
         self.k() as f64
     }
-
-    pub fn get_set_s(&mut self, s: Option<f64>) -> f64 {
-        if let Some(s) = s {
-            self.h = 2.0 * self.kslash() * s / (s * s - 1.0);
-        }
-        self.s()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,7 +165,7 @@ pub fn u(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> 
     u0p
 }
 
-pub fn du_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
+pub fn du_dp(p: impl Into<C>, consts: CouplingConstants, _sheet_data: &SheetData) -> C {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();
@@ -244,7 +237,7 @@ pub fn u_crossed(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetD
     u0p
 }
 
-pub fn du_crossed_dp(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> C {
+pub fn du_crossed_dp(p: impl Into<C>, consts: CouplingConstants, _sheet_data: &SheetData) -> C {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();

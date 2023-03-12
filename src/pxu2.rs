@@ -1,6 +1,6 @@
 //XXX::new(xp(C::from(p0), 1.0, consts)).goto_im(xm(C::from(p0), 1.0, consts)).goto_p(p_start+1.5*PI).goto_m(0.0).generate_contour()
 use crate::{
-    kinematics::{dxm_dp, dxp_dp, xm, xp, CouplingConstants},
+    kinematics::{dxp_dp, xm, xp, CouplingConstants},
     nr,
 };
 
@@ -94,12 +94,6 @@ impl InterpolationStrategy {
             }
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum InterpolationComponent {
-    Xp,
-    Xm,
 }
 
 pub struct XInterpolator {}
@@ -275,7 +269,6 @@ impl XInterpolator {
 #[derive(Debug, Clone)]
 pub struct PInterpolator {
     valid: bool,
-    pub component: InterpolationComponent,
     pub p: Complex64,
     pub pt: InterpolationPoint,
     pub consts: CouplingConstants,
@@ -292,22 +285,6 @@ impl PInterpolator {
         let p = Complex64::from(p);
         Self {
             valid: true,
-            component: InterpolationComponent::Xp,
-            p,
-            pt,
-            consts,
-            p_path: vec![p],
-            x_path: vec![pt.evaluate(consts)],
-        }
-    }
-
-    pub fn xm(p: f64, consts: CouplingConstants) -> Self {
-        let pt = InterpolationPoint::Xm(p, 1.0);
-        let p = Complex64::from(p);
-        Self {
-            valid: true,
-
-            component: InterpolationComponent::Xm,
             p,
             pt,
             consts,
@@ -352,22 +329,6 @@ impl PInterpolator {
         let mut result = self.goto(pt);
         result.pt = pt;
         result
-    }
-
-    pub fn go_towards_xp(self, p: f64, m: f64) -> Self {
-        self.go_towards(InterpolationPoint::Xp(p, m))
-    }
-
-    pub fn go_towards_xm(self, p: f64, m: f64) -> Self {
-        self.go_towards(InterpolationPoint::Xm(p, m))
-    }
-
-    pub fn go_towards(self, pt: InterpolationPoint) -> Self {
-        if !self.valid {
-            return self;
-        }
-        let (_, int_pt) = self.do_goto(pt);
-        int_pt
     }
 
     pub fn goto(self, pt: InterpolationPoint) -> Self {
@@ -444,16 +405,10 @@ impl PInterpolator {
     }
 
     fn f(&self, z: Complex64) -> Complex64 {
-        match self.component {
-            InterpolationComponent::Xp => xp(z, 1.0, self.consts),
-            InterpolationComponent::Xm => xm(z, 1.0, self.consts),
-        }
+        xp(z, 1.0, self.consts)
     }
 
     fn df(&self, z: Complex64) -> Complex64 {
-        match self.component {
-            InterpolationComponent::Xp => dxp_dp(z, 1.0, self.consts),
-            InterpolationComponent::Xm => dxm_dp(z, 1.0, self.consts),
-        }
+        dxp_dp(z, 1.0, self.consts)
     }
 }
