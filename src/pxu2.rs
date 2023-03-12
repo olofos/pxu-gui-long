@@ -279,6 +279,9 @@ pub struct PInterpolator {
 
 /// let contour = MomentumInterpolator::xp(0.25, consts).goto(InterpolationPoint::Xm(0.25, 1.0)).goto(InterpolationPoint::Xm(0.25, 0.0))).full_contour();
 
+const MAX_RE_P_JUMP: f64 = 1.0 / 8.0;
+const MAX_IM_P_JUMP: f64 = 1.0 / 4.0;
+
 impl PInterpolator {
     pub fn xp(p: f64, consts: CouplingConstants) -> Self {
         let pt = InterpolationPoint::Xp(p, 1.0);
@@ -361,7 +364,8 @@ impl PInterpolator {
                 let w = pt.evaluate(self.consts);
                 let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
                 if let Some(next_p) = next_p {
-                    if (next_p.re - p.re).abs() < 1.0 / 8.0 && (next_p.im - p.im).abs() < 1.0 / 4.0
+                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP
+                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP
                     {
                         t += step;
                         p = next_p;
