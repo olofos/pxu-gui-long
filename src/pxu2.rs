@@ -125,6 +125,36 @@ impl Asymptote {
     fn num(n: impl Into<Complex64>) -> Self {
         Self::Num(n.into())
     }
+
+    fn new_xp_start(p: f64, m: f64, consts: CouplingConstants) -> Self {
+        if p == p.floor() {
+            let m_eff = m + p * consts.k() as f64;
+            if m_eff == 0.0 {
+                Self::num(consts.s())
+            } else if m_eff > 0.0 {
+                Self::Infinity
+            } else {
+                Self::num(0.0)
+            }
+        } else {
+            Self::num(xp(p, m, consts))
+        }
+    }
+
+    fn new_xp_end(p: f64, m: f64, consts: CouplingConstants) -> Self {
+        if p == p.ceil() {
+            let m_eff = m + p * consts.k() as f64;
+            if m_eff == 0.0 {
+                Self::num(-1.0 / consts.s())
+            } else if m_eff > 0.0 {
+                Self::Infinity
+            } else {
+                Self::num(0.0)
+            }
+        } else {
+            Self::num(xp(p, m, consts))
+        }
+    }
 }
 
 impl XInterpolator {
@@ -149,35 +179,8 @@ impl XInterpolator {
             log::error!("Trying to generate xp for more than one momentum region ({p_end:2} > {p_start:2}+1)");
         }
 
-        let x_start: Asymptote;
-        let x_end: Asymptote;
-
-        if p_start.floor() == p_start {
-            let p_range = p_start as i32;
-            // if (p_range == 0 && m == 0.0) || (p_range == -1 && m == consts.k() as f64) {
-            if (p_start * consts.k() as f64) + m == 0.0 {
-                x_start = Asymptote::num(consts.s());
-            } else if p_range < 0 {
-                x_start = Asymptote::num(0.0);
-            } else {
-                x_start = Asymptote::Infinity;
-            }
-        } else {
-            x_start = Asymptote::num(xp(p_start, m, consts));
-        }
-
-        if p_end.ceil() == p_end {
-            let p_range = p_end as i32 - 1;
-            if (p_range == -1 && m == 0.0) || (p_range == -2 && m == consts.k() as f64) {
-                x_end = Asymptote::num(-1.0 / consts.s());
-            } else if p_range < -1 {
-                x_end = Asymptote::num(0.0);
-            } else {
-                x_end = Asymptote::Infinity;
-            }
-        } else {
-            x_end = Asymptote::num(xp(p_end, m, consts));
-        }
+        let x_start = Asymptote::new_xp_start(p_start, m, consts);
+        let x_end = Asymptote::new_xp_end(p_end, m, consts);
 
         const INFINITY: f64 = 256.0;
         let mut points = VecDeque::new();
