@@ -132,112 +132,47 @@ impl GridLines {
         let mut lines = vec![];
 
         {
-            let p0 = p_start + 1.0 / 8.0;
-            let p2 = p_start + 7.0 / 8.0;
-
-            let mut p_points = vec![];
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
 
             let p_int = PInterpolator::xp(p0, consts)
                 .goto_xp(p0, -p_start * consts.k() as f64)
                 .clear_path();
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xp(p_start + 0.99, -p_start * consts.k() as f64)
-                    .p_path
-                    .iter()
-                    .rev(),
-            );
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xp(p_start + 0.01, -p_start * consts.k() as f64)
-                    .p_path,
-            );
+
+            lines.push(p_int.contour());
 
             let p_int = PInterpolator::xp(p0, consts)
                 .goto_xm(p0, 1.0)
                 .goto_xm(p0, -p_start * consts.k() as f64)
                 .clear_path();
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xm(p_start + 0.01, -p_start * consts.k() as f64)
-                    .p_path
-                    .iter()
-                    .rev(),
-            );
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xm(p_start + 0.99, -p_start * consts.k() as f64)
-                    .p_path,
-            );
 
-            lines.push(p_points);
-
-            let mut p_points = vec![];
+            lines.push(p_int.contour());
 
             let p_int = PInterpolator::xp(p2, consts)
                 .goto_xp(p2, -(p_start + 1.0) * consts.k() as f64)
                 .clear_path();
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xp(p_start + 0.99, -(p_start + 1.0) * consts.k() as f64)
-                    .p_path
-                    .iter()
-                    .rev(),
-            );
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xp(p_start + 0.01, -(p_start + 1.0) * consts.k() as f64)
-                    .p_path,
-            );
 
-            lines.push(p_points);
-
-            let mut p_points = vec![];
+            lines.push(p_int.contour());
 
             let p_int = PInterpolator::xp(p0, consts)
                 .goto_xm(p0, 1.0)
                 .goto_xm(p2, 1.0)
                 .goto_xm(p2, -(p_start + 1.0) * consts.k() as f64)
                 .clear_path();
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xm(p_start + 0.01, -(p_start + 1.0) * consts.k() as f64)
-                    .p_path
-                    .iter()
-                    .rev(),
-            );
-            p_points.extend(
-                p_int
-                    .clone()
-                    .goto_xm(p_start + 0.99, -(p_start + 1.0) * consts.k() as f64)
-                    .p_path,
-            );
 
-            lines.push(p_points);
+            lines.push(p_int.contour());
         }
 
         if p_range == 0 {
-            let p0 = p_start + 1.0 / 8.0;
-            let p2 = p_start + 7.0 / 8.0;
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
 
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
 
             for m in 3..=(2 * consts.k()) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p2, consts).goto_xp(p2, 3.0).clear_path();
@@ -245,23 +180,13 @@ impl GridLines {
             for m in 3..=(consts.k() + 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (consts.k() + 3)..=(6 * consts.k()) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts)
@@ -272,42 +197,27 @@ impl GridLines {
             for m in ((3 - consts.k() as i32)..=(1)).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p2, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
         }
 
         if p_range > 0 {
-            let p0 = p_start + 1.0 / 8.0;
-            let p2 = p_start + 7.0 / 8.0;
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
 
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
 
             for m in 2..=(p_range * consts.k() as i32 + 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (p_range * consts.k() as i32 + 3)..=(2 + (2 * p_range + 2) * consts.k() as i32)
             {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p2, consts)
@@ -317,23 +227,13 @@ impl GridLines {
             for m in (p_range * consts.k() as i32 + 3)..=((p_range + 1) * consts.k() as i32 + 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in ((p_range + 1) * consts.k() as i32 + 3)..=(6 * consts.k() as i32) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts)
@@ -347,23 +247,13 @@ impl GridLines {
             {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (1..=((p_range - 1) * consts.k() as i32 + 1)).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             p_int = p_int.goto_xp(p2, 1.0).clear_path();
@@ -371,40 +261,25 @@ impl GridLines {
             for m in ((-(consts.k() as i32) + 2)..=0).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p2, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
         }
 
         if p_range == -1 {
-            let p0 = p_start + 1.0 / 8.0;
+            let p0 = p_start + 1.0 / 16.0;
 
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
 
             for m in 3..=(consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts).goto_xm(p0, 1.0).clear_path();
@@ -412,74 +287,44 @@ impl GridLines {
             for m in 1..=(consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (consts.k() as i32 + 1)..=(2 * consts.k() as i32 - 2) {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts).goto_xm(p0, 1.0).clear_path();
             for m in ((-2 * consts.k() as i32)..=-1).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
         }
 
         if p_range < -1 {
-            let p0 = p_start + 1.0 / 8.0;
+            let p0 = p_start + 1.0 / 16.0;
 
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
 
             for m in 2..=(-(p_range + 1) * consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
                 let m = m as f64;
                 p_int = p_int.goto_xp(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xp(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts).clear_path();
@@ -487,34 +332,19 @@ impl GridLines {
             for m in 1..=(-(p_range + 1) * consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
 
             let mut p_int = PInterpolator::xp(p0, consts).goto_xm(p0, 1.0).clear_path();
@@ -522,12 +352,7 @@ impl GridLines {
             for m in ((-2 * consts.k() as i32)..=0).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
-                let mut p_points = vec![];
-
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.01, m).p_path.iter().rev());
-                p_points.extend(p_int.clone().goto_xm(p_start + 0.99, m).p_path);
-
-                lines.push(p_points);
+                lines.push(p_int.contour());
             }
         }
 
@@ -890,10 +715,10 @@ impl Cut {
             let p_int = PInterpolator::xp(p0, consts).goto_xp(p0, 0.0);
             let p_int = p_int.clear_path();
 
-            let p_int2 = p_int.clone().goto_xp(p_start + 1.0 / 64.0, 0.0);
+            let p_int2 = p_int.clone().goto_xp(p_start + 1.0 / 16.0, 0.0);
             p_points.extend(p_int2.p_path.into_iter().rev());
 
-            let p_int2 = p_int.goto_xp(p_start + 1.0 - 1.0 / 64.0, 0.0);
+            let p_int2 = p_int.goto_xp(p_start + 1.0 - 1.0 / 16.0, 0.0);
             p_points.extend(p_int2.p_path);
 
             if p_range != -1 {

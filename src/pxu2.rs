@@ -68,6 +68,16 @@ impl InterpolationStrategy {
         }
     }
 
+    fn argument(&self, t: f64) -> f64 {
+        match self {
+            Self::XpConstP(p, m1, m2) => m1 + t * (m2 - m1),
+            Self::XmConstP(p, m1, m2) => m1 + t * (m2 - m1),
+            Self::XpConstM(m, p1, p2) => p1 + t * (p2 - p1),
+            Self::XmConstM(m, p1, p2) => p1 + t * (p2 - p1),
+            Self::Lerp(c1, c2) => t,
+        }
+    }
+
     fn evaluate(&self, t: f64, consts: CouplingConstants) -> InterpolationPoint {
         match self {
             Self::XpConstP(p, m1, m2) => {
@@ -393,17 +403,106 @@ impl PInterpolator {
         )
     }
 
+    fn generate_path(&self, pt: InterpolationPoint) -> Vec<(f64, Complex64)> {
+        let strategy = InterpolationStrategy::new(self.pt, pt);
+        let mut p = self.p;
+
+        let mut path: Vec<(f64, Complex64)> = vec![(strategy.argument(0.0), p)];
+
+        let mut t = 0.0;
+
+        'outer: while t < 1.0 {
+            let mut step = strategy.max_step().min(1.0 - t);
+
+            for i in 0.. {
+                let pt = strategy.evaluate(t + step, self.consts);
+                let w = pt.evaluate(self.consts);
+                let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
+                if let Some(next_p) = next_p {
+                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP
+                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP
+                    {
+                        t += step;
+                        p = next_p;
+                        path.push((strategy.argument(t), p));
+                        break;
+                    }
+                }
+                if i > 5 {
+                    break 'outer;
+                }
+                step /= 2.0;
+            }
+        }
+
+        path
+    }
+
     pub fn contour(&self) -> Vec<Complex64> {
         if !self.valid {
             return vec![];
         }
 
-        if let InterpolationPoint::C(_) = self.pt {
-            log::info!("Can only generate contour from Xp or Xm");
+        let (p1, p2) = match self.pt {
+            InterpolationPoint::C(_) => {
+                log::info!("Can only generate contour from Xp or Xm");
+                return vec![];
+            }
+            InterpolationPoint::Xp(p, _) | InterpolationPoint::Xm(p, _) => {
+                (p.floor() + 1.0 / 256.0, p.ceil() - 1.0 / 256.0)
+            }
+        };
+
+        let pt_at = |p| match self.pt {
+            InterpolationPoint::C(_) => {
+                unreachable!();
+            }
+            InterpolationPoint::Xp(_, m) => InterpolationPoint::Xp(p, m),
+            InterpolationPoint::Xm(_, m) => InterpolationPoint::Xm(p, m),
+        };
+
+        let pt1 = pt_at(p1);
+        let pt2 = pt_at(p2);
+
+        let mut path = VecDeque::new();
+
+        path.extend(self.generate_path(pt1).into_iter().rev());
+        path.pop_back();
+        path.extend(self.generate_path(pt2));
+
+        fn zero_asymptote_dist((_, p): (f64, Complex64)) -> f64 {
+            if (p.re - p.re.floor()) < 0.5 {
+                (p - p.re.floor()).norm_sqr()
+            } else {
+                (p - p.re.ceil()).norm_sqr()
+            }
+        }
+
+        fn zero_asymptote_value((_, p): (f64, Complex64)) -> Complex64 {
+            if (p.re - p.re.floor()) < 0.5 {
+                Complex64::from(p.re.floor())
+            } else {
+                Complex64::from(p.re.ceil())
+            }
+        }
+
+        if path.len() < 2 {
             return vec![];
         }
 
-        let mut result = vec![];
+        if (path.front().unwrap().0 - p1).abs() < 1.0 / 128.0 {
+            if zero_asymptote_dist(*path.front().unwrap()) < 1.0 / 64.0 {
+                path.push_front((p1.floor(), zero_asymptote_value(*path.front().unwrap())));
+            }
+        }
+
+        if (path.back().unwrap().0 - p2).abs() < 1.0 / 128.0 {
+            if zero_asymptote_dist(*path.back().unwrap()) < 1.0 / 64.0 {
+                path.push_back((p2.ceil(), zero_asymptote_value(*path.back().unwrap())));
+            }
+        }
+
+        let mut result = path.into_iter().map(|(_, p)| p).collect();
 
         result
     }
