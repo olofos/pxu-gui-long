@@ -665,7 +665,7 @@ impl GridLines {
 
             let mut p_int = PInterpolator::xp(p0, consts).goto_xm(p0, 1.0).clear_path();
 
-            for m in ((-2 * consts.k() as i32)..=-1).rev() {
+            for m in ((-2 * consts.k() as i32)..=0).rev() {
                 let m = m as f64;
                 p_int = p_int.goto_xm(p0, m).clear_path();
                 let mut p_points = vec![];
