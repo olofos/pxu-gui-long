@@ -22,9 +22,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     branch: i32,
     #[serde(skip)]
-    grid: pxu::Grid,
-    #[serde(skip)]
-    cuts: pxu::Cuts,
+    contour_generator: pxu::ContourGenerator,
     #[serde(skip)]
     p_plot: Plot,
     #[serde(skip)]
@@ -51,8 +49,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         desired_size: Vec2,
-        grid: &mut pxu::Grid,
-        cuts: &mut pxu::Cuts,
+        contour_generator: &mut pxu::ContourGenerator,
         show_dots: bool,
         show_cuts: bool,
         pxu: &mut PxuPoint,
@@ -149,8 +146,8 @@ impl Plot {
                     let new_value = to_screen.inverse() * (center + point_response.drag_delta());
                     let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                    let crossed_cuts = cuts
-                        .crossed(pxu, self.component, new_value)
+                    let crossed_cuts = contour_generator
+                        .get_crossed_cuts(pxu, self.component, new_value)
                         .collect::<Vec<_>>();
 
                     pxu.update(self.component, new_value, &crossed_cuts);
@@ -158,7 +155,7 @@ impl Plot {
 
                 let z = pxu.get(self.component);
 
-                let grid_contours = grid.get(pxu, self.component);
+                let grid_contours = contour_generator.get_grid(pxu, self.component);
 
                 for points in grid_contours {
                     let points = points
@@ -201,7 +198,7 @@ impl Plot {
                         0.0
                     };
 
-                    for cut in cuts.visible(pxu, self.component) {
+                    for cut in contour_generator.get_visible_cuts(pxu, self.component) {
                         for points in cut.paths.iter() {
                             let points = points
                                 .iter()
@@ -331,8 +328,7 @@ impl Default for TemplateApp {
             pxu: PxuPoint::new(p_range as f64 + 0.25, consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
-            grid: pxu::Grid::new(),
-            cuts: pxu::Cuts::new(),
+            contour_generator: pxu::ContourGenerator::new(),
             p_plot: Plot {
                 component: pxu::Component::P,
                 height: 0.75,
@@ -500,8 +496,7 @@ impl eframe::App for TemplateApp {
                 self.p_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.grid,
-                    &mut self.cuts,
+                    &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
                     &mut self.pxu,
@@ -510,8 +505,7 @@ impl eframe::App for TemplateApp {
                 self.u_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.grid,
-                    &mut self.cuts,
+                    &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
                     &mut self.pxu,
@@ -521,8 +515,7 @@ impl eframe::App for TemplateApp {
                 self.xp_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.grid,
-                    &mut self.cuts,
+                    &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
                     &mut self.pxu,
@@ -531,8 +524,7 @@ impl eframe::App for TemplateApp {
                 self.xm_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.grid,
-                    &mut self.cuts,
+                    &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
                     &mut self.pxu,

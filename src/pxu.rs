@@ -21,6 +21,41 @@ pub enum Component {
     U,
 }
 
+pub struct ContourGenerator {
+    grid: Grid,
+    cuts: Cuts,
+}
+
+impl ContourGenerator {
+    pub fn new() -> Self {
+        Self {
+            grid: Grid::new(),
+            cuts: Cuts::new(),
+        }
+    }
+
+    pub fn get_grid(&mut self, pt: &PxuPoint, component: Component) -> &Vec<Vec<C>> {
+        self.grid.get(pt, component)
+    }
+
+    pub fn get_visible_cuts(
+        &mut self,
+        pt: &PxuPoint,
+        component: Component,
+    ) -> impl Iterator<Item = &Cut> {
+        self.cuts.visible(pt, component)
+    }
+
+    pub fn get_crossed_cuts(
+        &mut self,
+        pt: &PxuPoint,
+        component: Component,
+        new_value: C,
+    ) -> impl Iterator<Item = &Cut> {
+        self.cuts.crossed(pt, component, new_value)
+    }
+}
+
 #[derive(Debug)]
 pub struct Grid {
     data: Option<GridLines>,
