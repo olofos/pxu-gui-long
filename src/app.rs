@@ -155,7 +155,7 @@ impl Plot {
 
                 let z = pxu.get(self.component);
 
-                let grid_contours = contour_generator.get_grid(pxu, self.component);
+                let grid_contours = contour_generator.get_grid(self.component);
 
                 for points in grid_contours {
                     let points = points
@@ -488,6 +488,10 @@ impl eframe::App for TemplateApp {
 
         if old_p_range != self.p_range {
             self.p_plot.origin.x += (self.p_range - old_p_range) as f32;
+        }
+
+        if !self.contour_generator.update(&self.pxu) {
+            ctx.request_repaint();
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {

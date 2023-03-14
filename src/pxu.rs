@@ -1,9 +1,11 @@
+use std::collections::VecDeque;
+
 use crate::kinematics::{
     den2_dp, du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, en2, u,
     u_crossed, xm, xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
 };
 use crate::nr::{self};
-use crate::pxu2::{PInterpolator, XInterpolator};
+use crate::pxu2::{PInterpolator, PInterpolatorMut, XInterpolator};
 use itertools::Itertools;
 use num::complex::Complex;
 use num::Zero;
@@ -21,9 +23,32 @@ pub enum Component {
     U,
 }
 
+#[derive(Debug)]
+enum GeneratorCommands {
+    GridLineU(f64),
+    GridLineXReal(f64),
+    GridLineX(f64),
+    GridLineP,
+
+    PStart(f64),
+    PGotoXp(f64, f64),
+    PGotoXm(f64, f64),
+    PGotoIm(f64),
+    PGotoRe(f64),
+}
+
 pub struct ContourGenerator {
     grid: Grid,
     cuts: Cuts,
+    commands: VecDeque<GeneratorCommands>,
+    consts: Option<CouplingConstants>,
+
+    grid_p: Vec<Vec<C>>,
+    grid_x: Vec<Vec<C>>,
+    grid_u: Vec<Vec<C>>,
+
+    p_int: Option<PInterpolatorMut>,
+    num_commands: usize,
 }
 
 impl ContourGenerator {
@@ -31,11 +56,61 @@ impl ContourGenerator {
         Self {
             grid: Grid::new(),
             cuts: Cuts::new(),
+            commands: VecDeque::new(),
+            consts: None,
+            grid_p: vec![],
+            grid_x: vec![],
+            grid_u: vec![],
+            p_int: None,
+            num_commands: 0,
         }
     }
 
-    pub fn get_grid(&mut self, pt: &PxuPoint, component: Component) -> &Vec<Vec<C>> {
-        self.grid.get(pt, component)
+    pub fn update(&mut self, pt: &PxuPoint) -> bool {
+        if let Some(consts) = self.consts {
+            if consts != pt.consts {
+                self.consts = None;
+            }
+        }
+
+        if self.consts.is_none() {
+            self.consts = Some(pt.consts);
+
+            log::info!("Clearing grid");
+            self.commands.clear();
+            self.grid_p.clear();
+            self.grid_x.clear();
+            self.grid_u.clear();
+
+            self.generate_commands(pt);
+            self.num_commands = self.commands.len();
+            log::info!("Generated {} commands", self.num_commands,)
+        }
+
+        let start = chrono::Utc::now();
+        while (chrono::Utc::now() - start).num_milliseconds() < (1000.0 / 30.0f64).floor() as i64 {
+            if let Some(command) = self.commands.pop_front() {
+                self.execute(command);
+            }
+        }
+
+        self.commands.is_empty()
+    }
+
+    pub fn progress(&self) -> f32 {
+        if self.num_commands > 0 {
+            1.0 - self.commands.len() as f32 / self.num_commands as f32
+        } else {
+            0.0
+        }
+    }
+
+    pub fn get_grid(&self, component: Component) -> &Vec<Vec<C>> {
+        match component {
+            Component::P => &self.grid_p,
+            Component::Xp | Component::Xm => &self.grid_x,
+            Component::U => &self.grid_u,
+        }
     }
 
     pub fn get_visible_cuts(
@@ -53,6 +128,304 @@ impl ContourGenerator {
         new_value: C,
     ) -> impl Iterator<Item = &Cut> {
         self.cuts.crossed(pt, component, new_value)
+    }
+
+    fn execute(&mut self, command: GeneratorCommands) {
+        use GeneratorCommands::*;
+
+        let Some(consts) = self.consts else {
+            log::warn!("Executing commands when consts is not set!");
+            return;
+        };
+
+        match command {
+            GridLineU(y) => {
+                self.grid_u
+                    .push(vec![C::new(-1000.0, y), C::new(1000.0, y)]);
+            }
+
+            GridLineX(m) => {
+                let path = XInterpolator::generate_xp_full(0, m, consts);
+                self.grid_x.push(path.iter().map(|x| x.conj()).collect());
+                self.grid_x.push(path);
+            }
+
+            GridLineXReal(x) => {
+                if x > 0.0 {
+                    self.grid_x.push(vec![C::from(x), C::from(1000.0)]);
+                } else {
+                    self.grid_x.push(vec![C::from(x), C::from(-1000.0)]);
+                }
+            }
+
+            PStart(p) => {
+                self.p_int = Some(PInterpolatorMut::xp(p, consts));
+            }
+
+            PGotoXp(p, m) => {
+                if let Some(ref mut p_int) = self.p_int {
+                    p_int.goto_xp(p, m);
+                }
+            }
+
+            PGotoXm(p, m) => {
+                if let Some(ref mut p_int) = self.p_int {
+                    p_int.goto_xm(p, m);
+                }
+            }
+
+            GridLineP => {
+                if let Some(ref mut p_int) = self.p_int {
+                    let path = p_int.contour();
+                    self.grid_p.push(path.iter().map(|p| p.conj()).collect());
+                    self.grid_p.push(path);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    fn add(&mut self, command: GeneratorCommands) {
+        self.commands.push_back(command);
+    }
+
+    fn p_start_xp(&mut self, p: f64) -> &mut Self {
+        self.add(GeneratorCommands::PStart(p));
+        self
+    }
+
+    fn goto_xp(&mut self, p: f64, m: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoXp(p, m));
+        self
+    }
+
+    fn goto_xm(&mut self, p: f64, m: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoXm(p, m));
+        self
+    }
+
+    fn p_grid_line(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::GridLineP);
+        self
+    }
+
+    fn generate_commands(&mut self, pt: &PxuPoint) {
+        let consts = pt.consts;
+        self.generate_u_grid(consts);
+
+        let p_range = pt.p.re.floor() as i32;
+
+        let max = P_RANGE_MAX - P_RANGE_MIN;
+
+        self.generate_x_grid(p_range, consts);
+        self.generate_p_grid(p_range, consts);
+
+        for i in 1..max {
+            if p_range - i >= P_RANGE_MIN {
+                self.generate_x_grid(p_range - i, consts);
+                self.generate_p_grid(p_range - i, consts);
+            }
+
+            if p_range + i <= P_RANGE_MAX {
+                self.generate_x_grid(p_range + i, consts);
+                self.generate_p_grid(p_range + i, consts);
+            }
+        }
+    }
+
+    fn generate_u_grid(&mut self, consts: CouplingConstants) {
+        let k = consts.k() as i32;
+        self.add(GeneratorCommands::GridLineU(0.0));
+
+        for y in 1..=(32 * k) {
+            self.add(GeneratorCommands::GridLineU(y as f64 / consts.h));
+            self.add(GeneratorCommands::GridLineU(-y as f64 / consts.h));
+        }
+    }
+
+    fn generate_x_grid(&mut self, p_range: i32, consts: CouplingConstants) {
+        for m in (p_range * consts.k() as i32)..=((p_range + 1) * consts.k() as i32) {
+            self.add(GeneratorCommands::GridLineX(m as f64));
+        }
+
+        if p_range == 0 {
+            self.add(GeneratorCommands::GridLineXReal(consts.s()));
+        }
+
+        if p_range == -1 {
+            self.add(GeneratorCommands::GridLineXReal(-1.0 / consts.s()));
+        }
+    }
+
+    fn generate_p_grid(&mut self, p_range: i32, consts: CouplingConstants) {
+        let p_start = p_range as f64;
+
+        {
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
+
+            self.p_start_xp(p0)
+                .goto_xp(p0, -p_start * consts.k() as f64)
+                .p_grid_line();
+
+            self.p_start_xp(p0)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p0, -p_start * consts.k() as f64)
+                .p_grid_line();
+
+            self.p_start_xp(p2)
+                .goto_xp(p2, -(p_start + 1.0) * consts.k() as f64)
+                .p_grid_line();
+
+            self.p_start_xp(p0)
+                .goto_xm(p0, 1.0)
+                .goto_xm(p2, 1.0)
+                .goto_xm(p2, -(p_start + 1.0) * consts.k() as f64)
+                .p_grid_line();
+        }
+
+        if p_range == 0 {
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
+
+            self.p_start_xp(p0);
+
+            for m in 3..=(2 * consts.k()) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p2).goto_xp(p2, 3.0);
+
+            for m in 3..=(consts.k() + 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (consts.k() + 3)..=(6 * consts.k()) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0).goto_xp(p0, 3.0).goto_xp(p2, 3.0);
+
+            for m in ((3 - consts.k() as i32)..=(1)).rev() {
+                self.goto_xp(p2, m as f64).p_grid_line();
+            }
+        }
+
+        if p_range > 0 {
+            let p0 = p_start + 1.0 / 16.0;
+            let p2 = p_start + 15.0 / 16.0;
+
+            self.p_start_xp(p0);
+
+            for m in 2..=(p_range * consts.k() as i32 + 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (p_range * consts.k() as i32 + 3)..=(2 + (2 * p_range + 2) * consts.k() as i32)
+            {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p2)
+                .goto_xp(p2, p_start * consts.k() as f64 + 3.0);
+
+            for m in (p_range * consts.k() as i32 + 3)..=((p_range + 1) * consts.k() as i32 + 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in ((p_range + 1) * consts.k() as i32 + 3)..=(6 * consts.k() as i32) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0)
+                .goto_xp(p0, p_start * consts.k() as f64 + 3.0)
+                .goto_xp(p2, p_start * consts.k() as f64 + 3.0)
+                .goto_xp(p2, p_start * consts.k() as f64 + 1.0);
+
+            for m in
+                (((p_range - 1) * consts.k() as i32 + 3)..=(p_range * consts.k() as i32 + 1)).rev()
+            {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (1..=((p_range - 1) * consts.k() as i32 + 1)).rev() {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.goto_xp(p2, 1.0);
+
+            for m in ((-(consts.k() as i32) + 2)..=0).rev() {
+                self.goto_xp(p2, m as f64).p_grid_line();
+            }
+        }
+
+        if p_range == -1 {
+            let p0 = p_start + 1.0 / 16.0;
+
+            self.p_start_xp(p0);
+
+            for m in 3..=(consts.k() as i32 - 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0).goto_xm(p0, 1.0);
+
+            for m in 1..=(consts.k() as i32 - 1) {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+
+            for m in (consts.k() as i32 + 1)..=(2 * consts.k() as i32 - 2) {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0).goto_xm(p0, 1.0);
+            for m in ((-2 * consts.k() as i32)..=-1).rev() {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+        }
+
+        if p_range < -1 {
+            let p0 = p_start + 1.0 / 16.0;
+
+            self.p_start_xp(p0);
+
+            for m in 2..=(-(p_range + 1) * consts.k() as i32 - 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+                self.goto_xp(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0);
+
+            for m in 1..=(-(p_range + 1) * consts.k() as i32 - 1) {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+
+            for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+
+            for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+
+            self.p_start_xp(p0).goto_xm(p0, 1.0);
+
+            for m in ((-2 * consts.k() as i32)..=0).rev() {
+                self.goto_xm(p0, m as f64).p_grid_line();
+            }
+        }
     }
 }
 
