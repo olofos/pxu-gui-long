@@ -30,7 +30,7 @@ enum GeneratorCommands {
     GridLineX(f64),
     GridLineP,
 
-    PStart(f64),
+    PStartXp(f64),
     PGotoXp(f64, f64),
     PGotoXm(f64, f64),
     PGotoIm(f64),
@@ -156,7 +156,7 @@ impl ContourGenerator {
                 }
             }
 
-            PStart(p) => {
+            PStartXp(p) => {
                 self.p_int = Some(PInterpolatorMut::xp(p, consts));
             }
 
@@ -189,7 +189,7 @@ impl ContourGenerator {
     }
 
     fn p_start_xp(&mut self, p: f64) -> &mut Self {
-        self.add(GeneratorCommands::PStart(p));
+        self.add(GeneratorCommands::PStartXp(p));
         self
     }
 
