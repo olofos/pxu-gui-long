@@ -17,8 +17,8 @@ impl CouplingConstants {
         }
     }
 
-    pub fn k(&self) -> u32 {
-        (TAU * self.kslash() + 0.1).floor() as u32
+    pub fn k(&self) -> i32 {
+        (TAU * self.kslash() + 0.1).floor() as i32
     }
 
     pub fn kslash(&self) -> f64 {

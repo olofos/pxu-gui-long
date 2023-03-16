@@ -233,53 +233,50 @@ impl ContourGenerator {
     }
 
     fn generate_u_grid(&mut self, consts: CouplingConstants) {
-        let k = consts.k() as i32;
-        self.add(GeneratorCommands::GridLineU(0.0));
+        self.add(GeneratorCommands::AddGridLineU(0.0));
 
-        for y in 1..=(32 * k) {
-            self.add(GeneratorCommands::GridLineU(y as f64 / consts.h));
-            self.add(GeneratorCommands::GridLineU(-y as f64 / consts.h));
+        for y in 1..=(32 * consts.k()) {
+            self.add(GeneratorCommands::AddGridLineU(y as f64 / consts.h));
+            self.add(GeneratorCommands::AddGridLineU(-y as f64 / consts.h));
         }
     }
 
     fn generate_x_grid(&mut self, p_range: i32, consts: CouplingConstants) {
-        for m in (p_range * consts.k() as i32)..=((p_range + 1) * consts.k() as i32) {
-            self.add(GeneratorCommands::GridLineX(m as f64));
+        for m in (p_range * consts.k())..=((p_range + 1) * consts.k()) {
+            self.add(GeneratorCommands::AddGridLineX(m as f64));
         }
 
         if p_range == 0 {
-            self.add(GeneratorCommands::GridLineXReal(consts.s()));
+            self.add(GeneratorCommands::AddGridLineXReal(consts.s()));
         }
 
         if p_range == -1 {
-            self.add(GeneratorCommands::GridLineXReal(-1.0 / consts.s()));
+            self.add(GeneratorCommands::AddGridLineXReal(-1.0 / consts.s()));
         }
     }
 
     fn generate_p_grid(&mut self, p_range: i32, consts: CouplingConstants) {
         let p_start = p_range as f64;
-
+        let k = consts.k() as f64;
         {
             let p0 = p_start + 1.0 / 16.0;
             let p2 = p_start + 15.0 / 16.0;
 
-            self.p_start_xp(p0)
-                .goto_xp(p0, -p_start * consts.k() as f64)
-                .p_grid_line();
+            self.p_start_xp(p0).goto_xp(p0, -p_start * k).p_grid_line();
 
             self.p_start_xp(p0)
                 .goto_xm(p0, 1.0)
-                .goto_xm(p0, -p_start * consts.k() as f64)
+                .goto_xm(p0, -p_start * k)
                 .p_grid_line();
 
             self.p_start_xp(p2)
-                .goto_xp(p2, -(p_start + 1.0) * consts.k() as f64)
+                .goto_xp(p2, -(p_start + 1.0) * k)
                 .p_grid_line();
 
             self.p_start_xp(p0)
                 .goto_xm(p0, 1.0)
                 .goto_xm(p2, 1.0)
-                .goto_xm(p2, -(p_start + 1.0) * consts.k() as f64)
+                .goto_xm(p2, -(p_start + 1.0) * k)
                 .p_grid_line();
         }
 
@@ -305,7 +302,7 @@ impl ContourGenerator {
 
             self.p_start_xp(p0).goto_xp(p0, 3.0).goto_xp(p2, 3.0);
 
-            for m in ((3 - consts.k() as i32)..=(1)).rev() {
+            for m in ((3 - consts.k())..=1).rev() {
                 self.goto_xp(p2, m as f64).p_grid_line();
             }
         }
@@ -316,44 +313,40 @@ impl ContourGenerator {
 
             self.p_start_xp(p0);
 
-            for m in 2..=(p_range * consts.k() as i32 + 1) {
+            for m in 2..=(p_range * consts.k() + 1) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (p_range * consts.k() as i32 + 3)..=(2 + (2 * p_range + 2) * consts.k() as i32)
-            {
+            for m in (p_range * consts.k() + 3)..=(2 + (2 * p_range + 2) * consts.k()) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            self.p_start_xp(p2)
-                .goto_xp(p2, p_start * consts.k() as f64 + 3.0);
+            self.p_start_xp(p2).goto_xp(p2, p_start * k + 3.0);
 
-            for m in (p_range * consts.k() as i32 + 3)..=((p_range + 1) * consts.k() as i32 + 1) {
+            for m in (p_range * consts.k() + 3)..=((p_range + 1) * consts.k() + 1) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in ((p_range + 1) * consts.k() as i32 + 3)..=(6 * consts.k() as i32) {
+            for m in ((p_range + 1) * consts.k() + 3)..=(6 * consts.k()) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
             self.p_start_xp(p0)
-                .goto_xp(p0, p_start * consts.k() as f64 + 3.0)
-                .goto_xp(p2, p_start * consts.k() as f64 + 3.0)
-                .goto_xp(p2, p_start * consts.k() as f64 + 1.0);
+                .goto_xp(p0, p_start * k + 3.0)
+                .goto_xp(p2, p_start * k + 3.0)
+                .goto_xp(p2, p_start * k + 1.0);
 
-            for m in
-                (((p_range - 1) * consts.k() as i32 + 3)..=(p_range * consts.k() as i32 + 1)).rev()
-            {
+            for m in (((p_range - 1) * consts.k() + 3)..=(p_range * consts.k() + 1)).rev() {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (1..=((p_range - 1) * consts.k() as i32 + 1)).rev() {
+            for m in (1..=((p_range - 1) * consts.k() + 1)).rev() {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
             self.goto_xp(p2, 1.0);
 
-            for m in ((-(consts.k() as i32) + 2)..=0).rev() {
+            for m in ((-(consts.k()) + 2)..=0).rev() {
                 self.goto_xp(p2, m as f64).p_grid_line();
             }
         }
@@ -363,26 +356,26 @@ impl ContourGenerator {
 
             self.p_start_xp(p0);
 
-            for m in 3..=(consts.k() as i32 - 1) {
+            for m in 3..=(consts.k() - 1) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+            for m in (consts.k() + 1)..=(6 * consts.k()) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
             self.p_start_xp(p0).goto_xm(p0, 1.0);
 
-            for m in 1..=(consts.k() as i32 - 1) {
+            for m in 1..=(consts.k() - 1) {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
-            for m in (consts.k() as i32 + 1)..=(2 * consts.k() as i32 - 2) {
+            for m in (consts.k() + 1)..=(2 * consts.k() - 2) {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
             self.p_start_xp(p0).goto_xm(p0, 1.0);
-            for m in ((-2 * consts.k() as i32)..=-1).rev() {
+            for m in ((-2 * consts.k())..=-1).rev() {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
         }
@@ -392,35 +385,35 @@ impl ContourGenerator {
 
             self.p_start_xp(p0);
 
-            for m in 2..=(-(p_range + 1) * consts.k() as i32 - 1) {
+            for m in 2..=(-(p_range + 1) * consts.k() - 1) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
+            for m in (-(p_range + 1) * consts.k() + 1)..=(-p_range * consts.k() - 1) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+            for m in (-p_range * consts.k() + 1)..=(6 * consts.k()) {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
             self.p_start_xp(p0);
 
-            for m in 1..=(-(p_range + 1) * consts.k() as i32 - 1) {
+            for m in 1..=(-(p_range + 1) * consts.k() - 1) {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
-            for m in (-(p_range + 1) * consts.k() as i32 + 1)..=(-p_range * consts.k() as i32 - 1) {
+            for m in (-(p_range + 1) * consts.k() + 1)..=(-p_range * consts.k() - 1) {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
-            for m in (-p_range * consts.k() as i32 + 1)..=(6 * consts.k() as i32) {
+            for m in (-p_range * consts.k() + 1)..=(6 * consts.k()) {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
             self.p_start_xp(p0).goto_xm(p0, 1.0);
 
-            for m in ((-2 * consts.k() as i32)..=0).rev() {
+            for m in ((-2 * consts.k())..=0).rev() {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
         }
