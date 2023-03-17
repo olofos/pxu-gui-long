@@ -86,7 +86,9 @@ impl ContourGenerator {
         }
 
         let start = chrono::Utc::now();
-        while (chrono::Utc::now() - start).num_milliseconds() < (1000.0 / 30.0f64).floor() as i64 {
+        while !self.commands.is_empty()
+            && (chrono::Utc::now() - start).num_milliseconds() < (1000.0 / 20.0f64).floor() as i64
+        {
             if let Some(command) = self.commands.pop_front() {
                 self.execute(command);
             }
