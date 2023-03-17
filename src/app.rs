@@ -35,6 +35,7 @@ pub struct TemplateApp {
     p_range: i32,
     show_dots: bool,
     show_cuts: bool,
+    show_old_cuts: bool,
 }
 
 struct Plot {
@@ -52,6 +53,7 @@ impl Plot {
         contour_generator: &mut pxu::ContourGenerator,
         show_dots: bool,
         show_cuts: bool,
+        show_old_cuts: bool,
         pxu: &mut PxuPoint,
     ) {
         egui::Frame::canvas(ui.style())
@@ -198,7 +200,17 @@ impl Plot {
                         0.0
                     };
 
-                    for cut in contour_generator.get_visible_cuts(pxu, self.component) {
+                    let visible_cuts = if show_old_cuts {
+                        contour_generator
+                            .get_visible_old_cuts(pxu, self.component)
+                            .collect::<Vec<_>>()
+                    } else {
+                        contour_generator
+                            .get_visible_cuts(pxu, self.component)
+                            .collect::<Vec<_>>()
+                    };
+
+                    for cut in visible_cuts {
                         for points in cut.paths.iter() {
                             let points = points
                                 .iter()
@@ -356,6 +368,7 @@ impl Default for TemplateApp {
             p_range,
             show_dots: false,
             show_cuts: true,
+            show_old_cuts: true,
         }
     }
 }
@@ -418,6 +431,7 @@ impl eframe::App for TemplateApp {
 
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
             ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
+            ui.add(egui::Checkbox::new(&mut self.show_old_cuts, "Old cuts"));
 
             if ui.add(egui::Button::new("Reset")).clicked() {
                 *self = Self::default();
@@ -503,6 +517,7 @@ impl eframe::App for TemplateApp {
                     &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
+                    self.show_old_cuts,
                     &mut self.pxu,
                 );
 
@@ -512,6 +527,7 @@ impl eframe::App for TemplateApp {
                     &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
+                    self.show_old_cuts,
                     &mut self.pxu,
                 );
             });
@@ -522,6 +538,7 @@ impl eframe::App for TemplateApp {
                     &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
+                    self.show_old_cuts,
                     &mut self.pxu,
                 );
 
@@ -531,6 +548,7 @@ impl eframe::App for TemplateApp {
                     &mut self.contour_generator,
                     self.show_dots,
                     self.show_cuts,
+                    self.show_old_cuts,
                     &mut self.pxu,
                 );
             });

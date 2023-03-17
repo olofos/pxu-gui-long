@@ -648,10 +648,10 @@ impl PInterpolatorMut {
             for i in 0.. {
                 let pt = strategy.evaluate(t + step, self.consts);
                 let w = pt.evaluate(self.consts);
-                let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
+                let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-5, 50);
                 if let Some(next_p) = next_p {
-                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP
-                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP
+                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP / 4.0
+                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP / 4.0
                     {
                         t += step;
                         p = next_p;
@@ -659,7 +659,7 @@ impl PInterpolatorMut {
                         break;
                     }
                 }
-                if i > 5 {
+                if i > 8 {
                     break 'outer;
                 }
                 step /= 2.0;
@@ -669,18 +669,41 @@ impl PInterpolatorMut {
         path
     }
 
+    pub fn contour_re(&self, x: f64) -> Vec<Complex64> {
+        let (pt1, pt2) = if x > 0.0 {
+            (
+                InterpolationPoint::C(Complex64::from(1.0 / 8192.0)),
+                InterpolationPoint::C(Complex64::from(256.0)),
+            )
+        } else {
+            (
+                InterpolationPoint::C(Complex64::from(-1.0 / 8192.0)),
+                InterpolationPoint::C(Complex64::from(-256.0)),
+            )
+        };
+
+        let mut path = VecDeque::new();
+
+        path.extend(self.generate_path(pt1).into_iter().rev());
+        path.pop_back();
+        path.extend(self.generate_path(pt2));
+
+        path.into_iter().map(|(_, p)| p).collect()
+    }
+
     pub fn contour(&self) -> Vec<Complex64> {
         if !self.valid {
             return vec![];
         }
 
         let (p1, p2) = match self.pt {
-            InterpolationPoint::C(_) => {
-                log::info!(
-                    "Can only generate contour from Xp or Xm. Found {:?}",
-                    self.pt
-                );
-                return vec![];
+            InterpolationPoint::C(z) => {
+                if z.im.abs() < 1.0 / 128.0 {
+                    return self.contour_re(z.re);
+                } else {
+                    log::info!("Can't draw contour for non real C (found {:?})", self.pt);
+                    return vec![];
+                }
             }
             InterpolationPoint::Xp(p, _) | InterpolationPoint::Xm(p, _) => {
                 (p.floor() + 1.0 / 256.0, p.ceil() - 1.0 / 256.0)

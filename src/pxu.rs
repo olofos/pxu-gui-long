@@ -23,22 +23,46 @@ pub enum Component {
     U,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum BranchPoint {
+    XpPositiveAxisImXmNegative,
+    XpPositiveAxisImXmPositive,
+    XpNegativeAxisFromAboveWithImXmNegative,
+    XpNegativeAxisFromBelowWithImXmNegative,
+    XpNegativeAxisFromAboveWithImXmPositive,
+    XpNegativeAxisFromBelowWithImXmPositive,
+}
+
+#[derive(Debug)]
+enum CutDirection {
+    Positive,
+    Negative,
+}
+
 #[derive(Debug)]
 enum GeneratorCommands {
-    GridLineU(f64),
-    GridLineXReal(f64),
-    GridLineX(f64),
-    GridLineP,
+    AddGridLineU(f64),
+    AddGridLineXReal(f64),
+    AddGridLineX(f64),
+    AddGridLineP,
+
+    ComputeBranchPoint(i32, BranchPoint),
+    AddCutX(i32, CutDirection),
+    AddCutPFull,
+    AddLogCutXReal,
 
     PStartXp(f64),
     PGotoXp(f64, f64),
     PGotoXm(f64, f64),
+    PGotoP(f64),
+    PGotoM(f64),
     PGotoIm(f64),
     PGotoRe(f64),
 }
 
 pub struct ContourGenerator {
-    cuts: Cuts,
+    old_cuts: Cuts,
+    cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommands>,
     consts: Option<CouplingConstants>,
 
@@ -47,19 +71,22 @@ pub struct ContourGenerator {
     grid_u: Vec<Vec<C>>,
 
     p_int: Option<PInterpolatorMut>,
+    branch_point: Option<(f64, f64, BranchPoint)>,
     num_commands: usize,
 }
 
 impl ContourGenerator {
     pub fn new() -> Self {
         Self {
-            cuts: Cuts::new(),
+            old_cuts: Cuts::new(),
+            cuts: vec![],
             commands: VecDeque::new(),
             consts: None,
             grid_p: vec![],
             grid_x: vec![],
             grid_u: vec![],
             p_int: None,
+            branch_point: None,
             num_commands: 0,
         }
     }
@@ -120,12 +147,28 @@ impl ContourGenerator {
         }
     }
 
+    pub fn get_visible_old_cuts(
+        &mut self,
+        pt: &PxuPoint,
+        component: Component,
+    ) -> impl Iterator<Item = &Cut> {
+        self.old_cuts.visible(pt, component, true)
+    }
+
     pub fn get_visible_cuts(
         &mut self,
         pt: &PxuPoint,
         component: Component,
     ) -> impl Iterator<Item = &Cut> {
-        self.cuts.visible(pt, component)
+        let mut pt = pt.clone();
+        pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
+            * pt.consts.k() as f64
+            * C::i()
+            / pt.consts.h;
+
+        self.cuts
+            .iter()
+            .filter(move |c| c.component == component && c.is_visible(&pt))
     }
 
     pub fn get_crossed_cuts(
@@ -134,7 +177,7 @@ impl ContourGenerator {
         component: Component,
         new_value: C,
     ) -> impl Iterator<Item = &Cut> {
-        self.cuts.crossed(pt, component, new_value)
+        self.old_cuts.crossed(pt, component, new_value, true)
     }
 
     fn execute(&mut self, command: GeneratorCommands) {
@@ -145,19 +188,41 @@ impl ContourGenerator {
             return;
         };
 
+        fn branch_point_mass(p_start: f64, k: f64, branch_point_type: BranchPoint) -> f64 {
+            match branch_point_type {
+                BranchPoint::XpPositiveAxisImXmNegative => 2.0 * p_start * k + 2.0,
+                BranchPoint::XpPositiveAxisImXmPositive => -(2.0 * p_start * k + 2.0),
+
+                BranchPoint::XpNegativeAxisFromAboveWithImXmNegative => {
+                    (2.0 * p_start + 1.0) * k + 2.0
+                }
+                BranchPoint::XpNegativeAxisFromBelowWithImXmNegative => {
+                    (2.0 * p_start - 1.0) * k + 2.0
+                }
+
+                BranchPoint::XpNegativeAxisFromAboveWithImXmPositive => {
+                    -((2.0 * p_start + 1.0) * k + 2.0)
+                }
+
+                BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => {
+                    -((2.0 * p_start - 1.0) * k + 2.0)
+                }
+            }
+        }
+
         match command {
-            GridLineU(y) => {
+            AddGridLineU(y) => {
                 self.grid_u
                     .push(vec![C::new(-1000.0, y), C::new(1000.0, y)]);
             }
 
-            GridLineX(m) => {
+            AddGridLineX(m) => {
                 let path = XInterpolator::generate_xp_full(0, m, consts);
                 self.grid_x.push(path.iter().map(|x| x.conj()).collect());
                 self.grid_x.push(path);
             }
 
-            GridLineXReal(x) => {
+            AddGridLineXReal(x) => {
                 if x > 0.0 {
                     self.grid_x.push(vec![C::from(x), C::from(1000.0)]);
                 } else {
@@ -170,26 +235,187 @@ impl ContourGenerator {
             }
 
             PGotoXp(p, m) => {
-                if let Some(ref mut p_int) = self.p_int {
-                    p_int.goto_xp(p, m);
-                }
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_xp(p, m);
             }
 
             PGotoXm(p, m) => {
-                if let Some(ref mut p_int) = self.p_int {
-                    p_int.goto_xm(p, m);
-                }
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_xm(p, m);
             }
 
-            GridLineP => {
-                if let Some(ref mut p_int) = self.p_int {
-                    let path = p_int.contour();
-                    self.grid_p.push(path.iter().map(|p| p.conj()).collect());
-                    self.grid_p.push(path);
-                }
+            PGotoRe(x) => {
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_re(x);
             }
 
-            _ => {}
+            PGotoIm(x) => {
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_im(x);
+            }
+
+            PGotoP(p) => {
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_p(p);
+            }
+
+            PGotoM(m) => {
+                let Some(ref mut p_int) = self.p_int else { return };
+                p_int.goto_m(m);
+            }
+
+            AddGridLineP => {
+                let Some(ref mut p_int) = self.p_int else { return };
+                let path = p_int.contour();
+                self.grid_p.push(path.iter().map(|p| p.conj()).collect());
+                self.grid_p.push(path);
+            }
+
+            AddCutPFull => {
+                let Some(ref mut p_int) = self.p_int else { return };
+
+                let path = p_int.contour();
+                self.cuts.push(Cut::new(
+                    Component::P,
+                    vec![path.iter().map(|p| p.conj()).collect()],
+                    vec![],
+                    CutType::DebugPath,
+                ));
+                self.cuts.push(Cut::new(
+                    Component::P,
+                    vec![path],
+                    vec![],
+                    CutType::DebugPath,
+                ));
+            }
+
+            AddLogCutXReal => {
+                self.cuts.push(
+                    Cut::new(
+                        Component::Xp,
+                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![C::from(0.0)],
+                        CutType::LogX(Component::Xp, 1),
+                    )
+                    .im_xp_positive(),
+                );
+
+                self.cuts.push(
+                    Cut::new(
+                        Component::Xp,
+                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![C::from(0.0)],
+                        CutType::LogX(Component::Xp, -1),
+                    )
+                    .im_xp_negative(),
+                );
+
+                self.cuts.push(
+                    Cut::new(
+                        Component::Xm,
+                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![C::from(0.0)],
+                        CutType::LogX(Component::Xm, 1),
+                    )
+                    .im_xm_negative(),
+                );
+
+                self.cuts.push(
+                    Cut::new(
+                        Component::Xm,
+                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![C::from(0.0)],
+                        CutType::LogX(Component::Xm, -1),
+                    )
+                    .im_xm_positive(),
+                );
+            }
+
+            ComputeBranchPoint(p_range, branch_point_type) => {
+                let p_start = p_range as f64;
+                let k = consts.k() as f64;
+                let s = consts.s();
+                let u_of_x = |x: C| -> C { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
+                let du_dx = |x: C| -> C { (x - s) * (x + 1.0 / s) / (x * x) };
+
+                let u_of_s = u_of_x(C::from(s))
+                    * match branch_point_type {
+                        BranchPoint::XpPositiveAxisImXmNegative
+                        | BranchPoint::XpPositiveAxisImXmPositive => 1.0,
+                        BranchPoint::XpNegativeAxisFromAboveWithImXmNegative
+                        | BranchPoint::XpNegativeAxisFromAboveWithImXmPositive
+                        | BranchPoint::XpNegativeAxisFromBelowWithImXmNegative
+                        | BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => -1.0,
+                    };
+
+                let m = branch_point_mass(p_start, k, branch_point_type);
+                let guess = xp(0.5, m, consts);
+
+                let x_branch_point = nr::find_root(
+                    |x| u_of_x(x) - u_of_s - m * C::i() / consts.h,
+                    du_dx,
+                    guess,
+                    1.0e-3,
+                    10,
+                );
+
+                if let Some(x_branch_point) = x_branch_point {
+                    let p = x_branch_point.arg().abs() / std::f64::consts::PI;
+                    self.branch_point = Some((p, m, branch_point_type));
+                } else {
+                    log::info!("Could not find branch point");
+                    self.branch_point = None;
+                };
+            }
+
+            AddCutX(p_range, cut_direction) => {
+                let Some((p_branch_point, m, branch_point_type)) = self.branch_point else {
+                    log::info!("No branch point set");
+                    return;
+                };
+
+                let (p_start, p_end) = match cut_direction {
+                    CutDirection::Positive => (0.0, p_branch_point),
+                    CutDirection::Negative => (p_branch_point, 1.0),
+                };
+
+                let path = match branch_point_type {
+                    BranchPoint::XpPositiveAxisImXmNegative
+                    | BranchPoint::XpNegativeAxisFromAboveWithImXmNegative
+                    | BranchPoint::XpNegativeAxisFromBelowWithImXmNegative => {
+                        XInterpolator::generate_xm(p_start, p_end, m, consts)
+                    }
+
+                    BranchPoint::XpPositiveAxisImXmPositive
+                    | BranchPoint::XpNegativeAxisFromAboveWithImXmPositive
+                    | BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => {
+                        XInterpolator::generate_xp(p_start, p_end, m, consts)
+                    }
+
+                    _ => {
+                        unreachable!();
+                    }
+                };
+
+                let branch_points = vec![*match cut_direction {
+                    CutDirection::Positive => path.last().unwrap(),
+                    CutDirection::Negative => path.first().unwrap(),
+                }];
+
+                self.cuts.push(
+                    Cut::new(
+                        Component::Xm,
+                        vec![path],
+                        branch_points,
+                        CutType::LogX(Component::Xp, 1),
+                    )
+                    .log_branch(p_range),
+                );
+            }
+
+            _ => {
+                log::info!("Command {:?} not implemented", command);
+            }
         }
     }
 
@@ -212,8 +438,28 @@ impl ContourGenerator {
         self
     }
 
+    fn goto_re(&mut self, re: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoRe(re));
+        self
+    }
+
+    fn goto_im(&mut self, im: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoIm(im));
+        self
+    }
+
+    fn goto_p(&mut self, p: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoP(p));
+        self
+    }
+
+    fn goto_m(&mut self, m: f64) -> &mut Self {
+        self.add(GeneratorCommands::PGotoM(m));
+        self
+    }
+
     fn p_grid_line(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::GridLineP);
+        self.add(GeneratorCommands::AddGridLineP);
         self
     }
 
@@ -225,20 +471,40 @@ impl ContourGenerator {
 
         let max = P_RANGE_MAX - P_RANGE_MIN;
 
-        self.generate_x_grid(p_range, consts);
-        self.generate_p_grid(p_range, consts);
+        self.generate_log_cuts(p_range, consts);
 
         for i in 1..max {
             if p_range - i >= P_RANGE_MIN {
+                self.generate_log_cuts(p_range - i, consts);
+            }
+
+            if p_range + i <= P_RANGE_MAX {
+                self.generate_log_cuts(p_range + i, consts);
+            }
+        }
+
+        self.generate_x_grid(p_range, consts);
+        for i in 1..max {
+            if p_range - i >= P_RANGE_MIN {
                 self.generate_x_grid(p_range - i, consts);
-                self.generate_p_grid(p_range - i, consts);
             }
 
             if p_range + i <= P_RANGE_MAX {
                 self.generate_x_grid(p_range + i, consts);
+            }
+        }
+        self.generate_p_grid(p_range, consts);
+
+        for i in 1..max {
+            if p_range - i >= P_RANGE_MIN {
+                self.generate_p_grid(p_range - i, consts);
+            }
+
+            if p_range + i <= P_RANGE_MAX {
                 self.generate_p_grid(p_range + i, consts);
             }
         }
+        self.generate_real_log_cuts(consts);
     }
 
     fn generate_u_grid(&mut self, consts: CouplingConstants) {
@@ -426,6 +692,156 @@ impl ContourGenerator {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
         }
+
+        {
+            // Real positive line
+            let p0 = p_start + 1.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-p_start * k + 1.0)
+                .goto_im(0.0)
+                .p_grid_line();
+        }
+        {
+            // Real negative line
+            let p0 = p_start + 7.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-p_start * k + 1.0)
+                .goto_im(0.0)
+                .p_grid_line();
+        }
+    }
+
+    fn compute_branch_point(&mut self, p_range: i32, branch_point_type: BranchPoint) -> &mut Self {
+        self.add(GeneratorCommands::ComputeBranchPoint(
+            p_range,
+            branch_point_type,
+        ));
+        self
+    }
+
+    fn generate_real_log_cuts(&mut self, consts: CouplingConstants) {
+        self.add(GeneratorCommands::AddLogCutXReal);
+    }
+
+    fn create_cut(&mut self) -> &mut Self {
+        self
+    }
+
+    fn push_cut(&mut self) -> &mut Self {
+        self
+    }
+
+    fn generate_p_cut(
+        &mut self,
+        p_range: i32,
+        branch_point_type: BranchPoint,
+        consts: CouplingConstants,
+    ) {
+    }
+
+    fn generate_log_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
+        log::info!("{p_range}");
+
+        let p_start = p_range as f64;
+        let k = consts.k() as f64;
+
+        self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+            .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+
+        {
+            // Scallion
+            let p0 = p_start + 1.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-(p_range * consts.k()) as f64)
+                .add(GeneratorCommands::AddCutPFull);
+            self.p_start_xp(p0)
+                .goto_xm(p0, 1.0)
+                .goto_m(-(p_range * consts.k()) as f64)
+                .add(GeneratorCommands::AddCutPFull);
+        }
+
+        {
+            // Real positive line
+            let p0 = p_start + 1.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-p_start * k + 1.0)
+                .goto_im(0.0)
+                .goto_re(consts.s() * 4.0)
+                .add(GeneratorCommands::AddCutPFull);
+        }
+
+        self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+            .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+
+        if p_range == 0 {
+            let p0 = p_start + 1.0 / 8.0;
+            let p1 = p_start + 7.0 / 8.0;
+
+            self.p_start_xp(p0)
+                .goto_m(3.0)
+                .goto_p(p1)
+                .goto_m(0.0)
+                .add(GeneratorCommands::AddCutPFull);
+        } else if p_range == -1 {
+            let p0 = p_start + 1.0 / 8.0;
+            let p1 = p_start + 6.0 / 8.0;
+
+            self.p_start_xp(p0)
+                .goto_m(-consts.k() as f64 + 1.0)
+                .goto_p(p1)
+                .goto_m(-consts.k() as f64 + 3.0)
+                .goto_p(p0)
+                .goto_m(0.0)
+                .add(GeneratorCommands::AddCutPFull);
+        }
+
+        self.compute_branch_point(
+            p_range,
+            BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
+        )
+        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+
+        {
+            // Kidney
+            let p0 = p_start + 1.0 / 8.0;
+            let p1 = p_start + 7.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-((p_range + 1) * consts.k()) as f64)
+                .add(GeneratorCommands::AddCutPFull);
+            self.p_start_xp(p0)
+                .goto_xm(p0, 1.0)
+                .goto_p(p1)
+                .goto_m(-((p_range + 1) * consts.k()) as f64)
+                .add(GeneratorCommands::AddCutPFull);
+        }
+
+        {
+            // Real negative line
+            let p0 = p_start + 7.0 / 8.0;
+            self.p_start_xp(p0)
+                .goto_m(-p_start * k + 1.0)
+                .goto_im(0.0)
+                .goto_re(-consts.s() * 4.0)
+                .add(GeneratorCommands::AddCutPFull);
+        }
+
+        self.compute_branch_point(
+            p_range,
+            BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
+        )
+        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
+
+        self.compute_branch_point(
+            p_range,
+            BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
+        )
+        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
+
+        self.compute_branch_point(
+            p_range,
+            BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
+        )
+        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
     }
 }
 
@@ -558,8 +974,15 @@ impl Cuts {
         }
     }
 
-    pub fn visible(&mut self, pt: &PxuPoint, component: Component) -> impl Iterator<Item = &Cut> {
-        self.populate(pt);
+    pub fn visible(
+        &mut self,
+        pt: &PxuPoint,
+        component: Component,
+        populate: bool,
+    ) -> impl Iterator<Item = &Cut> {
+        if populate {
+            self.populate(pt);
+        }
 
         let mut pt = pt.clone();
         pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
@@ -577,8 +1000,11 @@ impl Cuts {
         pt: &PxuPoint,
         component: Component,
         new_value: C,
+        populate: bool,
     ) -> impl Iterator<Item = &Cut> {
-        self.populate(pt);
+        if populate {
+            self.populate(pt);
+        }
 
         let mut pt = pt.clone();
         pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
