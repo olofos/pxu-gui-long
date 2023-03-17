@@ -60,6 +60,20 @@ enum GeneratorCommands {
     PGotoRe(f64),
 }
 
+struct ContourGeneratorContext {
+    p_int: Option<PInterpolatorMut>,
+    branch_point: Option<(f64, f64, BranchPoint)>,
+}
+
+impl ContourGeneratorContext {
+    fn new() -> Self {
+        Self {
+            p_int: None,
+            branch_point: None,
+        }
+    }
+}
+
 pub struct ContourGenerator {
     old_cuts: Cuts,
     cuts: Vec<Cut>,
@@ -70,8 +84,8 @@ pub struct ContourGenerator {
     grid_x: Vec<Vec<C>>,
     grid_u: Vec<Vec<C>>,
 
-    p_int: Option<PInterpolatorMut>,
-    branch_point: Option<(f64, f64, BranchPoint)>,
+    ctx: ContourGeneratorContext,
+
     num_commands: usize,
 }
 
@@ -85,8 +99,7 @@ impl ContourGenerator {
             grid_p: vec![],
             grid_x: vec![],
             grid_u: vec![],
-            p_int: None,
-            branch_point: None,
+            ctx: ContourGeneratorContext::new(),
             num_commands: 0,
         }
     }
@@ -231,48 +244,48 @@ impl ContourGenerator {
             }
 
             PStartXp(p) => {
-                self.p_int = Some(PInterpolatorMut::xp(p, consts));
+                self.ctx.p_int = Some(PInterpolatorMut::xp(p, consts));
             }
 
             PGotoXp(p, m) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_xp(p, m);
             }
 
             PGotoXm(p, m) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_xm(p, m);
             }
 
             PGotoRe(x) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_re(x);
             }
 
             PGotoIm(x) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_im(x);
             }
 
             PGotoP(p) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_p(p);
             }
 
             PGotoM(m) => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 p_int.goto_m(m);
             }
 
             AddGridLineP => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
                 let path = p_int.contour();
                 self.grid_p.push(path.iter().map(|p| p.conj()).collect());
                 self.grid_p.push(path);
             }
 
             AddCutPFull => {
-                let Some(ref mut p_int) = self.p_int else { return };
+                let Some(ref mut p_int) = self.ctx.p_int else { return };
 
                 let path = p_int.contour();
                 self.cuts.push(Cut::new(
@@ -361,15 +374,15 @@ impl ContourGenerator {
 
                 if let Some(x_branch_point) = x_branch_point {
                     let p = x_branch_point.arg().abs() / std::f64::consts::PI;
-                    self.branch_point = Some((p, m, branch_point_type));
+                    self.ctx.branch_point = Some((p, m, branch_point_type));
                 } else {
                     log::info!("Could not find branch point");
-                    self.branch_point = None;
+                    self.ctx.branch_point = None;
                 };
             }
 
             AddCutX(p_range, cut_direction) => {
-                let Some((p_branch_point, m, branch_point_type)) = self.branch_point else {
+                let Some((p_branch_point, m, branch_point_type)) = self.ctx.branch_point else {
                     log::info!("No branch point set");
                     return;
                 };
