@@ -72,14 +72,8 @@ impl ContourGenerator {
         }
 
         if self.consts.is_none() {
+            self.clear();
             self.consts = Some(pt.consts);
-
-            log::info!("Clearing grid");
-            self.commands.clear();
-            self.grid_p.clear();
-            self.grid_x.clear();
-            self.grid_u.clear();
-
             self.generate_commands(pt);
             self.num_commands = self.commands.len();
             log::info!("Generated {} commands", self.num_commands,)
@@ -95,6 +89,19 @@ impl ContourGenerator {
         }
 
         self.commands.is_empty()
+    }
+
+    fn clear(&mut self) {
+        log::info!("Clearing grid and cuts");
+        self.commands.clear();
+        self.grid_x.clear();
+        self.grid_u.clear();
+        self.cuts.clear();
+
+        self.grid_p = vec![vec![
+            C::from(P_RANGE_MIN as f64),
+            C::from(P_RANGE_MAX as f64),
+        ]];
     }
 
     pub fn progress(&self) -> f32 {
