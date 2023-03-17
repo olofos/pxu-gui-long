@@ -567,6 +567,34 @@ impl PInterpolatorMut {
         }
     }
 
+    pub fn goto_p(&mut self, p: f64) {
+        if !self.valid {
+            return;
+        }
+
+        match self.pt {
+            InterpolationPoint::Xp(_, m) => self.goto_xp(p, m),
+            InterpolationPoint::Xm(_, m) => self.goto_xm(p, m),
+            _ => {
+                self.valid = false;
+            }
+        }
+    }
+
+    pub fn goto_m(&mut self, m: f64) {
+        if !self.valid {
+            return;
+        }
+
+        match self.pt {
+            InterpolationPoint::Xp(p, _) => self.goto_xp(p, m),
+            InterpolationPoint::Xm(p, _) => self.goto_xm(p, m),
+            _ => {
+                self.valid = false;
+            }
+        }
+    }
+
     fn goto(&mut self, pt: InterpolationPoint) -> bool {
         if !self.valid {
             return false;
