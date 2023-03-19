@@ -60,17 +60,55 @@ enum GeneratorCommands {
     PGotoRe(f64),
 }
 
-struct ContourGeneratorContext {
-    p_int: Option<PInterpolatorMut>,
-    branch_point: Option<(f64, f64, BranchPoint)>,
+struct RuntimeCutData {
+    branch_point: Option<C>,
+    path: Option<Vec<C>>,
 }
 
-impl ContourGeneratorContext {
+struct BuildTimeCutData {
+    component: Option<Component>,
+    cut_type: Option<CutType>,
+    visibility: Vec<CutVisibilityCondition>,
+}
+
+struct ContourGeneratorRuntimeContext {
+    p_int: Option<PInterpolatorMut>,
+    branch_point_data: Option<(f64, f64, BranchPoint)>, // (p, m, branch_point_type)
+    cut_data: RuntimeCutData,
+}
+
+impl ContourGeneratorRuntimeContext {
     fn new() -> Self {
         Self {
             p_int: None,
-            branch_point: None,
+            branch_point_data: None,
+            cut_data: RuntimeCutData {
+                branch_point: None,
+                path: None,
+            },
         }
+    }
+}
+
+struct ContourGeneratorBuildTimeContext {
+    cut_data: BuildTimeCutData,
+}
+
+impl ContourGeneratorBuildTimeContext {
+    fn new() -> Self {
+        Self {
+            cut_data: BuildTimeCutData {
+                component: None,
+                cut_type: None,
+                visibility: vec![],
+            },
+        }
+    }
+
+    fn clear(&mut self) {
+        self.cut_data.component = None;
+        self.cut_data.cut_type = None;
+        self.cut_data.visibility.clear();
     }
 }
 
@@ -84,7 +122,8 @@ pub struct ContourGenerator {
     grid_x: Vec<Vec<C>>,
     grid_u: Vec<Vec<C>>,
 
-    ctx: ContourGeneratorContext,
+    rctx: ContourGeneratorRuntimeContext,
+    bctx: ContourGeneratorBuildTimeContext,
 
     num_commands: usize,
 }
@@ -99,7 +138,8 @@ impl ContourGenerator {
             grid_p: vec![],
             grid_x: vec![],
             grid_u: vec![],
-            ctx: ContourGeneratorContext::new(),
+            rctx: ContourGeneratorRuntimeContext::new(),
+            bctx: ContourGeneratorBuildTimeContext::new(),
             num_commands: 0,
         }
     }
@@ -244,62 +284,64 @@ impl ContourGenerator {
             }
 
             PStartXp(p) => {
-                self.ctx.p_int = Some(PInterpolatorMut::xp(p, consts));
+                self.rctx.p_int = Some(PInterpolatorMut::xp(p, consts));
             }
 
             PGotoXp(p, m) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_xp(p, m);
             }
 
             PGotoXm(p, m) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_xm(p, m);
             }
 
             PGotoRe(x) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_re(x);
             }
 
             PGotoIm(x) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_im(x);
             }
 
             PGotoP(p) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_p(p);
             }
 
             PGotoM(m) => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_m(m);
             }
 
             AddGridLineP => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
                 let path = p_int.contour();
                 self.grid_p.push(path.iter().map(|p| p.conj()).collect());
                 self.grid_p.push(path);
             }
 
-            AddCutPFull => {
-                let Some(ref mut p_int) = self.ctx.p_int else { return };
+            ClearCut => {
+                self.rctx.cut_data.path = None;
+                self.rctx.cut_data.branch_point = None;
+            }
 
-                let path = p_int.contour();
-                self.cuts.push(Cut::new(
-                    Component::P,
-                    vec![path.iter().map(|p| p.conj()).collect()],
-                    vec![],
-                    CutType::DebugPath,
-                ));
-                self.cuts.push(Cut::new(
-                    Component::P,
-                    vec![path],
-                    vec![],
-                    CutType::DebugPath,
-                ));
+            AddCutPFull(reverse) => {
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
+                let new_path = if reverse {
+                    p_int.contour().into_iter().rev().collect()
+                } else {
+                    p_int.contour()
+                };
+
+                if let Some(ref mut path) = self.rctx.cut_data.path {
+                    path.extend(new_path);
+                } else {
+                    self.rctx.cut_data.path = Some(new_path);
+                }
             }
 
             AddLogCutXReal => {
