@@ -36,6 +36,8 @@ pub struct TemplateApp {
     show_dots: bool,
     show_cuts: bool,
     show_old_cuts: bool,
+    #[serde(skip)]
+    frame_history: crate::frame_history::FrameHistory,
 }
 
 struct Plot {
@@ -369,6 +371,7 @@ impl Default for TemplateApp {
             show_dots: false,
             show_cuts: true,
             show_old_cuts: true,
+            frame_history: Default::default(),
         }
     }
 }
@@ -398,6 +401,9 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.frame_history
+            .on_new_frame(ctx.input().time, _frame.info().cpu_usage);
+
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
@@ -464,6 +470,14 @@ impl eframe::App for TemplateApp {
                     "U branch: ({:+},{:+}) ",
                     self.pxu.sheet_data.u_branch.0, self.pxu.sheet_data.u_branch.1
                 ));
+            }
+            ui.separator();
+            {
+                ui.label(format!("FPS: {}", self.frame_history.fps()));
+
+                self.frame_history.ui(ui);
+
+                ui.add(egui::ProgressBar::new(self.contour_generator.progress()).show_percentage());
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
