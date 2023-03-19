@@ -474,48 +474,41 @@ impl ContourGenerator {
         }
     }
 
-    fn add(&mut self, command: GeneratorCommands) {
+    fn add(&mut self, command: GeneratorCommands) -> &mut Self {
         self.commands.push_back(command);
+        self
     }
 
     fn p_start_xp(&mut self, p: f64) -> &mut Self {
-        self.add(GeneratorCommands::PStartXp(p));
-        self
+        self.add(GeneratorCommands::PStartXp(p))
     }
 
     fn goto_xp(&mut self, p: f64, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoXp(p, m));
-        self
+        self.add(GeneratorCommands::PGotoXp(p, m))
     }
 
     fn goto_xm(&mut self, p: f64, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoXm(p, m));
-        self
+        self.add(GeneratorCommands::PGotoXm(p, m))
     }
 
     fn goto_re(&mut self, re: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoRe(re));
-        self
+        self.add(GeneratorCommands::PGotoRe(re))
     }
 
     fn goto_im(&mut self, im: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoIm(im));
-        self
+        self.add(GeneratorCommands::PGotoIm(im))
     }
 
     fn goto_p(&mut self, p: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoP(p));
-        self
+        self.add(GeneratorCommands::PGotoP(p))
     }
 
     fn goto_m(&mut self, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoM(m));
-        self
+        self.add(GeneratorCommands::PGotoM(m))
     }
 
     fn p_grid_line(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::AddGridLineP);
-        self
+        self.add(GeneratorCommands::AddGridLineP)
     }
 
     fn generate_commands(&mut self, pt: &PxuPoint) {
