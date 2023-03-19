@@ -23,6 +23,17 @@ pub enum Component {
     U,
 }
 
+impl Component {
+    fn conj(&self) -> Self {
+        match self {
+            Self::P => Self::P,
+            Self::Xp => Self::Xm,
+            Self::Xm => Self::Xp,
+            Self::U => Self::U,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum BranchPoint {
     XpPositiveAxisImXmNegative,
@@ -47,9 +58,11 @@ enum GeneratorCommands {
     AddGridLineP,
 
     ComputeBranchPoint(i32, BranchPoint),
+    ClearCut,
     AddCutX(i32, CutDirection),
-    AddCutPFull,
+    AddCutPFull(bool),
     AddLogCutXReal,
+    PushCut(Component, CutType, Vec<CutVisibilityCondition>),
 
     PStartXp(f64),
     PGotoXp(f64, f64),
@@ -416,15 +429,18 @@ impl ContourGenerator {
 
                 if let Some(x_branch_point) = x_branch_point {
                     let p = x_branch_point.arg().abs() / std::f64::consts::PI;
-                    self.ctx.branch_point = Some((p, m, branch_point_type));
+                    self.rctx.branch_point_data = Some((p, m, branch_point_type));
                 } else {
                     log::info!("Could not find branch point");
-                    self.ctx.branch_point = None;
+                    self.rctx.branch_point_data = None;
                 };
             }
 
             AddCutX(p_range, cut_direction) => {
-                let Some((p_branch_point, m, branch_point_type)) = self.ctx.branch_point else {
+                self.rctx.cut_data.path = None;
+                self.rctx.cut_data.branch_point = None;
+
+                let Some((p_branch_point, m, branch_point_type)) = self.rctx.branch_point_data else {
                     log::info!("No branch point set");
                     return;
                 };
@@ -452,20 +468,37 @@ impl ContourGenerator {
                     }
                 };
 
-                let branch_points = vec![*match cut_direction {
+                let branch_point = *match cut_direction {
                     CutDirection::Positive => path.last().unwrap(),
                     CutDirection::Negative => path.first().unwrap(),
-                }];
+                };
 
-                self.cuts.push(
-                    Cut::new(
-                        Component::Xm,
-                        vec![path],
-                        branch_points,
-                        CutType::LogX(Component::Xp, 1),
-                    )
-                    .log_branch(p_range),
-                );
+                self.rctx.cut_data.path = Some(path);
+                self.rctx.cut_data.branch_point = Some(branch_point);
+            }
+
+            PushCut(component, cut_type, visibility) => {
+                let Some(ref path) = self.rctx.cut_data.path else {
+                    log::info!("No path for cut");
+                    return;
+                };
+
+                if self.rctx.cut_data.path.is_none() {
+                    log::info!("No path for cut");
+                    return;
+                };
+
+                let branch_points = if self.rctx.cut_data.branch_point.is_some() {
+                    vec![*self.rctx.cut_data.branch_point.as_ref().unwrap()]
+                } else {
+                    vec![]
+                };
+
+                let mut cut = Cut::new(component, vec![path.clone()], branch_points, cut_type);
+                cut.visibility = visibility;
+
+                self.cuts.push(cut.conj());
+                self.cuts.push(cut);
             }
 
             _ => {
@@ -519,15 +552,15 @@ impl ContourGenerator {
 
         let max = P_RANGE_MAX - P_RANGE_MIN;
 
-        self.generate_log_cuts(p_range, consts);
+        self.generate_cuts(p_range, consts);
 
         for i in 1..max {
             if p_range - i >= P_RANGE_MIN {
-                self.generate_log_cuts(p_range - i, consts);
+                self.generate_cuts(p_range - i, consts);
             }
 
             if p_range + i <= P_RANGE_MAX {
-                self.generate_log_cuts(p_range + i, consts);
+                self.generate_cuts(p_range + i, consts);
             }
         }
 
@@ -759,23 +792,50 @@ impl ContourGenerator {
         }
     }
 
+    fn clear_cut(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::ClearCut)
+    }
+
     fn compute_branch_point(&mut self, p_range: i32, branch_point_type: BranchPoint) -> &mut Self {
         self.add(GeneratorCommands::ComputeBranchPoint(
             p_range,
             branch_point_type,
-        ));
-        self
+        ))
     }
 
     fn generate_real_log_cuts(&mut self, consts: CouplingConstants) {
         self.add(GeneratorCommands::AddLogCutXReal);
     }
 
-    fn create_cut(&mut self) -> &mut Self {
-        self
+    fn compute_cut_path_x(&mut self, p_range: i32, direction: CutDirection) -> &mut Self {
+        self.add(GeneratorCommands::AddCutX(p_range, direction))
+    }
+
+    fn compute_cut_path_p(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::AddCutPFull(false))
+    }
+
+    fn compute_cut_path_p_rev(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::AddCutPFull(true))
     }
 
     fn push_cut(&mut self) -> &mut Self {
+        let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
+            log::info!("Can't push cut without component");
+            self.bctx.clear();
+            return self;
+        };
+        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_data.cut_type, None) else {
+            log::info!("Can't push cut without type");
+            self.bctx.clear();
+            return self;
+        };
+        self.add(GeneratorCommands::PushCut(
+            component,
+            cut_type,
+            self.bctx.cut_data.visibility.clone(),
+        ));
+        self.bctx.clear();
         self
     }
 
@@ -787,109 +847,154 @@ impl ContourGenerator {
     ) {
     }
 
-    fn generate_log_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
+    fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
+        if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
+            log::info!("New cut created before previous cut was pushed");
+        }
+        self.bctx.cut_data.component = Some(component);
+        self.bctx.cut_data.cut_type = Some(cut_type);
+        self
+    }
+
+    fn log_branch(&mut self, p_range: i32) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::LogBranch(p_range));
+        self
+    }
+
+    fn e_branch(&mut self, branch: i32) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::EBranch(branch));
+        self
+    }
+
+    fn generate_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
         log::info!("{p_range}");
 
         let p_start = p_range as f64;
         let k = consts.k() as f64;
 
-        self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
-            .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+        self.clear_cut()
+            .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+            .compute_cut_path_x(p_range, CutDirection::Positive)
+            .create_cut(Component::Xp, CutType::LogX(Component::Xp, 0))
+            .log_branch(p_range)
+            .push_cut();
 
         {
             // Scallion
             let p0 = p_start + 1.0 / 8.0;
+            self.clear_cut();
+
             self.p_start_xp(p0)
                 .goto_m(-(p_range * consts.k()) as f64)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p_rev();
+
             self.p_start_xp(p0)
                 .goto_xm(p0, 1.0)
                 .goto_m(-(p_range * consts.k()) as f64)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
+
+            self.create_cut(Component::P, CutType::LogX(Component::Xp, 0))
+                .push_cut();
         }
 
         {
             // Real positive line
             let p0 = p_start + 1.0 / 8.0;
-            self.p_start_xp(p0)
+            self.clear_cut()
+                .p_start_xp(p0)
                 .goto_m(-p_start * k + 1.0)
                 .goto_im(0.0)
                 .goto_re(consts.s() * 4.0)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
         }
 
-        self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
-            .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+        self.clear_cut()
+            .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+            .compute_cut_path_x(p_range, CutDirection::Positive);
 
         if p_range == 0 {
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
 
-            self.p_start_xp(p0)
+            self.clear_cut()
+                .p_start_xp(p0)
                 .goto_m(3.0)
                 .goto_p(p1)
                 .goto_m(0.0)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
         } else if p_range == -1 {
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 6.0 / 8.0;
 
-            self.p_start_xp(p0)
+            self.clear_cut()
+                .p_start_xp(p0)
                 .goto_m(-consts.k() as f64 + 1.0)
                 .goto_p(p1)
                 .goto_m(-consts.k() as f64 + 3.0)
                 .goto_p(p0)
                 .goto_m(0.0)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
         }
 
-        self.compute_branch_point(
-            p_range,
-            BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
-        )
-        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Positive));
+        self.clear_cut()
+            .compute_branch_point(
+                p_range,
+                BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
+            )
+            .compute_cut_path_x(p_range, CutDirection::Positive);
 
         {
             // Kidney
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
+            self.clear_cut();
             self.p_start_xp(p0)
                 .goto_m(-((p_range + 1) * consts.k()) as f64)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p_rev();
             self.p_start_xp(p0)
                 .goto_xm(p0, 1.0)
                 .goto_p(p1)
                 .goto_m(-((p_range + 1) * consts.k()) as f64)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
         }
 
         {
             // Real negative line
             let p0 = p_start + 7.0 / 8.0;
-            self.p_start_xp(p0)
+            self.clear_cut()
+                .p_start_xp(p0)
                 .goto_m(-p_start * k + 1.0)
                 .goto_im(0.0)
                 .goto_re(-consts.s() * 4.0)
-                .add(GeneratorCommands::AddCutPFull);
+                .compute_cut_path_p();
         }
 
-        self.compute_branch_point(
-            p_range,
-            BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
-        )
-        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
+        self.clear_cut()
+            .compute_branch_point(
+                p_range,
+                BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
+            )
+            .compute_cut_path_x(p_range, CutDirection::Negative);
 
-        self.compute_branch_point(
-            p_range,
-            BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
-        )
-        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
+        self.clear_cut()
+            .compute_branch_point(
+                p_range,
+                BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
+            )
+            .compute_cut_path_x(p_range, CutDirection::Negative);
 
-        self.compute_branch_point(
-            p_range,
-            BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
-        )
-        .add(GeneratorCommands::AddCutX(p_range, CutDirection::Negative));
+        self.clear_cut()
+            .compute_branch_point(
+                p_range,
+                BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
+            )
+            .compute_cut_path_x(p_range, CutDirection::Negative);
     }
 }
 
@@ -954,7 +1059,18 @@ pub enum CutType {
     DebugPath,
 }
 
-#[derive(Debug)]
+impl CutType {
+    fn conj(&self) -> Self {
+        match self {
+            Self::U(component) => Self::U(component.conj()),
+            Self::LogX(component, p_range) => Self::LogX(component.conj(), *p_range),
+            Self::E => Self::E,
+            Self::DebugPath => Self::DebugPath,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 enum CutVisibilityCondition {
     ImXp(i8),
     ImXm(i8),
@@ -979,6 +1095,20 @@ impl CutVisibilityCondition {
             Self::EBranch(b) => pt.sheet_data.e_branch == *b,
             Self::UpBranch(b) => pt.sheet_data.u_branch.0 == *b,
             Self::UmBranch(b) => pt.sheet_data.u_branch.1 == *b,
+        }
+    }
+
+    fn conj(&self) -> Self {
+        match self {
+            Self::ImXp(sign) => Self::ImXm(-sign),
+            Self::ImXm(sign) => Self::ImXp(-sign),
+            Self::LogBranch(b) => Self::LogBranch(*b),
+            Self::LogBranchGT(b) => Self::LogBranchGT(*b),
+            Self::LogBranchLE(b) => Self::LogBranchLE(*b),
+            Self::LogBranchSum(b) => Self::LogBranchSum(*b),
+            Self::EBranch(b) => Self::EBranch(*b),
+            Self::UpBranch(b) => Self::UmBranch(*b),
+            Self::UmBranch(b) => Self::UpBranch(*b),
         }
     }
 }
@@ -1095,6 +1225,23 @@ impl Cut {
             branch_points,
             typ,
             visibility: vec![],
+        }
+    }
+
+    fn conj(&self) -> Self {
+        let paths = self
+            .paths
+            .iter()
+            .map(|path| path.iter().map(|z| z.conj()).collect())
+            .collect();
+        let branch_points = self.branch_points.iter().map(|z| z.conj()).collect();
+        let visibility = self.visibility.iter().map(|v| v.conj()).collect();
+        Cut {
+            component: self.component.conj(),
+            paths,
+            branch_points,
+            typ: self.typ.conj(),
+            visibility,
         }
     }
 
