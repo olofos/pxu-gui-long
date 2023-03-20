@@ -242,9 +242,9 @@ impl Plot {
                                 }
 
                                 if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 0, 128)
+                                    Color32::from_rgb(255, 0, 0)
                                 } else {
-                                    Color32::from_rgb(0, 192, 128)
+                                    Color32::from_rgb(0, 192, 0)
                                 }
                             }
 
@@ -253,9 +253,9 @@ impl Plot {
                                     continue;
                                 }
                                 if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 0, 128)
+                                    Color32::from_rgb(255, 0, 0)
                                 } else {
-                                    Color32::from_rgb(0, 192, 128)
+                                    Color32::from_rgb(0, 192, 0)
                                 }
                             }
 
@@ -276,9 +276,9 @@ impl Plot {
                                 }
 
                                 if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 0, 128)
+                                    Color32::from_rgb(255, 0, 0)
                                 } else {
-                                    Color32::from_rgb(0, 192, 128)
+                                    Color32::from_rgb(0, 192, 0)
                                 }
                             }
                             _ => Color32::from_rgb(255, 128, 0),
