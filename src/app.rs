@@ -8,6 +8,18 @@ use crate::kinematics::CouplingConstants;
 use crate::pxu;
 use crate::pxu::PxuPoint;
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq)]
+enum UCutType {
+    Long,
+    Short,
+}
+
+impl Default for UCutType {
+    fn default() -> Self {
+        UCutType::Long
+    }
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -36,6 +48,7 @@ pub struct TemplateApp {
     show_dots: bool,
     show_cuts: bool,
     show_old_cuts: bool,
+    u_cut_type: UCutType,
     #[serde(skip)]
     frame_history: crate::frame_history::FrameHistory,
 }
@@ -56,6 +69,7 @@ impl Plot {
         show_dots: bool,
         show_cuts: bool,
         show_old_cuts: bool,
+        u_cut_type: UCutType,
         pxu: &mut PxuPoint,
     ) {
         egui::Frame::canvas(ui.style())
@@ -193,6 +207,8 @@ impl Plot {
                     stroke,
                 }));
 
+                let mut branch_point_shapes = vec![];
+
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
                         (pxu.sheet_data.log_branch + pxu.sheet_data.log_branch_sum) as f32
@@ -212,7 +228,85 @@ impl Plot {
                             .collect::<Vec<_>>()
                     };
 
+                    let long_cuts = match u_cut_type {
+                        UCutType::Long => true,
+                        UCutType::Short => false,
+                    };
+
                     for cut in visible_cuts {
+                        let color = match cut.typ {
+                            pxu::CutType::U(comp) => {
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 0)
+                                } else {
+                                    Color32::from_rgb(0, 192, 0)
+                                }
+                            }
+                            pxu::CutType::LogX(comp, _) => {
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 128, 128)
+                                } else {
+                                    Color32::from_rgb(128, 255, 128)
+                                }
+                            }
+                            pxu::CutType::E => Color32::BLACK,
+
+                            pxu::CutType::Log(comp) => {
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 128, 128)
+                                } else {
+                                    Color32::from_rgb(128, 255, 128)
+                                }
+                            }
+
+                            pxu::CutType::ULongNegative(comp) => {
+                                if !long_cuts {
+                                    continue;
+                                }
+
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 128)
+                                } else {
+                                    Color32::from_rgb(0, 192, 128)
+                                }
+                            }
+
+                            pxu::CutType::ULongPositive(comp) => {
+                                if !long_cuts {
+                                    continue;
+                                }
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 128)
+                                } else {
+                                    Color32::from_rgb(0, 192, 128)
+                                }
+                            }
+
+                            pxu::CutType::UShortScallion(comp) => {
+                                if long_cuts {
+                                    continue;
+                                }
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 0)
+                                } else {
+                                    Color32::from_rgb(0, 192, 0)
+                                }
+                            }
+
+                            pxu::CutType::UShortKidney(comp) => {
+                                if long_cuts {
+                                    continue;
+                                }
+
+                                if comp == pxu::Component::Xp {
+                                    Color32::from_rgb(255, 0, 128)
+                                } else {
+                                    Color32::from_rgb(0, 192, 128)
+                                }
+                            }
+                            _ => Color32::from_rgb(255, 128, 0),
+                        };
+
                         for points in cut.paths.iter() {
                             let points = points
                                 .iter()
@@ -221,32 +315,15 @@ impl Plot {
                                 })
                                 .collect::<Vec<_>>();
 
-                            let color = match cut.typ {
-                                pxu::CutType::U(comp) => {
-                                    if comp == pxu::Component::Xp {
-                                        Color32::from_rgb(255, 0, 0)
-                                    } else {
-                                        Color32::from_rgb(0, 192, 0)
-                                    }
-                                }
-                                pxu::CutType::LogX(comp, _) => {
-                                    if comp == pxu::Component::Xp {
-                                        Color32::from_rgb(255, 128, 128)
-                                    } else {
-                                        Color32::from_rgb(128, 255, 128)
-                                    }
-                                }
-                                pxu::CutType::E => Color32::BLACK,
-                                _ => Color32::from_rgb(255, 128, 0),
-                            };
-
                             match cut.typ {
-                                pxu::CutType::LogX(_, 0) => {
+                                pxu::CutType::LogX(_, 0)
+                                | pxu::CutType::UShortKidney(_)
+                                | pxu::CutType::ULongPositive(_) => {
                                     egui::epaint::Shape::dashed_line_many(
                                         &points.clone(),
                                         Stroke::new(3.0, color),
-                                        8.0,
-                                        8.0,
+                                        4.0,
+                                        4.0,
                                         &mut shapes,
                                     );
                                 }
@@ -270,25 +347,23 @@ impl Plot {
                                     ));
                                 }
                             }
+                        }
 
-                            let branch_points = cut
-                                .branch_points
-                                .iter()
-                                .map(|z| {
-                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
-                                })
-                                .collect::<Vec<_>>();
+                        let branch_points = cut
+                            .branch_points
+                            .iter()
+                            .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift)))
+                            .collect::<Vec<_>>();
 
-                            for center in branch_points {
-                                shapes.push(egui::epaint::Shape::Circle(
-                                    egui::epaint::CircleShape {
-                                        center,
-                                        radius: 4.0,
-                                        fill: color,
-                                        stroke: Stroke::NONE,
-                                    },
-                                ));
-                            }
+                        for center in branch_points {
+                            branch_point_shapes.push(egui::epaint::Shape::Circle(
+                                egui::epaint::CircleShape {
+                                    center,
+                                    radius: 4.0,
+                                    fill: color,
+                                    stroke: Stroke::NONE,
+                                },
+                            ));
                         }
                     }
                 }
@@ -325,6 +400,7 @@ impl Plot {
                 }
 
                 painter.extend(shapes);
+                painter.extend(branch_point_shapes);
             });
     }
 
@@ -371,6 +447,7 @@ impl Default for TemplateApp {
             show_dots: false,
             show_cuts: true,
             show_old_cuts: true,
+            u_cut_type: Default::default(),
             frame_history: Default::default(),
         }
     }
@@ -438,6 +515,12 @@ impl eframe::App for TemplateApp {
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
             ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
             ui.add(egui::Checkbox::new(&mut self.show_old_cuts, "Old cuts"));
+
+            ui.horizontal(|ui| {
+                ui.label("U cuts: ");
+                ui.radio_value(&mut self.u_cut_type, UCutType::Long, "Long");
+                ui.radio_value(&mut self.u_cut_type, UCutType::Short, "Short");
+            });
 
             if ui.add(egui::Button::new("Reset")).clicked() {
                 *self = Self::default();
@@ -532,6 +615,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.show_old_cuts,
+                    self.u_cut_type,
                     &mut self.pxu,
                 );
 
@@ -542,6 +626,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.show_old_cuts,
+                    self.u_cut_type,
                     &mut self.pxu,
                 );
             });
@@ -553,6 +638,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.show_old_cuts,
+                    self.u_cut_type,
                     &mut self.pxu,
                 );
 
@@ -563,6 +649,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.show_old_cuts,
+                    self.u_cut_type,
                     &mut self.pxu,
                 );
             });
