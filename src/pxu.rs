@@ -1122,6 +1122,7 @@ impl ContourGenerator {
                 .goto_re(-consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::Log(Component::Xp))
+                .e_branch(1)
                 .push_cut(p_range);
         }
 
@@ -1168,6 +1169,15 @@ impl ContourGenerator {
                 .goto_re(consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::ULongPositive(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+
+            self.create_cut(Component::P, CutType::Log(Component::Xm))
+                .e_branch(-1)
+                .push_cut(p_range);
+
+            self.create_cut(Component::P, CutType::ULongNegative(Component::Xm))
+                .e_branch(-1)
                 .push_cut(p_range);
         }
 
@@ -1261,6 +1271,11 @@ impl ContourGenerator {
                 .goto_re(-consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::ULongNegative(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+
+            self.create_cut(Component::P, CutType::ULongPositive(Component::Xm))
+                .e_branch(-1)
                 .push_cut(p_range);
         }
 
@@ -1311,6 +1326,11 @@ impl ContourGenerator {
                 .compute_cut_path_p();
 
             self.create_cut(Component::P, CutType::UShortScallion(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+
+            self.create_cut(Component::P, CutType::UShortKidney(Component::Xm))
+                .e_branch(-1)
                 .push_cut(p_range);
 
             if p_range == 0 {
@@ -1322,8 +1342,14 @@ impl ContourGenerator {
                     .goto_m(3.0)
                     .goto_p(p1)
                     .goto_m(0.0)
-                    .compute_cut_path_p()
-                    .create_cut(Component::P, CutType::UShortScallion(Component::Xp))
+                    .compute_cut_path_p();
+
+                self.create_cut(Component::P, CutType::UShortScallion(Component::Xp))
+                    .e_branch(1)
+                    .push_cut(p_range);
+
+                self.create_cut(Component::P, CutType::UShortKidney(Component::Xm))
+                    .e_branch(-1)
                     .push_cut(p_range);
             }
         }
@@ -1389,6 +1415,10 @@ impl ContourGenerator {
                 .goto_m(-((p_range + 1) * consts.k()) as f64)
                 .compute_cut_path_p();
             self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+            self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
+                .e_branch(-1)
                 .push_cut(p_range);
 
             if p_range == -1 {
@@ -1402,8 +1432,12 @@ impl ContourGenerator {
                     .goto_m(-consts.k() as f64 + 3.0)
                     .goto_p(p0)
                     .goto_m(0.0)
-                    .compute_cut_path_p()
-                    .create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                    .compute_cut_path_p();
+                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                    .e_branch(1)
+                    .push_cut(p_range);
+                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
+                    .e_branch(-1)
                     .push_cut(p_range);
             }
         }
@@ -1441,6 +1475,7 @@ impl ContourGenerator {
                 vec![
                     CutVisibilityCondition::LogBranch(p_range),
                     CutVisibilityCondition::ImXp(-1),
+                    CutVisibilityCondition::ImXm(-1),
                 ],
             ));
     }
