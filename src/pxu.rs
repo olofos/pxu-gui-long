@@ -1362,11 +1362,37 @@ impl ContourGenerator {
         self.add(GeneratorCommands::ComputeCutEP(p_range));
         self.create_cut(Component::P, CutType::E).push_cut();
 
-        self.create_cut(Component::P, CutType::E)
+        self.create_cut(Component::Xp, CutType::E)
             .add(GeneratorCommands::PushCutFromP(
+                p_range,
                 Component::Xp,
                 CutType::E,
-                vec![CutVisibilityCondition::LogBranch(p_range)],
+                vec![
+                    CutVisibilityCondition::LogBranch(p_range),
+                    CutVisibilityCondition::ImXm(-1),
+                ],
+            ));
+
+        self.create_cut(Component::Xm, CutType::E)
+            .add(GeneratorCommands::PushCutFromP(
+                p_range,
+                Component::Xm,
+                CutType::E,
+                vec![
+                    CutVisibilityCondition::LogBranch(p_range),
+                    CutVisibilityCondition::ImXp(-1),
+                ],
+            ));
+
+        self.create_cut(Component::U, CutType::E)
+            .add(GeneratorCommands::PushCutFromP(
+                p_range,
+                Component::U,
+                CutType::E,
+                vec![
+                    CutVisibilityCondition::LogBranch(p_range),
+                    CutVisibilityCondition::ImXp(-1),
+                ],
             ));
     }
 }
