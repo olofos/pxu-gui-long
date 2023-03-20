@@ -937,6 +937,27 @@ impl ContourGenerator {
         self
     }
 
+    fn push_cut_from_p(&mut self, p_range: i32) -> &mut Self {
+        let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
+            log::info!("Can't push cut without component");
+            self.bctx.clear();
+            return self;
+        };
+        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_data.cut_type, None) else {
+            log::info!("Can't push cut without type");
+            self.bctx.clear();
+            return self;
+        };
+        self.add(GeneratorCommands::PushCutFromP(
+            p_range,
+            component,
+            cut_type,
+            self.bctx.cut_data.visibility.clone(),
+        ));
+        self.bctx.clear();
+        self
+    }
+
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
         if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
             log::info!("New cut created before previous cut was pushed");
@@ -944,6 +965,10 @@ impl ContourGenerator {
         self.bctx.cut_data.component = Some(component);
         self.bctx.cut_data.cut_type = Some(cut_type);
         self
+    }
+
+    fn compute_cut_ep(&mut self, p_range: i32) -> &mut Self {
+        self.add(GeneratorCommands::ComputeCutEP(p_range))
     }
 
     fn log_branch(&mut self, p_range: i32) -> &mut Self {
@@ -1474,42 +1499,24 @@ impl ContourGenerator {
             }
         }
 
-        self.add(GeneratorCommands::ComputeCutEP(p_range));
+        self.compute_cut_ep(p_range);
         self.create_cut(Component::P, CutType::E).push_cut(p_range);
 
         self.create_cut(Component::Xp, CutType::E)
-            .add(GeneratorCommands::PushCutFromP(
-                p_range,
-                Component::Xp,
-                CutType::E,
-                vec![
-                    CutVisibilityCondition::LogBranch(p_range),
-                    CutVisibilityCondition::ImXm(-1),
-                ],
-            ));
+            .log_branch(p_range)
+            .im_xm_negative()
+            .push_cut_from_p(p_range);
 
         self.create_cut(Component::Xm, CutType::E)
-            .add(GeneratorCommands::PushCutFromP(
-                p_range,
-                Component::Xm,
-                CutType::E,
-                vec![
-                    CutVisibilityCondition::LogBranch(p_range),
-                    CutVisibilityCondition::ImXp(-1),
-                ],
-            ));
+            .log_branch(p_range)
+            .im_xp_negative()
+            .push_cut_from_p(p_range);
 
         self.create_cut(Component::U, CutType::E)
-            .add(GeneratorCommands::PushCutFromP(
-                p_range,
-                Component::U,
-                CutType::E,
-                vec![
-                    CutVisibilityCondition::LogBranch(p_range),
-                    CutVisibilityCondition::ImXp(-1),
-                    CutVisibilityCondition::ImXm(-1),
-                ],
-            ));
+            .log_branch(p_range)
+            .im_xp_negative()
+            .im_xm_negative()
+            .push_cut_from_p(p_range);
     }
 }
 
