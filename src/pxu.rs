@@ -72,7 +72,7 @@ enum GeneratorCommands {
     AddLogCutXReal,
     SetCutPath(Vec<C>, Option<C>),
     PushCut(Component, CutType, Vec<CutVisibilityCondition>),
-    PushCutFromP(Component, CutType, Vec<CutVisibilityCondition>),
+    PushCutFromP(i32, Component, CutType, Vec<CutVisibilityCondition>),
 
     PStartXp(f64),
     PGotoXp(f64, f64),
@@ -237,10 +237,7 @@ impl ContourGenerator {
         component: Component,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
-        pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
-            * pt.consts.k() as f64
-            * C::i()
-            / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
 
         self.cuts
             .iter()
@@ -583,7 +580,7 @@ impl ContourGenerator {
                 self.cuts.push(cut);
             }
 
-            PushCutFromP(component, cut_type, visibility) => {
+            PushCutFromP(p_range, component, cut_type, visibility) => {
                 let Some(ref p_path) = self.rctx.cut_data.path else {
                     log::info!("No path for cut");
                     return;
@@ -594,27 +591,29 @@ impl ContourGenerator {
                     return;
                 };
 
-                // let branch_points = if self.rctx.cut_data.branch_point.is_some() {
-                //     vec![*self.rctx.cut_data.branch_point.as_ref().unwrap()]
-                // } else {
-                //     vec![]
-                // };
+                let sheet_data = SheetData {
+                    log_branch_p: 0,
+                    log_branch_m: p_range,
+                    e_branch: 1,
+                    u_branch: (1, 1),
+                };
 
                 let mut path = p_path
                     .iter()
+                    .rev()
                     .map(|&p| match component {
                         Component::P => unimplemented!(),
                         Component::Xp => xp(p + 0.00001, 1.0, consts),
                         Component::Xm => xm(p + 0.00001, 1.0, consts),
-                        Component::U => unimplemented!(),
+                        Component::U => u(p + 0.00001, consts, &sheet_data),
                     })
                     .collect::<Vec<_>>();
 
-                path.extend(p_path.iter().rev().map(|&p| match component {
+                path.extend(p_path.iter().map(|&p| match component {
                     Component::P => unimplemented!(),
                     Component::Xp => xp(p - 0.00001, 1.0, consts),
                     Component::Xm => xm(p - 0.00001, 1.0, consts),
-                    Component::U => unimplemented!(),
+                    Component::U => u(p - 0.00001, consts, &sheet_data),
                 }));
 
                 let branch_points = vec![];
@@ -1474,10 +1473,10 @@ impl CutVisibilityCondition {
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i8 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
-            Self::LogBranch(b) => *b == pt.sheet_data.log_branch,
-            Self::LogBranchGT(b) => pt.sheet_data.log_branch > *b,
-            Self::LogBranchLE(b) => pt.sheet_data.log_branch <= *b,
-            Self::LogBranchSum(b) => *b == pt.sheet_data.log_branch_sum,
+            Self::LogBranch(b) => *b == (pt.sheet_data.log_branch_p + pt.sheet_data.log_branch_m),
+            Self::LogBranchGT(b) => (pt.sheet_data.log_branch_p + pt.sheet_data.log_branch_m) > *b,
+            Self::LogBranchLE(b) => (pt.sheet_data.log_branch_p + pt.sheet_data.log_branch_m) <= *b,
+            Self::LogBranchSum(b) => *b == pt.sheet_data.log_branch_p - pt.sheet_data.log_branch_m,
             Self::EBranch(b) => pt.sheet_data.e_branch == *b,
             Self::UpBranch(b) => pt.sheet_data.u_branch.0 == *b,
             Self::UmBranch(b) => pt.sheet_data.u_branch.1 == *b,
@@ -1549,10 +1548,7 @@ impl Cuts {
         }
 
         let mut pt = pt.clone();
-        pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
-            * pt.consts.k() as f64
-            * C::i()
-            / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
 
         self.cuts
             .iter()
@@ -1571,17 +1567,10 @@ impl Cuts {
         }
 
         let mut pt = pt.clone();
-        pt.u += (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
-            * pt.consts.k() as f64
-            * C::i()
-            / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
 
         let new_value = if component == Component::U {
-            new_value
-                + (pt.sheet_data.log_branch + pt.sheet_data.log_branch_sum) as f64
-                    * pt.consts.k() as f64
-                    * C::i()
-                    / pt.consts.h
+            new_value + (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h
         } else {
             new_value
         };
@@ -1654,12 +1643,6 @@ impl Cut {
     fn log_branch(mut self, branch: i32) -> Self {
         self.visibility
             .push(CutVisibilityCondition::LogBranch(branch));
-        self
-    }
-
-    fn log_branch_sum(mut self, branch: i32) -> Self {
-        self.visibility
-            .push(CutVisibilityCondition::LogBranchSum(branch));
         self
     }
 
@@ -4302,8 +4285,8 @@ impl Cut {
         let mut cuts = vec![];
 
         let sheet_data = SheetData {
-            log_branch: p_range,
-            log_branch_sum: -p_range,
+            log_branch_p: 0,
+            log_branch_m: p_range,
             e_branch: 1,
             u_branch: (1, 1),
         };
@@ -4505,12 +4488,12 @@ pub struct PxuPoint {
 impl PxuPoint {
     pub fn new(p: impl Into<C>, consts: CouplingConstants) -> Self {
         let p: C = p.into();
-        let log_branch = p.re.floor() as i32;
-        let log_branch_sum = -log_branch;
+        let log_branch_p = 0;
+        let log_branch_m = p.re.floor() as i32;
 
         let sheet_data = SheetData {
-            log_branch,
-            log_branch_sum,
+            log_branch_p,
+            log_branch_m,
             e_branch: 1,
             u_branch: (1, 1),
         };
@@ -4683,12 +4666,10 @@ impl PxuPoint {
         for cut in crossed_cuts {
             match cut.typ {
                 CutType::LogX(Component::Xp, branch) => {
-                    new_sheet_data.log_branch += branch;
-                    new_sheet_data.log_branch_sum += branch;
+                    new_sheet_data.log_branch_p += branch;
                 }
                 CutType::LogX(Component::Xm, branch) => {
-                    new_sheet_data.log_branch += branch;
-                    new_sheet_data.log_branch_sum -= branch;
+                    new_sheet_data.log_branch_m += branch;
                 }
                 CutType::E => {
                     new_sheet_data.e_branch = -new_sheet_data.e_branch;

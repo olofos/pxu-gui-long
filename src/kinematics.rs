@@ -39,8 +39,8 @@ impl CouplingConstants {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SheetData {
-    pub log_branch: i32,
-    pub log_branch_sum: i32,
+    pub log_branch_p: i32,
+    pub log_branch_m: i32,
     pub e_branch: i32,
     pub u_branch: (i32, i32),
 }
@@ -157,9 +157,7 @@ pub fn u(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetData) -> 
     let xp = xp(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-    let branch_shift =
-        (sheet_data.log_branch + sheet_data.log_branch_sum) as f64 * consts.k() as f64 * C::i()
-            / consts.h;
+    let branch_shift = 2.0 * (sheet_data.log_branch_p * consts.k()) as f64 * C::i() / consts.h;
 
     let u0p = up - C::i() / consts.h - branch_shift;
     u0p
@@ -229,9 +227,7 @@ pub fn u_crossed(p: impl Into<C>, consts: CouplingConstants, sheet_data: &SheetD
     let xp = xp_crossed(p, 1.0, consts);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-    let branch_shift =
-        (sheet_data.log_branch + sheet_data.log_branch_sum) as f64 * consts.k() as f64 * C::i()
-            / consts.h;
+    let branch_shift = 2.0 * (sheet_data.log_branch_p * consts.k()) as f64 * C::i() / consts.h;
 
     let u0p = up - C::i() / consts.h - branch_shift;
     u0p

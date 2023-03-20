@@ -211,8 +211,7 @@ impl Plot {
 
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
-                        (pxu.sheet_data.log_branch + pxu.sheet_data.log_branch_sum) as f32
-                            * pxu.consts.k() as f32
+                        2.0 * (pxu.sheet_data.log_branch_p * pxu.consts.k()) as f32
                             / pxu.consts.h as f32
                     } else {
                         0.0
@@ -545,7 +544,7 @@ impl eframe::App for TemplateApp {
 
                 ui.label(format!(
                     "Log branches: {:+} {:+}",
-                    self.pxu.sheet_data.log_branch, self.pxu.sheet_data.log_branch_sum
+                    self.pxu.sheet_data.log_branch_p, self.pxu.sheet_data.log_branch_m
                 ));
 
                 ui.label(format!("E branch: {:+} ", self.pxu.sheet_data.e_branch));
