@@ -523,13 +523,19 @@ impl eframe::App for TemplateApp {
                     self.pxu.sheet_data.u_branch.0, self.pxu.sheet_data.u_branch.1
                 ));
             }
-            ui.separator();
+
+            #[cfg(debug_assertions)]
             {
-                ui.label(format!("FPS: {}", self.frame_history.fps()));
+                ui.separator();
+                {
+                    ui.label(format!("FPS: {}", self.frame_history.fps()));
 
-                self.frame_history.ui(ui);
+                    self.frame_history.ui(ui);
 
-                ui.add(egui::ProgressBar::new(self.contour_generator.progress()).show_percentage());
+                    ui.add(
+                        egui::ProgressBar::new(self.contour_generator.progress()).show_percentage(),
+                    );
+                }
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
