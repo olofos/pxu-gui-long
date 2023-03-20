@@ -1026,10 +1026,6 @@ impl ContourGenerator {
         self
     }
 
-    // fn generate_real_log_cuts(&mut self, consts: CouplingConstants) {
-    //     self.add(GeneratorCommands::AddLogCutXReal);
-    // }
-
     fn generate_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
         log::info!("{p_range}");
 
