@@ -528,13 +528,12 @@ impl ContourGenerator {
                     _ => C::from(0.0),
                 };
 
-                let branch_points = if self.rctx.cut_data.branch_point.is_some() {
-                    vec![*self.rctx.cut_data.branch_point.as_ref().unwrap()]
-                } else {
-                    vec![]
-                };
-
-                let mut cut = Cut::new(component, vec![path.clone()], branch_points, cut_type);
+                let mut cut = Cut::new(
+                    component,
+                    vec![path.clone()],
+                    self.rctx.cut_data.branch_point.clone(),
+                    cut_type,
+                );
                 cut.visibility = visibility;
 
                 self.cuts.push(cut.conj().shift(shift));
@@ -577,9 +576,7 @@ impl ContourGenerator {
                     Component::U => u(p - 0.00001, consts, &sheet_data),
                 }));
 
-                let branch_points = vec![];
-
-                let mut cut = Cut::new(component, vec![path], branch_points, cut_type);
+                let mut cut = Cut::new(component, vec![path], None, cut_type);
                 cut.visibility = visibility;
 
                 self.cuts.push(cut.conj());
@@ -1568,17 +1565,22 @@ impl CutVisibilityCondition {
 pub struct Cut {
     pub component: Component,
     pub paths: Vec<Vec<C>>,
-    pub branch_points: Vec<C>,
+    pub branch_point: Option<C>,
     pub typ: CutType,
     visibility: Vec<CutVisibilityCondition>,
 }
 
 impl Cut {
-    fn new(component: Component, paths: Vec<Vec<C>>, branch_points: Vec<C>, typ: CutType) -> Self {
+    fn new(
+        component: Component,
+        paths: Vec<Vec<C>>,
+        branch_point: Option<C>,
+        typ: CutType,
+    ) -> Self {
         Self {
             component,
             paths,
-            branch_points,
+            branch_point,
             typ,
             visibility: vec![],
         }
@@ -1590,12 +1592,12 @@ impl Cut {
             .iter()
             .map(|path| path.iter().map(|z| z.conj()).collect())
             .collect();
-        let branch_points = self.branch_points.iter().map(|z| z.conj()).collect();
+        let branch_point = self.branch_point.map(|z| z.conj());
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
         Cut {
             component: self.component.conj(),
             paths,
-            branch_points,
+            branch_point,
             typ: self.typ.conj(),
             visibility,
         }
@@ -1610,7 +1612,7 @@ impl Cut {
             }
         }
 
-        for z in self.branch_points.iter_mut() {
+        for z in self.branch_point.iter_mut() {
             *z += dz;
         }
         self

@@ -340,13 +340,9 @@ impl Plot {
                             }
                         }
 
-                        let branch_points = cut
-                            .branch_points
-                            .iter()
-                            .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift)))
-                            .collect::<Vec<_>>();
-
-                        for center in branch_points {
+                        if let Some(ref z) = cut.branch_point {
+                            let center =
+                                to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift));
                             branch_point_shapes.push(egui::epaint::Shape::Circle(
                                 egui::epaint::CircleShape {
                                     center,
