@@ -1055,6 +1055,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
+                .im_xp_positive()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1065,6 +1066,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
+                .im_xp_positive()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1075,6 +1077,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
+                .im_xp_negative()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1085,6 +1088,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
+                .im_xp_negative()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1849,6 +1853,28 @@ impl PxuPoint {
             match cut.typ {
                 CutType::E => {
                     new_sheet_data.e_branch = -new_sheet_data.e_branch;
+                }
+                CutType::UShortScallion(Component::Xp) => {
+                    new_sheet_data.u_branch =
+                        (-self.sheet_data.u_branch.0, self.sheet_data.u_branch.1);
+                }
+                CutType::UShortScallion(Component::Xm) => {
+                    new_sheet_data.u_branch =
+                        (self.sheet_data.u_branch.0, -self.sheet_data.u_branch.1);
+                }
+                CutType::Log(Component::Xp) => {
+                    if self.xp.im >= 0.0 {
+                        new_sheet_data.log_branch_p += 1;
+                    } else {
+                        new_sheet_data.log_branch_p -= 1;
+                    }
+                }
+                CutType::Log(Component::Xm) => {
+                    if self.xm.im <= 0.0 {
+                        new_sheet_data.log_branch_m += 1;
+                    } else {
+                        new_sheet_data.log_branch_m -= 1;
+                    }
                 }
                 _ => {}
             }
