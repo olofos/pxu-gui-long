@@ -224,13 +224,14 @@ impl ContourGenerator {
         &mut self,
         pt: &PxuPoint,
         component: Component,
+        long_cuts: bool,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
         pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
 
         self.cuts
             .iter()
-            .filter(move |c| c.component == component && c.is_visible(&pt))
+            .filter(move |c| c.component == component && c.is_visible(&pt, long_cuts))
     }
 
     pub fn get_crossed_cuts(
@@ -238,6 +239,7 @@ impl ContourGenerator {
         pt: &PxuPoint,
         component: Component,
         new_value: C,
+        long_cuts: bool,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
         pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
@@ -250,7 +252,7 @@ impl ContourGenerator {
 
         self.cuts.iter().filter(move |c| {
             c.component == component
-                && c.is_visible(&pt)
+                && c.is_visible(&pt, long_cuts)
                 && c.intersection(pt.get(component), new_value).is_some()
         })
     }
@@ -1011,6 +1013,22 @@ impl ContourGenerator {
         self
     }
 
+    fn im_xp_positive_or_xp_inside(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::ImXpOrUpBranch(1, -1));
+        self
+    }
+
+    fn im_xp_negative_or_xp_inside(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::ImXpOrUpBranch(-1, -1));
+        self
+    }
+
     fn xp_outside(&mut self) -> &mut Self {
         self.bctx
             .cut_data
@@ -1040,6 +1058,22 @@ impl ContourGenerator {
             .cut_data
             .visibility
             .push(CutVisibilityCondition::UmBranch(-1));
+        self
+    }
+
+    fn short_cuts(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::ShortCuts);
+        self
+    }
+
+    fn long_cuts(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::LongCuts);
         self
     }
 
@@ -1076,7 +1110,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_positive()
+                .im_xp_positive_or_xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1087,7 +1121,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_positive()
+                .im_xp_positive_or_xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1098,7 +1132,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_negative()
+                .im_xp_negative_or_xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1109,7 +1143,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_negative()
+                .im_xp_negative_or_xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1122,7 +1156,7 @@ impl ContourGenerator {
                 )
                 .create_cut(Component::U, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_positive()
+                .im_xp_positive_or_xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1135,7 +1169,7 @@ impl ContourGenerator {
                 )
                 .create_cut(Component::U, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .im_xp_negative()
+                .im_xp_negative_or_xp_inside()
                 .push_cut(p_range);
 
             // Real negative line
@@ -1534,12 +1568,19 @@ impl ContourGenerator {
 
         self.create_cut(Component::Xp, CutType::E)
             .log_branch(p_range)
+            .long_cuts()
             .im_xm_negative()
+            .push_cut_from_p(p_range);
+
+        self.create_cut(Component::Xp, CutType::E)
+            .log_branch(p_range)
+            .short_cuts()
+            .xm_outside()
             .push_cut_from_p(p_range);
 
         self.create_cut(Component::Xm, CutType::E)
             .log_branch(p_range)
-            .im_xp_negative()
+            .im_xp_negative_or_xp_inside()
             .push_cut_from_p(p_range);
 
         self.create_cut(Component::U, CutType::E)
@@ -1585,10 +1626,16 @@ enum CutVisibilityCondition {
     EBranch(i32),
     UpBranch(i32),
     UmBranch(i32),
+
+    ImXpOrUpBranch(i8, i32),
+    ImXmOrUmBranch(i8, i32),
+
+    LongCuts,
+    ShortCuts,
 }
 
 impl CutVisibilityCondition {
-    fn check(&self, pt: &PxuPoint) -> bool {
+    fn check(&self, pt: &PxuPoint, long_cuts: bool) -> bool {
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i8 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
@@ -1596,6 +1643,25 @@ impl CutVisibilityCondition {
             Self::EBranch(b) => pt.sheet_data.e_branch == *b,
             Self::UpBranch(b) => pt.sheet_data.u_branch.0 == *b,
             Self::UmBranch(b) => pt.sheet_data.u_branch.1 == *b,
+
+            Self::ImXpOrUpBranch(b1, b2) => {
+                if long_cuts {
+                    Self::ImXp(*b1).check(pt, long_cuts)
+                } else {
+                    Self::UpBranch(*b2).check(pt, long_cuts)
+                }
+            }
+
+            Self::ImXmOrUmBranch(b1, b2) => {
+                if long_cuts {
+                    Self::ImXm(*b1).check(pt, long_cuts)
+                } else {
+                    Self::UmBranch(*b2).check(pt, long_cuts)
+                }
+            }
+
+            Self::LongCuts => long_cuts,
+            Self::ShortCuts => !long_cuts,
         }
     }
 
@@ -1607,6 +1673,11 @@ impl CutVisibilityCondition {
             Self::EBranch(b) => Self::EBranch(*b),
             Self::UpBranch(b) => Self::UmBranch(*b),
             Self::UmBranch(b) => Self::UpBranch(*b),
+            Self::ImXpOrUpBranch(b1, b2) => Self::ImXmOrUmBranch(-*b1, *b2),
+            Self::ImXmOrUmBranch(b1, b2) => Self::ImXpOrUpBranch(-*b1, *b2),
+
+            Self::LongCuts => Self::LongCuts,
+            Self::ShortCuts => Self::ShortCuts,
         }
     }
 }
@@ -1694,8 +1765,8 @@ impl Cut {
         None
     }
 
-    pub fn is_visible(&self, pt: &PxuPoint) -> bool {
-        self.visibility.iter().all(|cond| cond.check(pt))
+    pub fn is_visible(&self, pt: &PxuPoint, long_cuts: bool) -> bool {
+        self.visibility.iter().all(|cond| cond.check(pt, long_cuts))
     }
 }
 

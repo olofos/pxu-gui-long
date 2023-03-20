@@ -163,7 +163,12 @@ impl Plot {
                     let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
                     let crossed_cuts = contour_generator
-                        .get_crossed_cuts(pxu, self.component, new_value)
+                        .get_crossed_cuts(
+                            pxu,
+                            self.component,
+                            new_value,
+                            u_cut_type == UCutType::Long,
+                        )
                         .collect::<Vec<_>>();
 
                     pxu.update(self.component, new_value, &crossed_cuts);
@@ -215,14 +220,14 @@ impl Plot {
                         0.0
                     };
 
-                    let visible_cuts = contour_generator
-                        .get_visible_cuts(pxu, self.component)
-                        .collect::<Vec<_>>();
-
                     let long_cuts = match u_cut_type {
                         UCutType::Long => true,
                         UCutType::Short => false,
                     };
+
+                    let visible_cuts = contour_generator
+                        .get_visible_cuts(pxu, self.component, long_cuts)
+                        .collect::<Vec<_>>();
 
                     for cut in visible_cuts {
                         let color = match cut.typ {
