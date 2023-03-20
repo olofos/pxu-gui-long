@@ -1501,8 +1501,6 @@ fn get_branch_point_x(m: f64, consts: CouplingConstants, branch: f64) -> C {
 
 #[derive(Debug)]
 pub enum CutType {
-    U(Component),
-    LogX(Component, i32),
     E,
     DebugPath,
 
@@ -1516,8 +1514,6 @@ pub enum CutType {
 impl CutType {
     fn conj(&self) -> Self {
         match self {
-            Self::U(component) => Self::U(component.conj()),
-            Self::LogX(component, p_range) => Self::LogX(component.conj(), *p_range),
             Self::E => Self::E,
             Self::DebugPath => Self::DebugPath,
 
@@ -1851,22 +1847,8 @@ impl PxuPoint {
         let mut new_sheet_data = self.sheet_data.clone();
         for cut in crossed_cuts {
             match cut.typ {
-                CutType::LogX(Component::Xp, branch) => {
-                    new_sheet_data.log_branch_p += branch;
-                }
-                CutType::LogX(Component::Xm, branch) => {
-                    new_sheet_data.log_branch_m += branch;
-                }
                 CutType::E => {
                     new_sheet_data.e_branch = -new_sheet_data.e_branch;
-                }
-                CutType::U(Component::Xp) => {
-                    new_sheet_data.u_branch =
-                        (-new_sheet_data.u_branch.0, new_sheet_data.u_branch.1);
-                }
-                CutType::U(Component::Xm) => {
-                    new_sheet_data.u_branch =
-                        (new_sheet_data.u_branch.0, -new_sheet_data.u_branch.1);
                 }
                 _ => {}
             }

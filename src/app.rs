@@ -226,20 +226,6 @@ impl Plot {
 
                     for cut in visible_cuts {
                         let color = match cut.typ {
-                            pxu::CutType::U(comp) => {
-                                if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 0, 0)
-                                } else {
-                                    Color32::from_rgb(0, 192, 0)
-                                }
-                            }
-                            pxu::CutType::LogX(comp, _) => {
-                                if comp == pxu::Component::Xp {
-                                    Color32::from_rgb(255, 128, 128)
-                                } else {
-                                    Color32::from_rgb(128, 255, 128)
-                                }
-                            }
                             pxu::CutType::E => Color32::BLACK,
 
                             pxu::CutType::Log(comp) => {
@@ -307,9 +293,7 @@ impl Plot {
                                 .collect::<Vec<_>>();
 
                             match cut.typ {
-                                pxu::CutType::LogX(_, 0)
-                                | pxu::CutType::UShortKidney(_)
-                                | pxu::CutType::ULongNegative(_) => {
+                                pxu::CutType::UShortKidney(_) | pxu::CutType::ULongNegative(_) => {
                                     egui::epaint::Shape::dashed_line_many(
                                         &points.clone(),
                                         Stroke::new(3.0, color),
