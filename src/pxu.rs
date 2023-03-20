@@ -1396,6 +1396,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
+                .xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1406,6 +1407,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
+                .xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1416,6 +1418,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
+                .xp_inside()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -1426,6 +1429,33 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
+                .xp_inside()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range)
+                .xp_inside()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range)
+                .xp_inside()
                 .push_cut(p_range);
 
             let p0 = p_start + 1.0 / 8.0;
