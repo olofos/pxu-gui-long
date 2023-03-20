@@ -1513,59 +1513,6 @@ impl ContourGenerator {
     }
 }
 
-fn get_branch_point(m: f64, consts: CouplingConstants, branch: f64) -> f64 {
-    {
-        let s = consts.s();
-        let u_of_x = |x: C| -> C { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
-        let du_dx = |x: C| -> C { (x - s) * (x + 1.0 / s) / (x * x) };
-        let sign = if branch == 0.0 { 1.0 } else { -1.0 };
-        let guess = if m > 0.0 {
-            C::new(0.0, 1.0)
-        } else {
-            C::new(0.0, 0.01)
-        };
-        let x = nr::find_root(
-            |x| {
-                u_of_x(x) - sign * u_of_x(C::from(consts.s()))
-                    + branch * C::i() * consts.k() as f64 / consts.h
-                    - 2.0 * m * C::i() / consts.h
-            },
-            du_dx,
-            guess,
-            1.0e-3,
-            10,
-        );
-        let x = x.unwrap();
-        x.arg() / std::f64::consts::PI
-    }
-}
-
-fn get_branch_point_x(m: f64, consts: CouplingConstants, branch: f64) -> C {
-    {
-        let s = consts.s();
-        let u_of_x = |x: C| -> C { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
-        let du_dx = |x: C| -> C { (x - s) * (x + 1.0 / s) / (x * x) };
-        let sign = if branch == 0.0 { 1.0 } else { -1.0 };
-        let guess = if m > 0.0 {
-            C::new(0.0, 1.0)
-        } else {
-            C::new(0.0, 0.01)
-        };
-        let x = nr::find_root(
-            |x| {
-                u_of_x(x) - sign * u_of_x(C::from(consts.s()))
-                    + branch * C::i() * consts.k() as f64 / consts.h
-                    - 2.0 * m * C::i() / consts.h
-            },
-            du_dx,
-            guess,
-            1.0e-3,
-            10,
-        );
-        x.unwrap()
-    }
-}
-
 #[derive(Debug)]
 pub enum CutType {
     E,
