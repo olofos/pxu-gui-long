@@ -70,11 +70,11 @@ impl InterpolationStrategy {
 
     fn argument(&self, t: f64) -> f64 {
         match self {
-            Self::XpConstP(p, m1, m2) => m1 + t * (m2 - m1),
-            Self::XmConstP(p, m1, m2) => m1 + t * (m2 - m1),
-            Self::XpConstM(m, p1, p2) => p1 + t * (p2 - p1),
-            Self::XmConstM(m, p1, p2) => p1 + t * (p2 - p1),
-            Self::Lerp(c1, c2) => t,
+            Self::XpConstP(_, m1, m2) => m1 + t * (m2 - m1),
+            Self::XmConstP(_, m1, m2) => m1 + t * (m2 - m1),
+            Self::XpConstM(_, p1, p2) => p1 + t * (p2 - p1),
+            Self::XmConstM(_, p1, p2) => p1 + t * (p2 - p1),
+            Self::Lerp(_, _) => t,
         }
     }
 
