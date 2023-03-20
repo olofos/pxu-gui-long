@@ -522,7 +522,7 @@ impl PInterpolatorMut {
             }
         }
 
-        let mut result = path.into_iter().map(|(_, p)| p).collect();
+        let result = path.into_iter().map(|(_, p)| p).collect();
 
         result
     }
