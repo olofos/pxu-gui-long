@@ -317,7 +317,7 @@ impl Plot {
                             match cut.typ {
                                 pxu::CutType::LogX(_, 0)
                                 | pxu::CutType::UShortKidney(_)
-                                | pxu::CutType::ULongPositive(_) => {
+                                | pxu::CutType::ULongNegative(_) => {
                                     egui::epaint::Shape::dashed_line_many(
                                         &points.clone(),
                                         Stroke::new(3.0, color),

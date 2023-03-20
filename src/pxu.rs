@@ -15,6 +15,8 @@ type C = Complex<f64>;
 const P_RANGE_MIN: i32 = -3;
 const P_RANGE_MAX: i32 = 3;
 
+const INFINITY: f64 = 1000.0;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Component {
     P,
@@ -71,7 +73,7 @@ enum GeneratorCommands {
     ComputeCutEP(i32),
     AddLogCutXReal,
     SetCutPath(Vec<C>, Option<C>),
-    PushCut(Component, CutType, Vec<CutVisibilityCondition>),
+    PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
     PushCutFromP(i32, Component, CutType, Vec<CutVisibilityCondition>),
 
     PStartXp(f64),
@@ -286,7 +288,7 @@ impl ContourGenerator {
         match command {
             AddGridLineU(y) => {
                 self.grid_u
-                    .push(vec![C::new(-1000.0, y), C::new(1000.0, y)]);
+                    .push(vec![C::new(-INFINITY, y), C::new(INFINITY, y)]);
             }
 
             AddGridLineX(m) => {
@@ -297,9 +299,9 @@ impl ContourGenerator {
 
             AddGridLineXReal(x) => {
                 if x > 0.0 {
-                    self.grid_x.push(vec![C::from(x), C::from(1000.0)]);
+                    self.grid_x.push(vec![C::from(x), C::from(INFINITY)]);
                 } else {
-                    self.grid_x.push(vec![C::from(x), C::from(-1000.0)]);
+                    self.grid_x.push(vec![C::from(x), C::from(-INFINITY)]);
                 }
             }
 
@@ -368,7 +370,7 @@ impl ContourGenerator {
                 self.cuts.push(
                     Cut::new(
                         Component::Xp,
-                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![vec![C::from(-INFINITY), C::from(0.0)]],
                         vec![C::from(0.0)],
                         CutType::LogX(Component::Xp, 1),
                     )
@@ -378,7 +380,7 @@ impl ContourGenerator {
                 self.cuts.push(
                     Cut::new(
                         Component::Xp,
-                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![vec![C::from(-INFINITY), C::from(0.0)]],
                         vec![C::from(0.0)],
                         CutType::LogX(Component::Xp, -1),
                     )
@@ -388,7 +390,7 @@ impl ContourGenerator {
                 self.cuts.push(
                     Cut::new(
                         Component::Xm,
-                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![vec![C::from(-INFINITY), C::from(0.0)]],
                         vec![C::from(0.0)],
                         CutType::LogX(Component::Xm, 1),
                     )
@@ -398,7 +400,7 @@ impl ContourGenerator {
                 self.cuts.push(
                     Cut::new(
                         Component::Xm,
-                        vec![vec![C::from(-1000.0), C::from(0.0)]],
+                        vec![vec![C::from(-INFINITY), C::from(0.0)]],
                         vec![C::from(0.0)],
                         CutType::LogX(Component::Xm, -1),
                     )
@@ -556,7 +558,7 @@ impl ContourGenerator {
                 self.rctx.cut_data.branch_point = branchpoint;
             }
 
-            PushCut(component, cut_type, visibility) => {
+            PushCut(p_range, component, cut_type, visibility) => {
                 let Some(ref path) = self.rctx.cut_data.path else {
                     log::info!("No path for cut");
                     return;
@@ -565,6 +567,11 @@ impl ContourGenerator {
                 if self.rctx.cut_data.path.is_none() {
                     log::info!("No path for cut");
                     return;
+                };
+
+                let shift = match component {
+                    Component::U => C::new(0.0, (p_range * consts.k()) as f64 / consts.h),
+                    _ => C::from(0.0),
                 };
 
                 let branch_points = if self.rctx.cut_data.branch_point.is_some() {
@@ -576,8 +583,8 @@ impl ContourGenerator {
                 let mut cut = Cut::new(component, vec![path.clone()], branch_points, cut_type);
                 cut.visibility = visibility;
 
-                self.cuts.push(cut.conj());
-                self.cuts.push(cut);
+                self.cuts.push(cut.conj().shift(shift));
+                self.cuts.push(cut.shift(shift));
             }
 
             PushCutFromP(p_range, component, cut_type, visibility) => {
@@ -946,7 +953,7 @@ impl ContourGenerator {
         self.add(GeneratorCommands::SetCutPath(path, branchpoint))
     }
 
-    fn push_cut(&mut self) -> &mut Self {
+    fn push_cut(&mut self, p_range: i32) -> &mut Self {
         let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
             log::info!("Can't push cut without component");
             self.bctx.clear();
@@ -958,6 +965,7 @@ impl ContourGenerator {
             return self;
         };
         self.add(GeneratorCommands::PushCut(
+            p_range,
             component,
             cut_type,
             self.bctx.cut_data.visibility.clone(),
@@ -1066,13 +1074,15 @@ impl ContourGenerator {
         let k = consts.k() as f64;
         let s = consts.s();
 
+        let us = s + 1.0 / s - (s - 1.0 / s) * s.ln();
+
         {
             // Log
             self.clear_cut()
-                .set_cut_path(vec![C::from(-1000.0), C::from(0.0)], Some(C::from(0.0)))
+                .set_cut_path(vec![C::from(-INFINITY), C::from(0.0)], Some(C::from(0.0)))
                 .create_cut(Component::Xp, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1082,7 +1092,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1092,7 +1102,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1102,7 +1112,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1112,7 +1122,33 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::Log(Component::Xp))
+                .log_branch(p_range)
+                .im_xp_positive()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::Log(Component::Xp))
+                .log_branch(p_range)
+                .im_xp_negative()
+                .push_cut(p_range);
 
             // Real negative line
             let p0 = p_start + 7.0 / 8.0;
@@ -1123,30 +1159,42 @@ impl ContourGenerator {
                 .goto_re(-consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::Log(Component::Xp))
-                .push_cut();
+                .push_cut(p_range);
         }
 
         {
             // U long positive
             self.clear_cut()
-                .set_cut_path(vec![C::from(0.0), C::from(1000.0)], Some(C::from(s)))
+                .set_cut_path(vec![C::from(0.0), C::from(INFINITY)], Some(C::from(s)))
                 .create_cut(Component::Xp, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        C::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::ULongPositive(Component::Xp))
+                .log_branch(p_range)
+                .push_cut(p_range);
 
             // Real positive line
             let p0 = p_start + 1.0 / 8.0;
@@ -1157,19 +1205,19 @@ impl ContourGenerator {
                 .goto_re(consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::ULongPositive(Component::Xp))
-                .push_cut();
+                .push_cut(p_range);
         }
 
         {
             // U long negative
             self.clear_cut()
                 .set_cut_path(
-                    vec![C::from(-1000.0), C::from(0.0)],
+                    vec![C::from(-INFINITY), C::from(0.0)],
                     Some(-1.0 / C::from(s)),
                 )
                 .create_cut(Component::Xp, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1180,7 +1228,7 @@ impl ContourGenerator {
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
                 .im_xp_positive()
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1191,7 +1239,7 @@ impl ContourGenerator {
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
                 .im_xp_positive()
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1202,7 +1250,7 @@ impl ContourGenerator {
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
                 .im_xp_negative()
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1213,7 +1261,33 @@ impl ContourGenerator {
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
                 .im_xp_negative()
-                .push_cut();
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::ULongNegative(Component::Xp))
+                .log_branch(p_range)
+                .im_xp_positive()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::ULongNegative(Component::Xp))
+                .log_branch(p_range)
+                .im_xp_negative()
+                .push_cut(p_range);
 
             // Real negative line
             let p0 = p_start + 7.0 / 8.0;
@@ -1224,7 +1298,7 @@ impl ContourGenerator {
                 .goto_re(-consts.s() * 4.0)
                 .compute_cut_path_p()
                 .create_cut(Component::P, CutType::ULongNegative(Component::Xp))
-                .push_cut();
+                .push_cut(p_range);
         }
 
         {
@@ -1233,21 +1307,33 @@ impl ContourGenerator {
                 .compute_cut_path_x_full(XCut::Scallion)
                 .create_cut(Component::Xp, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        C::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        C::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                    ],
+                    Some(C::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+                .log_branch(p_range)
+                .push_cut(p_range);
 
             let p0 = p_start + 1.0 / 8.0;
             self.clear_cut();
@@ -1262,7 +1348,7 @@ impl ContourGenerator {
                 .compute_cut_path_p();
 
             self.create_cut(Component::P, CutType::UShortScallion(Component::Xp))
-                .push_cut();
+                .push_cut(p_range);
 
             if p_range == 0 {
                 let p0 = p_start + 1.0 / 8.0;
@@ -1275,7 +1361,7 @@ impl ContourGenerator {
                     .goto_m(0.0)
                     .compute_cut_path_p()
                     .create_cut(Component::P, CutType::UShortScallion(Component::Xp))
-                    .push_cut();
+                    .push_cut(p_range);
             }
         }
 
@@ -1286,7 +1372,7 @@ impl ContourGenerator {
                 .compute_cut_path_x_full(XCut::Kidney)
                 .create_cut(Component::Xp, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1296,7 +1382,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1306,7 +1392,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1316,7 +1402,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1326,7 +1412,7 @@ impl ContourGenerator {
                 .compute_cut_path_x(p_range, CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
-                .push_cut();
+                .push_cut(p_range);
 
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
@@ -1340,7 +1426,7 @@ impl ContourGenerator {
                 .goto_m(-((p_range + 1) * consts.k()) as f64)
                 .compute_cut_path_p();
             self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                .push_cut();
+                .push_cut(p_range);
 
             if p_range == -1 {
                 let p0 = p_start + 1.0 / 8.0;
@@ -1355,12 +1441,12 @@ impl ContourGenerator {
                     .goto_m(0.0)
                     .compute_cut_path_p()
                     .create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .push_cut();
+                    .push_cut(p_range);
             }
         }
 
         self.add(GeneratorCommands::ComputeCutEP(p_range));
-        self.create_cut(Component::P, CutType::E).push_cut();
+        self.create_cut(Component::P, CutType::E).push_cut(p_range);
 
         self.create_cut(Component::Xp, CutType::E)
             .add(GeneratorCommands::PushCutFromP(
@@ -1644,6 +1730,21 @@ impl Cut {
             typ: self.typ.conj(),
             visibility,
         }
+    }
+
+    fn shift(mut self, dz: C) -> Self {
+        let dz: C = dz.into();
+
+        for path in self.paths.iter_mut() {
+            for mut z in path.iter_mut() {
+                *z += dz;
+            }
+        }
+
+        for mut z in self.branch_points.iter_mut() {
+            *z += dz;
+        }
+        self
     }
 
     fn im_xp_positive(mut self) -> Self {
