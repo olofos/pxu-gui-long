@@ -474,6 +474,7 @@ impl ContourGenerator {
                     50,
                 );
 
+                self.rctx.cut_data.branch_point = p0;
                 let Some(p0) = p0 else { return };
 
                 let mut path = vec![];
@@ -576,7 +577,18 @@ impl ContourGenerator {
                     Component::U => u(p - 0.00001, consts, &sheet_data),
                 }));
 
-                let mut cut = Cut::new(component, vec![path], None, cut_type);
+                let branch_point = if let Some(p) = self.rctx.cut_data.branch_point {
+                    Some(match component {
+                        Component::P => unimplemented!(),
+                        Component::Xp => xp(p, 1.0, consts),
+                        Component::Xm => xm(p, 1.0, consts),
+                        Component::U => u(p, consts, &sheet_data),
+                    })
+                } else {
+                    None
+                };
+
+                let mut cut = Cut::new(component, vec![path], branch_point, cut_type);
                 cut.visibility = visibility;
 
                 self.cuts.push(cut.conj());
