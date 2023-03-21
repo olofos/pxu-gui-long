@@ -673,7 +673,6 @@ impl EPInterpolator {
             p_prev = p;
 
             if p.im.abs() > 2.0 {
-                log::info!("i = {i} im = {im}");
                 break;
             }
         }
