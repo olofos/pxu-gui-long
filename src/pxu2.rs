@@ -582,11 +582,7 @@ impl EPInterpolator {
     }
 
     pub fn get_cut_p(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
-        let branch_point = self.compute_branch_point_p();
-        let Some(starting_path) = self.compute_starting_path_p() else {return (None, None)};
-
-        let path = starting_path.iter().map(|(_, p)| *p).collect();
-        (branch_point, Some(path))
+        self.get_cut_f(|p, _, _| p)
     }
 
     pub fn get_cut_xp(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
@@ -629,6 +625,47 @@ impl EPInterpolator {
                 .map(|(im, p)| (*im, *p, cut_f(*p, *im, consts))),
         );
 
+        let mut path = Vec::from(path);
+
+        let min_cos = (2.0 * TAU / 360.0).cos();
+
+        for i in 0.. {
+            let mut refinements = vec![];
+
+            let mut prev = false;
+            for ((im1, p1, x1), (im2, p2, x2), (im3, p3, x3)) in
+                path.iter().tuple_windows::<(_, _, _)>()
+            {
+                let z1 = x2 - x1;
+                let z2 = x3 - x2;
+                let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
+                if cos < min_cos {
+                    if !prev {
+                        refinements.push(((im1 + im2) / 2.0, (p1 + p2) / 2.0));
+                    }
+                    refinements.push(((im2 + im3) / 2.0, (p2 + p3) / 2.0));
+                } else {
+                    prev = false;
+                }
+            }
+
+            if refinements.is_empty() {
+                break;
+            }
+
+            for (im, p_guess) in refinements {
+                let Some(p) = self.find_p_at_im(im, p_guess) else {continue};
+                let z = cut_f(p, im, consts);
+                path.push((im, p, z));
+            }
+
+            path.sort_by(|(im1, _, _), (im2, _, _)| im1.partial_cmp(im2).unwrap());
+
+            if i >= 5 {
+                break;
+            }
+        }
+
         let path = path.into_iter().map(|(_, _, x)| x).collect();
 
         (branch_point, Some(path))
@@ -665,7 +702,7 @@ impl EPInterpolator {
         let mut p_prev = p0;
 
         for i in 1.. {
-            let im = i as f64 * i as f64 * i as f64 / 64.0;
+            let im = i as f64 * i as f64 * i as f64 / 8.0;
 
             let Some(p) = self.find_p_at_im(im, p_prev) else {break;};
 
