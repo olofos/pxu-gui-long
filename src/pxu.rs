@@ -252,7 +252,8 @@ impl ContourGenerator {
 
         let new_value = if component == Component::U {
             new_value
-                + (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i() / pt.consts.h
+                + 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
+                    / pt.consts.h
         } else {
             new_value
         };
