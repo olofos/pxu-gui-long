@@ -283,40 +283,6 @@ impl XInterpolator {
         }
 
         Self::refine(points, |p| Some(xp(p, m, consts)))
-
-        // let mut points = Vec::from(points);
-
-        // let min_cos = (2.0 * TAU / 360.0).cos();
-
-        // for i in 0.. {
-        //     let mut refinements = vec![];
-
-        //     let mut prev = false;
-        //     for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
-        //         let z1 = x2 - x1;
-        //         let z2 = x3 - x2;
-        //         let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
-        //         if cos < min_cos {
-        //             if !prev {
-        //                 refinements.push((p1 + p2) / 2.0);
-        //             }
-        //             refinements.push((p2 + p3) / 2.0);
-        //         } else {
-        //             prev = false;
-        //         }
-        //     }
-
-        //     if refinements.is_empty() {
-        //         break;
-        //     }
-        //     points.extend(refinements.into_iter().map(|p| (p, xp(p, m, consts))));
-        //     points.sort_by(|(p1, _), (p2, _)| p1.partial_cmp(p2).unwrap());
-
-        //     if i >= 5 {
-        //         break;
-        //     }
-        // }
-        // points.into_iter().map(|(_, x)| x).collect()
     }
 
     pub fn generate_xm(
