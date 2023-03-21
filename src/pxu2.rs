@@ -156,6 +156,58 @@ impl Asymptote {
     }
 }
 
+trait Refiner<T>
+where
+    T: Clone,
+{
+    fn mid_point(t1: &T, t2: &T) -> T;
+    fn cmp(t1: &T, t2: &T) -> Option<std::cmp::Ordering>;
+
+    fn refine(
+        points: impl Into<Vec<(T, Complex64)>>,
+        eval: impl Fn(T) -> Option<Complex64>,
+    ) -> Vec<Complex64> {
+        let mut points: Vec<(T, Complex64)> = points.into();
+
+        let min_cos = (2.0 * TAU / 360.0).cos();
+
+        for i in 0.. {
+            let mut refinements: Vec<T> = vec![];
+
+            let mut prev = false;
+            for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
+                let z1 = x2 - x1;
+                let z2 = x3 - x2;
+                let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
+                if cos < min_cos {
+                    if !prev {
+                        refinements.push(Self::mid_point(p1, p2));
+                    }
+                    refinements.push(Self::mid_point(p2, p3));
+                } else {
+                    prev = false;
+                }
+            }
+
+            if refinements.is_empty() {
+                break;
+            }
+
+            for point in refinements {
+                let Some(x) = eval(point.clone()) else {continue;};
+                points.push((point, x));
+            }
+
+            points.sort_by(|(p1, _), (p2, _)| Self::cmp(p1, p2).unwrap());
+
+            if i >= 5 {
+                break;
+            }
+        }
+        points.into_iter().map(|(_, x)| x).collect()
+    }
+}
+
 impl XInterpolator {
     pub fn generate_xp_full(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
         Self::generate_xp(p_range as f64, (p_range + 1) as f64, m, consts)
@@ -230,39 +282,41 @@ impl XInterpolator {
             }
         }
 
-        let mut points = Vec::from(points);
+        Self::refine(points, |p| Some(xp(p, m, consts)))
 
-        let min_cos = (2.0 * TAU / 360.0).cos();
+        // let mut points = Vec::from(points);
 
-        for i in 0.. {
-            let mut refinements = vec![];
+        // let min_cos = (2.0 * TAU / 360.0).cos();
 
-            let mut prev = false;
-            for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
-                let z1 = x2 - x1;
-                let z2 = x3 - x2;
-                let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
-                if cos < min_cos {
-                    if !prev {
-                        refinements.push((p1 + p2) / 2.0);
-                    }
-                    refinements.push((p2 + p3) / 2.0);
-                } else {
-                    prev = false;
-                }
-            }
+        // for i in 0.. {
+        //     let mut refinements = vec![];
 
-            if refinements.is_empty() {
-                break;
-            }
-            points.extend(refinements.into_iter().map(|p| (p, xp(p, m, consts))));
-            points.sort_by(|(p1, _), (p2, _)| p1.partial_cmp(p2).unwrap());
+        //     let mut prev = false;
+        //     for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
+        //         let z1 = x2 - x1;
+        //         let z2 = x3 - x2;
+        //         let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
+        //         if cos < min_cos {
+        //             if !prev {
+        //                 refinements.push((p1 + p2) / 2.0);
+        //             }
+        //             refinements.push((p2 + p3) / 2.0);
+        //         } else {
+        //             prev = false;
+        //         }
+        //     }
 
-            if i >= 5 {
-                break;
-            }
-        }
-        points.into_iter().map(|(_, x)| x).collect()
+        //     if refinements.is_empty() {
+        //         break;
+        //     }
+        //     points.extend(refinements.into_iter().map(|p| (p, xp(p, m, consts))));
+        //     points.sort_by(|(p1, _), (p2, _)| p1.partial_cmp(p2).unwrap());
+
+        //     if i >= 5 {
+        //         break;
+        //     }
+        // }
+        // points.into_iter().map(|(_, x)| x).collect()
     }
 
     pub fn generate_xm(
@@ -275,6 +329,16 @@ impl XInterpolator {
             .into_iter()
             .map(|x| x.conj())
             .collect()
+    }
+}
+
+impl Refiner<f64> for XInterpolator {
+    fn mid_point(t1: &f64, t2: &f64) -> f64 {
+        (t1 + t2) / 2.0
+    }
+
+    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
+        t1.partial_cmp(&t2)
     }
 }
 
@@ -614,7 +678,7 @@ impl EPInterpolator {
             starting_path
                 .iter()
                 .rev()
-                .map(|(im, p)| (-im, *p, cut_f(*p, -im, consts))),
+                .map(|(im, p)| ((-im, *p), cut_f(*p, -im, consts))),
         );
 
         path.pop_back();
@@ -622,51 +686,12 @@ impl EPInterpolator {
         path.extend(
             starting_path
                 .iter()
-                .map(|(im, p)| (*im, *p, cut_f(*p, *im, consts))),
+                .map(|(im, p)| ((*im, *p), cut_f(*p, *im, consts))),
         );
 
-        let mut path = Vec::from(path);
+        let eval = |(im, p_guess)| self.find_p_at_im(im, p_guess).map(|p| cut_f(p, im, consts));
 
-        let min_cos = (2.0 * TAU / 360.0).cos();
-
-        for i in 0.. {
-            let mut refinements = vec![];
-
-            let mut prev = false;
-            for ((im1, p1, x1), (im2, p2, x2), (im3, p3, x3)) in
-                path.iter().tuple_windows::<(_, _, _)>()
-            {
-                let z1 = x2 - x1;
-                let z2 = x3 - x2;
-                let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
-                if cos < min_cos {
-                    if !prev {
-                        refinements.push(((im1 + im2) / 2.0, (p1 + p2) / 2.0));
-                    }
-                    refinements.push(((im2 + im3) / 2.0, (p2 + p3) / 2.0));
-                } else {
-                    prev = false;
-                }
-            }
-
-            if refinements.is_empty() {
-                break;
-            }
-
-            for (im, p_guess) in refinements {
-                let Some(p) = self.find_p_at_im(im, p_guess) else {continue};
-                let z = cut_f(p, im, consts);
-                path.push((im, p, z));
-            }
-
-            path.sort_by(|(im1, _, _), (im2, _, _)| im1.partial_cmp(im2).unwrap());
-
-            if i >= 5 {
-                break;
-            }
-        }
-
-        let path = path.into_iter().map(|(_, _, x)| x).collect();
+        let path = Self::refine(path, eval);
 
         (branch_point, Some(path))
     }
@@ -715,5 +740,15 @@ impl EPInterpolator {
         }
         self.starting_path_p = Some(path);
         &self.starting_path_p
+    }
+}
+
+impl Refiner<(f64, Complex64)> for EPInterpolator {
+    fn mid_point(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> (f64, Complex64) {
+        ((t1.0 + t2.0) / 2.0, (t1.1 + t2.1) / 2.0)
+    }
+
+    fn cmp(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> Option<std::cmp::Ordering> {
+        t1.0.partial_cmp(&t2.0)
     }
 }
