@@ -14,6 +14,7 @@ pub enum InterpolationPoint {
     Xp(f64, f64),
     Xm(f64, f64),
     C(Complex64),
+    Re(f64),
 }
 
 impl InterpolationPoint {
@@ -22,6 +23,7 @@ impl InterpolationPoint {
             Self::Xp(p, m) => xp(Complex64::from(p), *m, consts),
             Self::Xm(p, m) => xm(Complex64::from(p), *m, consts),
             Self::C(c) => *c,
+            Self::Re(re) => Complex64::from(re),
         }
     }
 }
@@ -31,12 +33,13 @@ enum InterpolationStrategy {
     XpConstP(f64, f64, f64),
     XmConstM(f64, f64, f64),
     XmConstP(f64, f64, f64),
+    ReLerp(f64, f64),
     Lerp(InterpolationPoint, InterpolationPoint),
 }
 
 impl InterpolationStrategy {
     fn new(pt1: InterpolationPoint, pt2: InterpolationPoint) -> Self {
-        use InterpolationPoint::{Xm, Xp};
+        use InterpolationPoint::{Re, Xm, Xp};
         use InterpolationStrategy::*;
 
         let pts = (pt1, pt2);
@@ -53,6 +56,8 @@ impl InterpolationStrategy {
             } else if m1 == m2 {
                 return XmConstM(m1, p1, p2);
             }
+        } else if let (Re(r1), Re(r2)) = pts {
+            return ReLerp(r1, r2);
         }
         Lerp(pts.0, pts.1)
     }
@@ -61,8 +66,9 @@ impl InterpolationStrategy {
         match self {
             Self::XpConstP(_, _, _) | Self::XmConstP(_, _, _) => 1.0 / 8.0,
             Self::XpConstM(_, p1, p2) | Self::XmConstM(_, p1, p2) => {
-                0.5f64.min(1.0 / 128.0 / (p2 - p1).abs())
+                0.5f64.min(1.0 / 8.0 / (p2 - p1).abs())
             }
+            Self::ReLerp(_, _) => 1.0 / 16.0,
             Self::Lerp(_, _) => 1.0 / 16.0,
         }
     }
@@ -73,35 +79,46 @@ impl InterpolationStrategy {
             Self::XmConstP(_, m1, m2) => m1 + t * (m2 - m1),
             Self::XpConstM(_, p1, p2) => p1 + t * (p2 - p1),
             Self::XmConstM(_, p1, p2) => p1 + t * (p2 - p1),
+            Self::ReLerp(r1, r2) => r1 + t * (r2 - r1),
             Self::Lerp(_, _) => t,
         }
     }
 
-    fn evaluate(&self, t: f64, consts: CouplingConstants) -> InterpolationPoint {
+    fn evaluate_from_argument(&self, arg: f64, consts: CouplingConstants) -> InterpolationPoint {
         match self {
-            Self::XpConstP(p, m1, m2) => {
-                let m = m1 + t * (m2 - m1);
+            Self::XpConstP(p, _, _) => {
+                let m = arg;
                 InterpolationPoint::Xp(*p, m)
             }
-            Self::XmConstP(p, m1, m2) => {
-                let m = m1 + t * (m2 - m1);
+            Self::XmConstP(p, _, _) => {
+                let m = arg;
                 InterpolationPoint::Xm(*p, m)
             }
-            Self::XpConstM(m, p1, p2) => {
-                let p = p1 + t * (p2 - p1);
+            Self::XpConstM(m, _, _) => {
+                let p = arg;
                 InterpolationPoint::Xp(p, *m)
             }
-            Self::XmConstM(m, p1, p2) => {
-                let p = p1 + t * (p2 - p1);
+            Self::XmConstM(m, _, _) => {
+                let p = arg;
                 let pt = InterpolationPoint::Xm(p, *m);
                 pt
             }
+            Self::ReLerp(_, _) => InterpolationPoint::Re(arg),
             Self::Lerp(c1, c2) => {
                 let z1 = c1.evaluate(consts);
                 let z2 = c2.evaluate(consts);
-                InterpolationPoint::C((1.0 - t) * z1 + t * z2)
+                let x = (1.0 - arg) * z1 + arg * z2;
+                if x.im.abs() < 1.0e-5 {
+                    InterpolationPoint::Re(x.re)
+                } else {
+                    InterpolationPoint::C(x)
+                }
             }
         }
+    }
+
+    fn evaluate(&self, t: f64, consts: CouplingConstants) -> InterpolationPoint {
+        self.evaluate_from_argument(self.argument(t), consts)
     }
 }
 
@@ -163,16 +180,16 @@ where
     fn mid_point(t1: &T, t2: &T) -> T;
     fn cmp(t1: &T, t2: &T) -> Option<std::cmp::Ordering>;
 
-    fn refine(
+    fn refine_raw(
         points: impl Into<Vec<(T, Complex64)>>,
-        eval: impl Fn(T) -> Option<Complex64>,
-    ) -> Vec<Complex64> {
+        eval: impl Fn(T, Complex64) -> Option<Complex64>,
+    ) -> Vec<(T, Complex64)> {
         let mut points: Vec<(T, Complex64)> = points.into();
 
         let min_cos = (2.0 * TAU / 360.0).cos();
 
         for i in 0.. {
-            let mut refinements: Vec<T> = vec![];
+            let mut refinements: Vec<(T, Complex64)> = vec![];
 
             let mut prev = false;
             for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
@@ -181,9 +198,9 @@ where
                 let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
                 if cos < min_cos {
                     if !prev {
-                        refinements.push(Self::mid_point(p1, p2));
+                        refinements.push((Self::mid_point(p1, p2), (x1 + x2) / 2.0));
                     }
-                    refinements.push(Self::mid_point(p2, p3));
+                    refinements.push((Self::mid_point(p2, p3), (x2 + x3) / 2.0));
                 } else {
                     prev = false;
                 }
@@ -193,8 +210,8 @@ where
                 break;
             }
 
-            for point in refinements {
-                let Some(x) = eval(point.clone()) else {continue;};
+            for (point, z) in refinements {
+                let Some(x) = eval(point.clone(), z) else {continue;};
                 points.push((point, x));
             }
 
@@ -204,7 +221,18 @@ where
                 break;
             }
         }
-        points.into_iter().map(|(_, x)| x).collect()
+
+        points
+    }
+
+    fn refine(
+        points: impl Into<Vec<(T, Complex64)>>,
+        eval: impl Fn(T, Complex64) -> Option<Complex64>,
+    ) -> Vec<Complex64> {
+        Self::refine_raw(points, eval)
+            .into_iter()
+            .map(|(_, x)| x)
+            .collect()
     }
 }
 
@@ -282,7 +310,7 @@ impl XInterpolator {
             }
         }
 
-        Self::refine(points, |p| Some(xp(p, m, consts)))
+        Self::refine(points, |p, _| Some(xp(p, m, consts)))
     }
 
     pub fn generate_xm(
@@ -333,15 +361,25 @@ impl PInterpolatorMut {
 
     pub fn goto_re(&mut self, re: f64) {
         let im = self.pt.evaluate(self.consts).im;
-        let x = Complex64::new(re, im);
-        let pt = InterpolationPoint::C(x);
+
+        let pt = if im.abs() < 1.0e-5 {
+            InterpolationPoint::Re(re)
+        } else {
+            let x = Complex64::new(re, im);
+            InterpolationPoint::C(x)
+        };
+
         self.goto(pt);
     }
 
     pub fn goto_im(&mut self, im: f64) {
         let re = self.pt.evaluate(self.consts).re;
-        let x = Complex64::new(re, im);
-        let pt = InterpolationPoint::C(x);
+        let pt = if im.abs() < 1.0e-5 {
+            InterpolationPoint::Re(re)
+        } else {
+            let x = Complex64::new(re, im);
+            InterpolationPoint::C(x)
+        };
         self.goto(pt);
     }
 
@@ -387,6 +425,10 @@ impl PInterpolatorMut {
         }
     }
 
+    fn find_point(&self, w: Complex64, guess: Complex64) -> Option<Complex64> {
+        nr::find_root(|z| self.f(z) - w, |z| self.df(z), guess, 1.0e-5, 50)
+    }
+
     fn goto(&mut self, pt: InterpolationPoint) -> bool {
         if !self.valid {
             return false;
@@ -404,8 +446,7 @@ impl PInterpolatorMut {
             for i in 0.. {
                 pt = strategy.evaluate(t + step, self.consts);
                 let w = pt.evaluate(self.consts);
-                let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-3, 50);
-                if let Some(next_p) = next_p {
+                if let Some(next_p) = self.find_point(w, p) {
                     if (next_p.re - p.re).abs() < MAX_RE_P_JUMP
                         && (next_p.im - p.im).abs() < MAX_IM_P_JUMP
                     {
@@ -440,10 +481,9 @@ impl PInterpolatorMut {
             for i in 0.. {
                 let pt = strategy.evaluate(t + step, self.consts);
                 let w = pt.evaluate(self.consts);
-                let next_p = nr::find_root(|z| self.f(z) - w, |z| self.df(z), p, 1.0e-5, 50);
-                if let Some(next_p) = next_p {
-                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP / 4.0
-                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP / 4.0
+                if let Some(next_p) = self.find_point(w, p) {
+                    if (next_p.re - p.re).abs() < MAX_RE_P_JUMP
+                        && (next_p.im - p.im).abs() < MAX_IM_P_JUMP
                     {
                         t += step;
                         p = next_p;
@@ -464,13 +504,13 @@ impl PInterpolatorMut {
     pub fn contour_re(&self, x: f64) -> Vec<Complex64> {
         let (pt1, pt2) = if x > 0.0 {
             (
-                InterpolationPoint::C(Complex64::from(1.0 / 8192.0)),
-                InterpolationPoint::C(Complex64::from(256.0)),
+                InterpolationPoint::Re(1.0 / 8192.0),
+                InterpolationPoint::Re(256.0),
             )
         } else {
             (
-                InterpolationPoint::C(Complex64::from(-1.0 / 8192.0)),
-                InterpolationPoint::C(Complex64::from(-256.0)),
+                InterpolationPoint::Re(-1.0 / 8192.0),
+                InterpolationPoint::Re(-256.0),
             )
         };
 
@@ -480,7 +520,11 @@ impl PInterpolatorMut {
         path.pop_back();
         path.extend(self.generate_path(pt2));
 
-        path.into_iter().map(|(_, p)| p).collect()
+        Self::refine(path, |t, p| {
+            let pt = InterpolationPoint::Re(t);
+            let w = pt.evaluate(self.consts);
+            self.find_point(w, p)
+        })
     }
 
     pub fn contour(&self) -> Vec<Complex64> {
@@ -497,13 +541,16 @@ impl PInterpolatorMut {
                     return vec![];
                 }
             }
+            InterpolationPoint::Re(re) => {
+                return self.contour_re(re);
+            }
             InterpolationPoint::Xp(p, _) | InterpolationPoint::Xm(p, _) => {
                 (p.floor() + 1.0 / 256.0, p.ceil() - 1.0 / 256.0)
             }
         };
 
         let pt_at = |p| match self.pt {
-            InterpolationPoint::C(_) => {
+            InterpolationPoint::C(_) | InterpolationPoint::Re(_) => {
                 unreachable!();
             }
             InterpolationPoint::Xp(_, m) => InterpolationPoint::Xp(p, m),
@@ -551,9 +598,11 @@ impl PInterpolatorMut {
             }
         }
 
-        let result = path.into_iter().map(|(_, p)| p).collect();
-
-        result
+        Self::refine(path, |t, p| {
+            let pt = pt_at(t);
+            let w = pt.evaluate(self.consts);
+            self.find_point(w, p)
+        })
     }
 
     fn f(&self, z: Complex64) -> Complex64 {
@@ -562,6 +611,16 @@ impl PInterpolatorMut {
 
     fn df(&self, z: Complex64) -> Complex64 {
         dxp_dp(z, 1.0, self.consts)
+    }
+}
+
+impl Refiner<f64> for PInterpolatorMut {
+    fn mid_point(t1: &f64, t2: &f64) -> f64 {
+        (t1 + t2) / 2.0
+    }
+
+    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
+        t1.partial_cmp(&t2)
     }
 }
 
@@ -655,7 +714,7 @@ impl EPInterpolator {
                 .map(|(im, p)| ((*im, *p), cut_f(*p, *im, consts))),
         );
 
-        let eval = |(im, p_guess)| self.find_p_at_im(im, p_guess).map(|p| cut_f(p, im, consts));
+        let eval = |(im, p_guess), _| self.find_p_at_im(im, p_guess).map(|p| cut_f(p, im, consts));
 
         let path = Self::refine(path, eval);
 
