@@ -1,6 +1,5 @@
-//XXX::new(xp(C::from(p0), 1.0, consts)).goto_im(xm(C::from(p0), 1.0, consts)).goto_p(p_start+1.5*PI).goto_m(0.0).generate_contour()
 use crate::{
-    kinematics::{dxp_dp, xm, xp, CouplingConstants},
+    kinematics::{den2_dp, dxp_dp, en2, xm, xp, CouplingConstants},
     nr,
 };
 
@@ -533,5 +532,152 @@ impl PInterpolatorMut {
 
     fn df(&self, z: Complex64) -> Complex64 {
         dxp_dp(z, 1.0, self.consts)
+    }
+}
+
+#[derive(Debug)]
+pub struct EPInterpolator {
+    branch_point_p: Option<Complex64>,
+    starting_path_p: Option<Vec<(f64, Complex64)>>,
+    p_start: f64,
+    consts: CouplingConstants,
+}
+
+impl EPInterpolator {
+    pub fn new(p_range: i32, consts: CouplingConstants) -> Self {
+        let p_start = p_range as f64;
+        Self {
+            branch_point_p: None,
+            starting_path_p: None,
+            p_start,
+            consts,
+        }
+    }
+
+    fn cut_x(p: Complex64, im: f64, consts: CouplingConstants) -> Complex64 {
+        let sin = (std::f64::consts::PI * p).sin();
+        let m_eff = 1.0 + consts.k() as f64 * p;
+
+        let numerator = m_eff + Complex64::i() * im;
+        let denominator = 2.0 * consts.h * sin;
+
+        numerator / denominator
+    }
+
+    fn cut_xp(p: Complex64, im: f64, consts: CouplingConstants) -> Complex64 {
+        Self::cut_x(p, im, consts) * (Complex64::i() * std::f64::consts::PI * p).exp()
+    }
+
+    fn cut_xm(p: Complex64, im: f64, consts: CouplingConstants) -> Complex64 {
+        Self::cut_x(p, im, consts) * (-Complex64::i() * std::f64::consts::PI * p).exp()
+    }
+
+    fn cut_u(p: Complex64, im: f64, consts: CouplingConstants, p_branch: f64) -> Complex64 {
+        let xp = Self::cut_xp(p, im, consts);
+
+        let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
+        let branch_shift = p_branch * consts.k() as f64 * Complex64::i() / consts.h;
+
+        up - Complex64::i() / consts.h - branch_shift
+    }
+
+    pub fn get_cut_p(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
+        let branch_point = self.compute_branch_point_p();
+        let Some(starting_path) = self.compute_starting_path_p() else {return (None, None)};
+
+        let path = starting_path.iter().map(|(_, p)| *p).collect();
+        (branch_point, Some(path))
+    }
+
+    pub fn get_cut_xp(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
+        self.get_cut_f(Self::cut_xp)
+    }
+
+    pub fn get_cut_xm(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
+        self.get_cut_f(Self::cut_xm)
+    }
+
+    pub fn get_cut_u(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
+        let p_start = self.p_start;
+        self.get_cut_f(|p, im, consts| Self::cut_u(p, im, consts, p_start))
+    }
+
+    fn get_cut_f(
+        &mut self,
+        cut_f: impl Fn(Complex64, f64, CouplingConstants) -> Complex64,
+    ) -> (Option<Complex64>, Option<Vec<Complex64>>) {
+        let consts = self.consts;
+
+        let branch_point_p = self.compute_branch_point_p();
+        let Some(starting_path) = self.compute_starting_path_p() else {return (None, None)};
+
+        let branch_point = branch_point_p.map(|p| cut_f(p, 0.0, consts));
+        let mut path = VecDeque::new();
+
+        path.extend(
+            starting_path
+                .iter()
+                .rev()
+                .map(|(im, p)| (-im, *p, cut_f(*p, -im, consts))),
+        );
+
+        path.pop_back();
+
+        path.extend(
+            starting_path
+                .iter()
+                .map(|(im, p)| (*im, *p, cut_f(*p, *im, consts))),
+        );
+
+        let path = path.into_iter().map(|(_, _, x)| x).collect();
+
+        (branch_point, Some(path))
+    }
+
+    fn find_p_at_im(&self, im: f64, guess: Complex64) -> Option<Complex64> {
+        nr::find_root(
+            |p| en2(p, 1.0, self.consts) + im * im,
+            |p| den2_dp(p, 1.0, self.consts),
+            guess,
+            1.0e-3,
+            50,
+        )
+    }
+
+    fn compute_branch_point_p(&mut self) -> Option<Complex64> {
+        if self.branch_point_p.is_none() {
+            let im_guess = if self.p_start >= 0.0 { 2.5 } else { -2.5 };
+            self.branch_point_p = self.find_p_at_im(0.0, Complex64::new(self.p_start, im_guess));
+        }
+        self.branch_point_p
+    }
+
+    fn compute_starting_path_p(&mut self) -> &Option<Vec<(f64, Complex64)>> {
+        if self.starting_path_p.is_some() {
+            return &self.starting_path_p;
+        }
+
+        let Some(p0) = self.compute_branch_point_p() else { self.starting_path_p = None; return &self.starting_path_p; };
+
+        let mut path = vec![];
+
+        path.push((0.0, p0));
+        let mut p_prev = p0;
+
+        for i in 1.. {
+            let im = i as f64 * i as f64 * i as f64 / 64.0;
+
+            let Some(p) = self.find_p_at_im(im, p_prev) else {break;};
+
+            path.push((im, p));
+            p_prev = p;
+
+            if p.im.abs() > 2.0 {
+                log::info!("i = {i} im = {im}");
+                break;
+            }
+        }
+        self.starting_path_p = Some(path);
+        &self.starting_path_p
     }
 }

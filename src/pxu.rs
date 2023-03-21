@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
 
 use crate::kinematics::{
-    den2_dp, du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, en2, u,
-    u_crossed, xm, xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
+    du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, u_crossed, xm,
+    xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
 };
 use crate::nr::{self};
-use crate::pxu2::{PInterpolatorMut, XInterpolator};
+use crate::pxu2::{EPInterpolator, PInterpolatorMut, XInterpolator};
 use itertools::Itertools;
 use num::complex::Complex64;
 
@@ -67,10 +67,14 @@ enum GeneratorCommands {
     ComputeCutX(i32, CutDirection),
     ComputeCutXFull(XCut),
     ComputeCutP(bool),
-    ComputeCutEP(i32),
+    ComputeCutEP,
+    ComputeCutEXp,
+    ComputeCutEXm,
+    ComputeCutEU,
     SetCutPath(Vec<Complex64>, Option<Complex64>),
     PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
-    PushCutFromP(i32, Component, CutType, Vec<CutVisibilityCondition>),
+
+    EStart(i32),
 
     PStartXp(f64),
     PGotoXp(f64, f64),
@@ -94,6 +98,7 @@ struct BuildTimeCutData {
 
 struct ContourGeneratorRuntimeContext {
     p_int: Option<PInterpolatorMut>,
+    e_int: Option<EPInterpolator>,
     branch_point_data: Option<(f64, f64, BranchPoint)>, // (p, m, branch_point_type)
     cut_data: RuntimeCutData,
 }
@@ -102,6 +107,7 @@ impl ContourGeneratorRuntimeContext {
     fn new() -> Self {
         Self {
             p_int: None,
+            e_int: None,
             branch_point_data: None,
             cut_data: RuntimeCutData {
                 branch_point: None,
@@ -312,6 +318,10 @@ impl ContourGenerator {
                 }
             }
 
+            EStart(p_range) => {
+                self.rctx.e_int = Some(EPInterpolator::new(p_range, consts));
+            }
+
             PStartXp(p) => {
                 self.rctx.p_int = Some(PInterpolatorMut::xp(p, consts));
             }
@@ -467,52 +477,32 @@ impl ContourGenerator {
                 });
             }
 
-            ComputeCutEP(p_range) => {
-                self.rctx.cut_data.path = None;
-                self.rctx.cut_data.branch_point = None;
+            ComputeCutEP => {
+                let Some(ref mut e_int) = self.rctx.e_int else {return};
+                let (branch_point, path) = e_int.get_cut_p();
+                self.rctx.cut_data.path = path;
+                self.rctx.cut_data.branch_point = branch_point;
+            }
 
-                let p_start = p_range as f64;
+            ComputeCutEXp => {
+                let Some(ref mut e_int) = self.rctx.e_int else {return};
+                let (branch_point, path) = e_int.get_cut_xp();
+                self.rctx.cut_data.path = path;
+                self.rctx.cut_data.branch_point = branch_point;
+            }
 
-                let p0 = nr::find_root(
-                    |p| en2(p, 1.0, consts),
-                    |p| den2_dp(p, 1.0, consts),
-                    Complex64::new(p_start, 2.5),
-                    1.0e-3,
-                    50,
-                );
+            ComputeCutEXm => {
+                let Some(ref mut e_int) = self.rctx.e_int else {return};
+                let (branch_point, path) = e_int.get_cut_xm();
+                self.rctx.cut_data.path = path;
+                self.rctx.cut_data.branch_point = branch_point;
+            }
 
-                self.rctx.cut_data.branch_point = p0;
-                let Some(p0) = p0 else { return };
-
-                let mut path = vec![];
-
-                path.push((0.0, p0));
-                let mut p_prev = p0;
-
-                const STEP: i32 = 4096;
-
-                for i in 1.. {
-                    let im = i as f64 * i as f64 * i as f64 / (STEP as f64);
-
-                    let p = nr::find_root(
-                        |p| en2(p, 1.0, consts) - Complex64::new(-im, 0.0),
-                        |p| den2_dp(p, 1.0, consts),
-                        p_prev,
-                        1.0e-3,
-                        50,
-                    );
-
-                    let Some(p) = p else {break;};
-
-                    path.push((im, p));
-                    p_prev = p;
-
-                    if p.im.abs() > 2.0 {
-                        break;
-                    }
-                }
-
-                self.rctx.cut_data.path = Some(path.into_iter().map(|(_, p)| p).collect());
+            ComputeCutEU => {
+                let Some(ref mut e_int) = self.rctx.e_int else {return};
+                let (branch_point, path) = e_int.get_cut_u();
+                self.rctx.cut_data.path = path;
+                self.rctx.cut_data.branch_point = branch_point;
             }
 
             SetCutPath(path, branchpoint) => {
@@ -548,60 +538,6 @@ impl ContourGenerator {
                 self.cuts.push(cut.shift(shift));
             }
 
-            PushCutFromP(p_range, component, cut_type, visibility) => {
-                let Some(ref p_path) = self.rctx.cut_data.path else {
-                    log::info!("No path for cut");
-                    return;
-                };
-
-                if self.rctx.cut_data.path.is_none() {
-                    log::info!("No path for cut");
-                    return;
-                };
-
-                let sheet_data = SheetData {
-                    log_branch_p: 0,
-                    log_branch_m: p_range,
-                    e_branch: 1,
-                    u_branch: (1, 1),
-                };
-
-                let mut path = p_path
-                    .iter()
-                    .rev()
-                    .map(|&p| match component {
-                        Component::P => unimplemented!(),
-                        Component::Xp => xp(p + 0.00001, 1.0, consts),
-                        Component::Xm => xm(p + 0.00001, 1.0, consts),
-                        Component::U => u(p + 0.00001, consts, &sheet_data),
-                    })
-                    .collect::<Vec<_>>();
-
-                path.extend(p_path.iter().map(|&p| match component {
-                    Component::P => unimplemented!(),
-                    Component::Xp => xp(p - 0.00001, 1.0, consts),
-                    Component::Xm => xm(p - 0.00001, 1.0, consts),
-                    Component::U => u(p - 0.00001, consts, &sheet_data),
-                }));
-
-                let branch_point = if let Some(p) = self.rctx.cut_data.branch_point {
-                    Some(match component {
-                        Component::P => unimplemented!(),
-                        Component::Xp => xp(p, 1.0, consts),
-                        Component::Xm => xm(p, 1.0, consts),
-                        Component::U => u(p, consts, &sheet_data),
-                    })
-                } else {
-                    None
-                };
-
-                let mut cut = Cut::new(component, vec![path], branch_point, cut_type);
-                cut.visibility = visibility;
-
-                self.cuts.push(cut.conj());
-                self.cuts.push(cut);
-            }
-
             _ => {
                 log::info!("Command {:?} not implemented", command);
             }
@@ -611,6 +547,26 @@ impl ContourGenerator {
     fn add(&mut self, command: GeneratorCommands) -> &mut Self {
         self.commands.push_back(command);
         self
+    }
+
+    fn e_start(&mut self, p_range: i32) -> &mut Self {
+        self.add(GeneratorCommands::EStart(p_range))
+    }
+
+    fn compute_cut_e_p(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::ComputeCutEP)
+    }
+
+    fn compute_cut_e_xp(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::ComputeCutEXp)
+    }
+
+    fn compute_cut_e_xm(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::ComputeCutEXm)
+    }
+
+    fn compute_cut_e_u(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::ComputeCutEU)
     }
 
     fn p_start_xp(&mut self, p: f64) -> &mut Self {
@@ -945,27 +901,6 @@ impl ContourGenerator {
         self
     }
 
-    fn push_cut_from_p(&mut self, p_range: i32) -> &mut Self {
-        let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
-            log::info!("Can't push cut without component");
-            self.bctx.clear();
-            return self;
-        };
-        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_data.cut_type, None) else {
-            log::info!("Can't push cut without type");
-            self.bctx.clear();
-            return self;
-        };
-        self.add(GeneratorCommands::PushCutFromP(
-            p_range,
-            component,
-            cut_type,
-            self.bctx.cut_data.visibility.clone(),
-        ));
-        self.bctx.clear();
-        self
-    }
-
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
         if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
             log::info!("New cut created before previous cut was pushed");
@@ -973,10 +908,6 @@ impl ContourGenerator {
         self.bctx.cut_data.component = Some(component);
         self.bctx.cut_data.cut_type = Some(cut_type);
         self
-    }
-
-    fn compute_cut_ep(&mut self, p_range: i32) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutEP(p_range))
     }
 
     fn log_branch(&mut self, p_range: i32) -> &mut Self {
@@ -1593,31 +1524,30 @@ impl ContourGenerator {
             }
         }
 
-        self.compute_cut_ep(p_range);
-        self.create_cut(Component::P, CutType::E).push_cut(p_range);
+        self.e_start(p_range);
 
-        self.create_cut(Component::Xp, CutType::E)
+        self.compute_cut_e_p()
+            .create_cut(Component::P, CutType::E)
+            .push_cut(p_range);
+
+        self.compute_cut_e_xp()
+            .create_cut(Component::Xp, CutType::E)
             .log_branch(p_range)
-            .long_cuts()
             .im_xm_negative()
-            .push_cut_from_p(p_range);
+            .push_cut(p_range);
 
-        self.create_cut(Component::Xp, CutType::E)
+        self.compute_cut_e_xm()
+            .create_cut(Component::Xm, CutType::E)
             .log_branch(p_range)
-            .short_cuts()
-            .xm_outside()
-            .push_cut_from_p(p_range);
+            .im_xp_negative()
+            .push_cut(p_range);
 
-        self.create_cut(Component::Xm, CutType::E)
-            .log_branch(p_range)
-            .im_xp_negative_or_xp_inside()
-            .push_cut_from_p(p_range);
-
-        self.create_cut(Component::U, CutType::E)
+        self.compute_cut_e_u()
+            .create_cut(Component::U, CutType::E)
             .log_branch(p_range)
             .im_xp_negative()
             .im_xm_negative()
-            .push_cut_from_p(p_range);
+            .push_cut(p_range);
     }
 }
 
