@@ -7,9 +7,7 @@ use crate::kinematics::{
 use crate::nr::{self};
 use crate::pxu2::{PInterpolatorMut, XInterpolator};
 use itertools::Itertools;
-use num::complex::Complex;
-
-type C = Complex<f64>;
+use num::complex::Complex64;
 
 const P_RANGE_MIN: i32 = -3;
 const P_RANGE_MAX: i32 = 3;
@@ -70,7 +68,7 @@ enum GeneratorCommands {
     ComputeCutXFull(XCut),
     ComputeCutP(bool),
     ComputeCutEP(i32),
-    SetCutPath(Vec<C>, Option<C>),
+    SetCutPath(Vec<Complex64>, Option<Complex64>),
     PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
     PushCutFromP(i32, Component, CutType, Vec<CutVisibilityCondition>),
 
@@ -84,8 +82,8 @@ enum GeneratorCommands {
 }
 
 struct RuntimeCutData {
-    branch_point: Option<C>,
-    path: Option<Vec<C>>,
+    branch_point: Option<Complex64>,
+    path: Option<Vec<Complex64>>,
 }
 
 struct BuildTimeCutData {
@@ -140,9 +138,9 @@ pub struct ContourGenerator {
     commands: VecDeque<GeneratorCommands>,
     consts: Option<CouplingConstants>,
 
-    grid_p: Vec<Vec<C>>,
-    grid_x: Vec<Vec<C>>,
-    grid_u: Vec<Vec<C>>,
+    grid_p: Vec<Vec<Complex64>>,
+    grid_x: Vec<Vec<Complex64>>,
+    grid_u: Vec<Vec<Complex64>>,
 
     rctx: ContourGeneratorRuntimeContext,
     bctx: ContourGeneratorBuildTimeContext,
@@ -200,8 +198,8 @@ impl ContourGenerator {
         self.cuts.clear();
 
         self.grid_p = vec![vec![
-            C::from(P_RANGE_MIN as f64),
-            C::from(P_RANGE_MAX as f64),
+            Complex64::from(P_RANGE_MIN as f64),
+            Complex64::from(P_RANGE_MAX as f64),
         ]];
     }
 
@@ -213,7 +211,7 @@ impl ContourGenerator {
         }
     }
 
-    pub fn get_grid(&self, component: Component) -> &Vec<Vec<C>> {
+    pub fn get_grid(&self, component: Component) -> &Vec<Vec<Complex64>> {
         match component {
             Component::P => &self.grid_p,
             Component::Xp | Component::Xm => &self.grid_x,
@@ -227,7 +225,8 @@ impl ContourGenerator {
         long_cuts: bool,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
-        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
+            / pt.consts.h;
 
         self.cuts
             .iter()
@@ -238,14 +237,16 @@ impl ContourGenerator {
         &mut self,
         pt: &PxuPoint,
         component: Component,
-        new_value: C,
+        new_value: Complex64,
         long_cuts: bool,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
-        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
+            / pt.consts.h;
 
         let new_value = if component == Component::U {
-            new_value + (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * C::i() / pt.consts.h
+            new_value
+                + (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i() / pt.consts.h
         } else {
             new_value
         };
@@ -289,8 +290,10 @@ impl ContourGenerator {
 
         match command {
             AddGridLineU(y) => {
-                self.grid_u
-                    .push(vec![C::new(-INFINITY, y), C::new(INFINITY, y)]);
+                self.grid_u.push(vec![
+                    Complex64::new(-INFINITY, y),
+                    Complex64::new(INFINITY, y),
+                ]);
             }
 
             AddGridLineX(m) => {
@@ -301,9 +304,11 @@ impl ContourGenerator {
 
             AddGridLineXReal(x) => {
                 if x > 0.0 {
-                    self.grid_x.push(vec![C::from(x), C::from(INFINITY)]);
+                    self.grid_x
+                        .push(vec![Complex64::from(x), Complex64::from(INFINITY)]);
                 } else {
-                    self.grid_x.push(vec![C::from(x), C::from(-INFINITY)]);
+                    self.grid_x
+                        .push(vec![Complex64::from(x), Complex64::from(-INFINITY)]);
                 }
             }
 
@@ -372,10 +377,10 @@ impl ContourGenerator {
                 let p_start = p_range as f64;
                 let k = consts.k() as f64;
                 let s = consts.s();
-                let u_of_x = |x: C| -> C { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
-                let du_dx = |x: C| -> C { (x - s) * (x + 1.0 / s) / (x * x) };
+                let u_of_x = |x: Complex64| -> Complex64 { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
+                let du_dx = |x: Complex64| -> Complex64 { (x - s) * (x + 1.0 / s) / (x * x) };
 
-                let u_of_s = u_of_x(C::from(s))
+                let u_of_s = u_of_x(Complex64::from(s))
                     * match branch_point_type {
                         BranchPoint::XpPositiveAxisImXmNegative
                         | BranchPoint::XpPositiveAxisImXmPositive => 1.0,
@@ -389,7 +394,7 @@ impl ContourGenerator {
                 let guess = xp(0.5, m, consts);
 
                 let x_branch_point = nr::find_root(
-                    |x| u_of_x(x) - u_of_s - m * C::i() / consts.h,
+                    |x| u_of_x(x) - u_of_s - m * Complex64::i() / consts.h,
                     du_dx,
                     guess,
                     1.0e-3,
@@ -457,8 +462,8 @@ impl ContourGenerator {
 
                 self.rctx.cut_data.path = Some(path);
                 self.rctx.cut_data.branch_point = Some(match xcut {
-                    XCut::Scallion => C::from(consts.s()),
-                    XCut::Kidney => C::from(-1.0 / consts.s()),
+                    XCut::Scallion => Complex64::from(consts.s()),
+                    XCut::Kidney => Complex64::from(-1.0 / consts.s()),
                 });
             }
 
@@ -471,7 +476,7 @@ impl ContourGenerator {
                 let p0 = nr::find_root(
                     |p| en2(p, 1.0, consts),
                     |p| den2_dp(p, 1.0, consts),
-                    C::new(p_start, 2.5),
+                    Complex64::new(p_start, 2.5),
                     1.0e-3,
                     50,
                 );
@@ -484,13 +489,13 @@ impl ContourGenerator {
                 path.push((0.0, p0));
                 let mut p_prev = p0;
 
-                const STEP: i32 = 16;
+                const STEP: i32 = 4096;
 
                 for i in 1.. {
-                    let im = i as f64 * i as f64 / (STEP as f64);
+                    let im = i as f64 * i as f64 * i as f64 / (STEP as f64);
 
                     let p = nr::find_root(
-                        |p| en2(p, 1.0, consts) - C::new(-im, 0.0),
+                        |p| en2(p, 1.0, consts) - Complex64::new(-im, 0.0),
                         |p| den2_dp(p, 1.0, consts),
                         p_prev,
                         1.0e-3,
@@ -527,8 +532,8 @@ impl ContourGenerator {
                 };
 
                 let shift = match component {
-                    Component::U => C::new(0.0, (p_range * consts.k()) as f64 / consts.h),
-                    _ => C::from(0.0),
+                    Component::U => Complex64::new(0.0, (p_range * consts.k()) as f64 / consts.h),
+                    _ => Complex64::from(0.0),
                 };
 
                 let mut cut = Cut::new(
@@ -686,7 +691,7 @@ impl ContourGenerator {
     fn generate_u_grid(&mut self, consts: CouplingConstants) {
         self.add(GeneratorCommands::AddGridLineU(0.0));
 
-        for y in 1..=(32 * consts.k()) {
+        for y in 1..=100 {
             self.add(GeneratorCommands::AddGridLineU(y as f64 / consts.h));
             self.add(GeneratorCommands::AddGridLineU(-y as f64 / consts.h));
         }
@@ -709,6 +714,7 @@ impl ContourGenerator {
     fn generate_p_grid(&mut self, p_range: i32, consts: CouplingConstants) {
         let p_start = p_range as f64;
         let k = consts.k() as f64;
+        const M_MAX: i32 = 60;
         {
             let p0 = p_start + 1.0 / 16.0;
             let p2 = p_start + 15.0 / 16.0;
@@ -747,7 +753,7 @@ impl ContourGenerator {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (consts.k() + 3)..=(6 * consts.k()) {
+            for m in (consts.k() + 3)..=M_MAX {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
@@ -778,7 +784,7 @@ impl ContourGenerator {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in ((p_range + 1) * consts.k() + 3)..=(6 * consts.k()) {
+            for m in ((p_range + 1) * consts.k() + 3)..=M_MAX {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
@@ -811,7 +817,7 @@ impl ContourGenerator {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (consts.k() + 1)..=(6 * consts.k()) {
+            for m in (consts.k() + 1)..=M_MAX {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
@@ -844,7 +850,7 @@ impl ContourGenerator {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            for m in (-p_range * consts.k() + 1)..=(6 * consts.k()) {
+            for m in (-p_range * consts.k() + 1)..=M_MAX {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
@@ -858,7 +864,7 @@ impl ContourGenerator {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
-            for m in (-p_range * consts.k() + 1)..=(6 * consts.k()) {
+            for m in (-p_range * consts.k() + 1)..=M_MAX {
                 self.goto_xm(p0, m as f64).p_grid_line();
             }
 
@@ -914,7 +920,7 @@ impl ContourGenerator {
         self.add(GeneratorCommands::ComputeCutP(true))
     }
 
-    fn set_cut_path(&mut self, path: Vec<C>, branchpoint: Option<C>) -> &mut Self {
+    fn set_cut_path(&mut self, path: Vec<Complex64>, branchpoint: Option<Complex64>) -> &mut Self {
         self.add(GeneratorCommands::SetCutPath(path, branchpoint))
     }
 
@@ -1097,7 +1103,10 @@ impl ContourGenerator {
         {
             // Log
             self.clear_cut()
-                .set_cut_path(vec![C::from(-INFINITY), C::from(0.0)], Some(C::from(0.0)))
+                .set_cut_path(
+                    vec![Complex64::from(-INFINITY), Complex64::from(0.0)],
+                    Some(Complex64::from(0.0)),
+                )
                 .create_cut(Component::Xp, CutType::Log(Component::Xp))
                 .log_branch(p_range)
                 .push_cut(p_range);
@@ -1149,10 +1158,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::Log(Component::Xp))
                 .log_branch(p_range)
@@ -1162,10 +1174,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::Log(Component::Xp))
                 .log_branch(p_range)
@@ -1188,7 +1203,10 @@ impl ContourGenerator {
         {
             // U long positive
             self.clear_cut()
-                .set_cut_path(vec![C::from(0.0), C::from(INFINITY)], Some(C::from(s)))
+                .set_cut_path(
+                    vec![Complex64::from(0.0), Complex64::from(INFINITY)],
+                    Some(Complex64::from(s)),
+                )
                 .create_cut(Component::Xp, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
                 .push_cut(p_range);
@@ -1210,10 +1228,10 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                        C::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
                     ],
-                    Some(C::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
                 )
                 .create_cut(Component::U, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
@@ -1244,8 +1262,8 @@ impl ContourGenerator {
             // U long negative
             self.clear_cut()
                 .set_cut_path(
-                    vec![C::from(-INFINITY), C::from(0.0)],
-                    Some(-1.0 / C::from(s)),
+                    vec![Complex64::from(-INFINITY), Complex64::from(0.0)],
+                    Some(-1.0 / Complex64::from(s)),
                 )
                 .create_cut(Component::Xp, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
@@ -1298,10 +1316,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
@@ -1311,10 +1332,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::ULongNegative(Component::Xp))
                 .log_branch(p_range)
@@ -1363,10 +1387,10 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                        C::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
                     ],
-                    Some(C::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
                 )
                 .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
@@ -1469,10 +1493,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
@@ -1482,10 +1509,13 @@ impl ContourGenerator {
             self.clear_cut()
                 .set_cut_path(
                     vec![
-                        C::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
                     ],
-                    Some(C::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h)),
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
                 )
                 .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
                 .log_branch(p_range)
@@ -1685,8 +1715,8 @@ impl CutVisibilityCondition {
 #[derive(Debug)]
 pub struct Cut {
     pub component: Component,
-    pub paths: Vec<Vec<C>>,
-    pub branch_point: Option<C>,
+    pub paths: Vec<Vec<Complex64>>,
+    pub branch_point: Option<Complex64>,
     pub typ: CutType,
     visibility: Vec<CutVisibilityCondition>,
 }
@@ -1694,8 +1724,8 @@ pub struct Cut {
 impl Cut {
     fn new(
         component: Component,
-        paths: Vec<Vec<C>>,
-        branch_point: Option<C>,
+        paths: Vec<Vec<Complex64>>,
+        branch_point: Option<Complex64>,
         typ: CutType,
     ) -> Self {
         Self {
@@ -1724,8 +1754,8 @@ impl Cut {
         }
     }
 
-    fn shift(mut self, dz: C) -> Self {
-        let dz: C = dz.into();
+    fn shift(mut self, dz: Complex64) -> Self {
+        let dz: Complex64 = dz.into();
 
         for path in self.paths.iter_mut() {
             for z in path.iter_mut() {
@@ -1739,8 +1769,8 @@ impl Cut {
         self
     }
 
-    pub fn intersection(&self, p1: C, p2: C) -> Option<C> {
-        fn cross(v: C, w: C) -> f64 {
+    pub fn intersection(&self, p1: Complex64, p2: Complex64) -> Option<Complex64> {
+        fn cross(v: Complex64, w: Complex64) -> f64 {
             v.re * w.im - v.im * w.re
         }
 
@@ -1772,17 +1802,17 @@ impl Cut {
 
 #[derive(Debug, Clone)]
 pub struct PxuPoint {
-    pub p: C,
-    pub xp: C,
-    pub xm: C,
-    pub u: C,
+    pub p: Complex64,
+    pub xp: Complex64,
+    pub xm: Complex64,
+    pub u: Complex64,
     pub consts: CouplingConstants,
     pub sheet_data: SheetData,
 }
 
 impl PxuPoint {
-    pub fn new(p: impl Into<C>, consts: CouplingConstants) -> Self {
-        let p: C = p.into();
+    pub fn new(p: impl Into<Complex64>, consts: CouplingConstants) -> Self {
+        let p: Complex64 = p.into();
         let log_branch_p = 0;
         let log_branch_m = p.re.floor() as i32;
 
@@ -1811,7 +1841,7 @@ impl PxuPoint {
         self.set(self.p);
     }
 
-    fn set(&mut self, p: C) {
+    fn set(&mut self, p: Complex64) {
         self.p = p;
         if self.sheet_data.e_branch > 0 {
             self.xp = xp(p, 1.0, self.consts);
@@ -1825,11 +1855,11 @@ impl PxuPoint {
         };
     }
 
-    fn try_set(&mut self, p: Option<C>, sheet_data: &SheetData) -> bool {
+    fn try_set(&mut self, p: Option<Complex64>, sheet_data: &SheetData) -> bool {
         let Some(p) = p else {return false};
-        let new_xp: C;
-        let new_xm: C;
-        let new_u: C;
+        let new_xp: Complex64;
+        let new_xm: Complex64;
+        let new_u: Complex64;
 
         if sheet_data.e_branch > 0 {
             new_xp = xp(p, 1.0, self.consts);
@@ -1887,7 +1917,12 @@ impl PxuPoint {
         true
     }
 
-    fn shift_xp(&self, new_xp: C, sheet_data: &SheetData, guess: C) -> Option<C> {
+    fn shift_xp(
+        &self,
+        new_xp: Complex64,
+        sheet_data: &SheetData,
+        guess: Complex64,
+    ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
                 |p| xp(p, 1.0, self.consts) - new_xp,
@@ -1907,7 +1942,12 @@ impl PxuPoint {
         }
     }
 
-    fn shift_xm(&self, new_xm: C, sheet_data: &SheetData, guess: C) -> Option<C> {
+    fn shift_xm(
+        &self,
+        new_xm: Complex64,
+        sheet_data: &SheetData,
+        guess: Complex64,
+    ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
                 |p| xm(p, 1.0, self.consts) - new_xm,
@@ -1927,7 +1967,12 @@ impl PxuPoint {
         }
     }
 
-    fn shift_u(&self, new_u: C, sheet_data: &SheetData, guess: C) -> Option<C> {
+    fn shift_u(
+        &self,
+        new_u: Complex64,
+        sheet_data: &SheetData,
+        guess: Complex64,
+    ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
                 |p| u(p, self.consts, &sheet_data) - new_u,
@@ -1947,7 +1992,7 @@ impl PxuPoint {
         }
     }
 
-    pub fn get(&self, component: Component) -> C {
+    pub fn get(&self, component: Component) -> Complex64 {
         match component {
             Component::P => self.p,
             Component::U => self.u,
@@ -1956,7 +2001,7 @@ impl PxuPoint {
         }
     }
 
-    pub fn update(&mut self, component: Component, new_value: C, crossed_cuts: &[&Cut]) {
+    pub fn update(&mut self, component: Component, new_value: Complex64, crossed_cuts: &[&Cut]) {
         let mut new_sheet_data = self.sheet_data.clone();
         for cut in crossed_cuts {
             match cut.typ {
