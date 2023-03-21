@@ -73,6 +73,7 @@ enum GeneratorCommands {
     ComputeCutEU,
     SetCutPath(Vec<Complex64>, Option<Complex64>),
     PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
+    SplitCut,
 
     EStart(i32),
 
@@ -539,6 +540,42 @@ impl ContourGenerator {
                 self.cuts.push(cut.shift(shift));
             }
 
+            SplitCut => {
+                let Some(mut cut) = self.cuts.pop() else {return};
+                let Some(_) = self.cuts.pop() else {return};
+                let Some(ref path) = self.rctx.cut_data.path else { return };
+
+                for (p1, p2) in path.iter().tuple_windows::<(_, _)>() {
+                    if let Some((i, j, x)) = cut.intersection(p1.conj(), p2.conj()) {
+                        let new_path = cut.paths[i].split_off(j + 1);
+                        let mut new_cut = Cut {
+                            paths: vec![new_path],
+                            branch_point: None,
+                            typ: cut.typ.clone(),
+                            component: cut.component.clone(),
+                            visibility: vec![],
+                        };
+                        for vis in cut.visibility.iter() {
+                            let vis = match vis {
+                                CutVisibilityCondition::UpBranch(n) => {
+                                    CutVisibilityCondition::UpBranch(-n)
+                                }
+                                CutVisibilityCondition::UmBranch(n) => {
+                                    CutVisibilityCondition::UmBranch(-n)
+                                }
+                                _ => vis.clone(),
+                            };
+                            new_cut.visibility.push(vis);
+                        }
+                        self.cuts.push(new_cut.conj());
+                        self.cuts.push(new_cut);
+                        break;
+                    }
+                }
+                self.cuts.push(cut.conj());
+                self.cuts.push(cut);
+            }
+
             _ => {
                 log::info!("Command {:?} not implemented", command);
             }
@@ -900,6 +937,10 @@ impl ContourGenerator {
         ));
         self.bctx.clear();
         self
+    }
+
+    fn split_cut(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::SplitCut)
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
@@ -1531,17 +1572,57 @@ impl ContourGenerator {
             .create_cut(Component::P, CutType::E)
             .push_cut(p_range);
 
-        self.compute_cut_e_xp()
-            .create_cut(Component::Xp, CutType::E)
+        self.compute_cut_e_xp();
+
+        self.create_cut(Component::Xp, CutType::E)
             .log_branch(p_range)
+            .long_cuts()
             .im_xm_negative()
             .push_cut(p_range);
 
-        self.compute_cut_e_xm()
-            .create_cut(Component::Xm, CutType::E)
+        if p_range < 0 {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xm_outside()
+                .push_cut(p_range);
+        } else if p_range == 0 {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xm_inside()
+                .push_cut(p_range);
+
+            self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+                .compute_cut_path_x(p_range, CutDirection::Negative)
+                .split_cut();
+        } else {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .push_cut(p_range);
+        }
+
+        self.compute_cut_e_xm();
+        self.create_cut(Component::Xm, CutType::E)
             .log_branch(p_range)
+            .long_cuts()
             .im_xp_negative()
             .push_cut(p_range);
+
+        if p_range <= 0 {
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_inside()
+                .push_cut(p_range);
+        } else {
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_inside()
+                .push_cut(p_range);
+        }
 
         self.compute_cut_e_u()
             .create_cut(Component::U, CutType::E)
@@ -1552,7 +1633,7 @@ impl ContourGenerator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CutType {
     E,
     DebugPath,
@@ -1700,7 +1781,7 @@ impl Cut {
         self
     }
 
-    pub fn intersection(&self, p1: Complex64, p2: Complex64) -> Option<Complex64> {
+    pub fn intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, usize, Complex64)> {
         fn cross(v: Complex64, w: Complex64) -> f64 {
             v.re * w.im - v.im * w.re
         }
@@ -1708,8 +1789,8 @@ impl Cut {
         let p = p1;
         let r = p2 - p1;
 
-        for path in self.paths.iter() {
-            for (q1, q2) in path.iter().tuple_windows::<(_, _)>() {
+        for (i, path) in self.paths.iter().enumerate() {
+            for (j, (q1, q2)) in path.iter().tuple_windows::<(_, _)>().enumerate() {
                 let q = q1;
                 let s = q2 - q1;
 
@@ -1718,7 +1799,7 @@ impl Cut {
                     let u = cross(q - p, r) / cross(r, s);
 
                     if 0.0 <= t && t <= 1.0 && 0.0 <= u && u <= 1.0 {
-                        return Some(p + t * r);
+                        return Some((i, j, p + t * r));
                     }
                 }
             }
