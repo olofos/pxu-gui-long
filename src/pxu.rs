@@ -1580,13 +1580,7 @@ impl ContourGenerator {
             .im_xm_negative()
             .push_cut(p_range);
 
-        if p_range < 0 {
-            self.create_cut(Component::Xp, CutType::E)
-                .log_branch(p_range)
-                .short_cuts()
-                .xm_outside()
-                .push_cut(p_range);
-        } else if p_range == 0 {
+        if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
                 .short_cuts()
@@ -1596,10 +1590,17 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .split_cut();
+        } else if p_range < 0 {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xm_inside()
+                .push_cut(p_range);
         } else {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
                 .short_cuts()
+                .xm_outside()
                 .push_cut(p_range);
         }
 
@@ -1614,13 +1615,14 @@ impl ContourGenerator {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
                 .short_cuts()
-                .xp_inside()
+                .xp_outside()
                 .push_cut(p_range);
         } else {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
                 .short_cuts()
                 .xp_inside()
+                .xm_outside()
                 .push_cut(p_range);
         }
 
@@ -1827,12 +1829,13 @@ impl PxuPoint {
         let p: Complex64 = p.into();
         let log_branch_p = 0;
         let log_branch_m = p.re.floor() as i32;
+        let u_branch = if log_branch_m >= 0 { (1, 1) } else { (-1, -1) };
 
         let sheet_data = SheetData {
             log_branch_p,
             log_branch_m,
             e_branch: 1,
-            u_branch: (1, 1),
+            u_branch,
         };
 
         let xp = xp(p, 1.0, consts);
