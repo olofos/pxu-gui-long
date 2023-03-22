@@ -545,8 +545,15 @@ impl ContourGenerator {
                 let Some(_) = self.cuts.pop() else {return};
                 let Some(ref path) = self.rctx.cut_data.path else { return };
 
+                log::info!("Split cut {:?}", cut.component);
+
                 for (p1, p2) in path.iter().tuple_windows::<(_, _)>() {
-                    if let Some((i, j, x)) = cut.intersection(p1.conj(), p2.conj()) {
+                    let intersection = match cut.component {
+                        Component::Xp => cut.intersection(p1.conj(), p2.conj()),
+                        Component::Xm => cut.intersection(*p1, *p2),
+                        _ => unimplemented!(),
+                    };
+                    if let Some((i, j, x)) = intersection {
                         let new_path = cut.paths[i].split_off(j + 1);
                         let mut new_cut = Cut {
                             paths: vec![new_path],
@@ -567,11 +574,18 @@ impl ContourGenerator {
                             };
                             new_cut.visibility.push(vis);
                         }
+                        log::info!("Intersection found");
+                        self.cuts.push(cut.conj());
+                        self.cuts.push(cut);
                         self.cuts.push(new_cut.conj());
                         self.cuts.push(new_cut);
-                        break;
+
+                        return;
                     }
                 }
+
+                log::info!("No intersection found");
+
                 self.cuts.push(cut.conj());
                 self.cuts.push(cut);
             }
@@ -1343,19 +1357,25 @@ impl ContourGenerator {
                 .log_branch(p_range)
                 .push_cut(p_range);
 
-            self.clear_cut()
-                .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
-                .compute_cut_path_x(p_range, CutDirection::Negative)
-                .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
-                .log_branch(p_range)
-                .push_cut(p_range);
+            if p_range != 0 {
+                // For p = 0 we add this cut after the E cut
+                self.clear_cut()
+                    .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+                    .compute_cut_path_x(p_range, CutDirection::Negative)
+                    .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range)
+                    .push_cut(p_range);
+            }
 
-            self.clear_cut()
-                .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
-                .compute_cut_path_x(p_range, CutDirection::Negative)
-                .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
-                .log_branch(p_range)
-                .push_cut(p_range);
+            if p_range != -1 {
+                // For p = 0 we add this cut after the E cut
+                self.clear_cut()
+                    .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+                    .compute_cut_path_x(p_range, CutDirection::Negative)
+                    .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range)
+                    .push_cut(p_range);
+            }
 
             self.clear_cut()
                 .set_cut_path(
@@ -1590,6 +1610,10 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
                 .split_cut();
+
+            self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                .log_branch(p_range)
+                .push_cut(p_range);
         } else if p_range < 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
@@ -1616,6 +1640,20 @@ impl ContourGenerator {
                 .log_branch(p_range)
                 .short_cuts()
                 .xp_inside()
+                .push_cut(p_range);
+        } else if p_range == -1 {
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_outside()
+                .push_cut(p_range);
+
+            self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+                .compute_cut_path_x(p_range, CutDirection::Negative)
+                .split_cut();
+
+            self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                .log_branch(p_range)
                 .push_cut(p_range);
         } else if p_range < 0 {
             self.create_cut(Component::Xm, CutType::E)
