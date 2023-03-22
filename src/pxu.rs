@@ -73,7 +73,7 @@ enum GeneratorCommands {
     ComputeCutEU,
     SetCutPath(Vec<Complex64>, Option<Complex64>),
     PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
-    SplitCut(Component),
+    SplitCut(i32, Component),
 
     EStart(i32),
 
@@ -540,21 +540,28 @@ impl ContourGenerator {
                 self.cuts.push(cut.shift(shift));
             }
 
-            SplitCut(component) => {
+            SplitCut(p_range, component) => {
                 let Some(mut cut) = self.cuts.pop() else {return};
                 let Some(_) = self.cuts.pop() else {return};
                 let Some(ref path) = self.rctx.cut_data.path else { return };
 
-                log::info!("Split cut {:?}", cut.component);
+                let shift = match cut.component {
+                    Component::U => Complex64::new(0.0, (p_range * consts.k()) as f64 / consts.h),
+                    _ => Complex64::from(0.0),
+                };
 
-                for (p1, p2) in path.iter().tuple_windows::<(_, _)>() {
-                    let intersection = match cut.component {
-                        Component::Xp => cut.intersection(p1.conj(), p2.conj()),
-                        Component::Xm => cut.intersection(*p1, *p2),
-                        Component::U => cut.intersection(p1.conj(), p2.conj()),
-                        _ => unimplemented!(),
-                    };
-                    if let Some((i, j, x)) = intersection {
+                for (p1, p2) in path
+                    .iter()
+                    .map(|p| {
+                        if component == Component::Xp {
+                            p + shift
+                        } else {
+                            p.conj() + shift
+                        }
+                    })
+                    .tuple_windows::<(_, _)>()
+                {
+                    if let Some((i, j, _)) = cut.intersection(p1, p2) {
                         let new_path = cut.paths[i].split_off(j + 1);
                         let mut new_cut = Cut {
                             paths: vec![new_path],
@@ -584,9 +591,9 @@ impl ContourGenerator {
                             new_cut.visibility.push(vis);
                         }
                         log::info!("Intersection found");
-                        self.cuts.push(cut.conj());
+                        self.cuts.push(cut.shift_conj(shift));
                         self.cuts.push(cut);
-                        self.cuts.push(new_cut.conj());
+                        self.cuts.push(new_cut.shift_conj(shift));
                         self.cuts.push(new_cut);
 
                         return;
@@ -962,8 +969,8 @@ impl ContourGenerator {
         self
     }
 
-    fn split_cut(&mut self, component: Component) -> &mut Self {
-        self.add(GeneratorCommands::SplitCut(component))
+    fn split_cut(&mut self, p_range: i32, component: Component) -> &mut Self {
+        self.add(GeneratorCommands::SplitCut(p_range, component))
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
@@ -1386,8 +1393,8 @@ impl ContourGenerator {
                     .push_cut(p_range);
             }
 
-            if p_range != 0 {
-                // For p = 0 we add this cut after the E cut
+            if p_range != 0 && p_range != -1 {
+                // For p = 0, -1 we add this cut after the E cut
                 self.clear_cut()
                     .set_cut_path(
                         vec![
@@ -1621,7 +1628,7 @@ impl ContourGenerator {
 
             self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
-                .split_cut(Component::Xm);
+                .split_cut(p_range, Component::Xm);
 
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
@@ -1662,7 +1669,7 @@ impl ContourGenerator {
 
             self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(p_range, CutDirection::Negative)
-                .split_cut(Component::Xp);
+                .split_cut(p_range, Component::Xp);
 
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
@@ -1706,7 +1713,28 @@ impl ContourGenerator {
                 ],
                 Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
             )
-            .split_cut(Component::Xm);
+            .split_cut(p_range, Component::Xm);
+
+            self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+                .log_branch(p_range)
+                .push_cut(p_range);
+        } else if p_range == -1 {
+            self.compute_cut_e_u()
+                .create_cut(Component::U, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_outside()
+                .xm_inside()
+                .push_cut(p_range);
+
+            self.set_cut_path(
+                vec![
+                    Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                    Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                ],
+                Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            )
+            .split_cut(p_range, Component::Xp);
 
             self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
@@ -1822,7 +1850,7 @@ impl CutVisibilityCondition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cut {
     pub component: Component,
     pub paths: Vec<Vec<Complex64>>,
@@ -1854,6 +1882,23 @@ impl Cut {
             .map(|path| path.iter().map(|z| z.conj()).collect())
             .collect();
         let branch_point = self.branch_point.map(|z| z.conj());
+        let visibility = self.visibility.iter().map(|v| v.conj()).collect();
+        Cut {
+            component: self.component.conj(),
+            paths,
+            branch_point,
+            typ: self.typ.conj(),
+            visibility,
+        }
+    }
+
+    fn shift_conj(&self, dz: Complex64) -> Self {
+        let paths = self
+            .paths
+            .iter()
+            .map(|path| path.iter().map(|z| (z - dz).conj() + dz).collect())
+            .collect();
+        let branch_point = self.branch_point.map(|z| (z - dz).conj() + dz);
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
         Cut {
             component: self.component.conj(),
