@@ -1611,7 +1611,13 @@ impl ContourGenerator {
             .im_xp_negative()
             .push_cut(p_range);
 
-        if p_range <= 0 {
+        if p_range == 0 {
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_inside()
+                .push_cut(p_range);
+        } else if p_range < 0 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
                 .short_cuts()
