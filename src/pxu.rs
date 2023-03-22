@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
 
+use crate::interpolation::{EPInterpolator, PInterpolatorMut, XInterpolator};
 use crate::kinematics::{
     du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, u_crossed, xm,
     xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
 };
 use crate::nr::{self};
-use crate::pxu2::{EPInterpolator, PInterpolatorMut, XInterpolator};
 use itertools::Itertools;
 use num::complex::Complex64;
 

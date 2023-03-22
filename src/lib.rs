@@ -2,8 +2,8 @@
 
 mod app;
 mod frame_history;
+mod interpolation;
 mod kinematics;
 mod nr;
 mod pxu;
-mod pxu2;
 pub use app::TemplateApp;
