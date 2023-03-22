@@ -1686,6 +1686,14 @@ impl ContourGenerator {
                 .xp_inside()
                 .xm_outside()
                 .push_cut(p_range);
+        } else if p_range < -1 {
+            self.compute_cut_e_u()
+                .create_cut(Component::U, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_outside()
+                .xm_inside()
+                .push_cut(p_range);
         }
     }
 }
