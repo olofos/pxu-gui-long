@@ -2169,11 +2169,11 @@ impl PxuPoint {
                 }
                 CutType::UShortScallion(Component::Xp) => {
                     new_sheet_data.u_branch =
-                        (-self.sheet_data.u_branch.0, self.sheet_data.u_branch.1);
+                        (-new_sheet_data.u_branch.0, new_sheet_data.u_branch.1);
                 }
                 CutType::UShortScallion(Component::Xm) => {
                     new_sheet_data.u_branch =
-                        (self.sheet_data.u_branch.0, -self.sheet_data.u_branch.1);
+                        (new_sheet_data.u_branch.0, -new_sheet_data.u_branch.1);
                 }
                 CutType::Log(Component::Xp) => {
                     if self.xp.im >= 0.0 {
