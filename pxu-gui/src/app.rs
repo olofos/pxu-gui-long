@@ -581,8 +581,16 @@ impl eframe::App for TemplateApp {
             self.p_plot.origin.x += (self.p_range - old_p_range) as f32;
         }
 
-        if !self.contour_generator.update(&self.pxu) {
-            ctx.request_repaint();
+        {
+            let start = chrono::Utc::now();
+            while (chrono::Utc::now() - start).num_milliseconds()
+                < (1000.0 / 20.0f64).floor() as i64
+            {
+                if self.contour_generator.update(&self.pxu) {
+                    break;
+                }
+                ctx.request_repaint();
+            }
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
