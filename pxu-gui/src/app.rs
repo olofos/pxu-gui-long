@@ -4,9 +4,9 @@ use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
 use num::complex::Complex64;
 
-use crate::kinematics::CouplingConstants;
-use crate::pxu;
-use crate::pxu::PxuPoint;
+use ::pxu::kinematics::CouplingConstants;
+use ::pxu::pxu;
+use ::pxu::pxu::PxuPoint;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq)]
 enum UCutType {

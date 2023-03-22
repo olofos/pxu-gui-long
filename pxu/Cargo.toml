@@ -1,0 +1,11 @@
+[package]
+name = "pxu"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+log = "0.4.6"
+itertools = "0.10.5"
+num = "0.4.0"
