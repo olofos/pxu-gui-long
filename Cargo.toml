@@ -1,7 +1,7 @@
 [package]
 name = "pxu_gui"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+authors = ["Olof Ohlsson Sax <olof.ohlsson.sax@gmail.com>"]
 edition = "2021"
 rust-version = "1.65"
 
