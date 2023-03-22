@@ -1673,9 +1673,20 @@ impl ContourGenerator {
         self.compute_cut_e_u()
             .create_cut(Component::U, CutType::E)
             .log_branch(p_range)
+            .long_cuts()
             .im_xp_negative()
             .im_xm_negative()
             .push_cut(p_range);
+
+        if p_range > 0 {
+            self.compute_cut_e_u()
+                .create_cut(Component::U, CutType::E)
+                .log_branch(p_range)
+                .short_cuts()
+                .xp_inside()
+                .xm_outside()
+                .push_cut(p_range);
+        }
     }
 }
 
