@@ -561,8 +561,11 @@ impl ContourGenerator {
                     })
                     .tuple_windows::<(_, _)>()
                 {
-                    if let Some((i, j, _)) = cut.intersection(p1, p2) {
-                        let new_path = cut.paths[i].split_off(j + 1);
+                    if let Some((i, j, x)) = cut.intersection(p1, p2) {
+                        let mut new_path = vec![x];
+                        new_path.extend(cut.paths[i].split_off(j + 1));
+                        cut.paths[i].push(x);
+
                         let mut new_cut = Cut {
                             paths: vec![new_path],
                             branch_point: None,
