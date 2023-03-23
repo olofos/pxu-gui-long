@@ -19,7 +19,12 @@ num = "0.4.0"
 serde = { version = "1", features = ["derive"] }
 log = "0.4.6"
 itertools = "0.10.5"
-chrono = { version = "0.4", features = ["js-sys", "wasmbind", "clock"] }
+chrono = { version = "0.4", features = [
+    "js-sys",
+    "wasmbind",
+    "clock",
+    "std",
+], default-features = false }
 
 pxu = { path = "../pxu" }
 
