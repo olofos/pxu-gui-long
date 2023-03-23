@@ -241,10 +241,6 @@ impl XInterpolator {
         Self::generate_xp(p_range as f64, (p_range + 1) as f64, m, consts)
     }
 
-    pub fn generate_xm_full(p_range: i32, m: f64, consts: CouplingConstants) -> Vec<Complex64> {
-        Self::generate_xm(p_range as f64, (p_range + 1) as f64, m, consts)
-    }
-
     pub fn generate_xp(
         p_start: f64,
         p_end: f64,
