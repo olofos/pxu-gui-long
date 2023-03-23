@@ -158,8 +158,7 @@ pub fn u(p: impl Into<Complex64>, consts: CouplingConstants, sheet_data: &SheetD
     let branch_shift =
         2.0 * (sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
 
-    let u0p = up - Complex64::i() / consts.h - branch_shift;
-    u0p
+    up - Complex64::i() / consts.h - branch_shift
 }
 
 pub fn du_dp(
@@ -237,8 +236,7 @@ pub fn u_crossed(
     let branch_shift =
         2.0 * (sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
 
-    let u0p = up - Complex64::i() / consts.h - branch_shift;
-    u0p
+    up - Complex64::i() / consts.h - branch_shift
 }
 
 pub fn du_crossed_dp(

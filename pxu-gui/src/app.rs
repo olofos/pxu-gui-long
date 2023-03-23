@@ -59,6 +59,7 @@ struct Plot {
     origin: Pos2,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl Plot {
     fn draw(
         &mut self,
@@ -399,7 +400,7 @@ impl Default for TemplateApp {
                 component: pxu::Component::P,
                 height: 0.75,
                 width_factor: 1.5,
-                origin: Pos2::new(((2 * p_range + 1) as f32) * 0.5 as f32, 0.0),
+                origin: Pos2::new(((2 * p_range + 1) as f32) * 0.5, 0.0),
             },
             xp_plot: Plot {
                 component: pxu::Component::Xp,

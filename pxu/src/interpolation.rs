@@ -100,8 +100,7 @@ impl InterpolationStrategy {
             }
             Self::XmConstM(m, _, _) => {
                 let p = arg;
-                let pt = InterpolationPoint::Xm(p, *m);
-                pt
+                InterpolationPoint::Xm(p, *m)
             }
             Self::ReLerp(_, _) => InterpolationPoint::Re(arg),
             Self::Lerp(c1, c2) => {
@@ -132,10 +131,7 @@ enum Asymptote {
 
 impl Asymptote {
     fn is_infinite(&self) -> bool {
-        match self {
-            Self::Infinity => true,
-            _ => false,
-        }
+        matches!(self, Self::Infinity)
     }
 
     fn num(n: impl Into<Complex64>) -> Self {
@@ -328,7 +324,7 @@ impl Refiner<f64> for XInterpolator {
     }
 
     fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
-        t1.partial_cmp(&t2)
+        t1.partial_cmp(t2)
     }
 }
 
@@ -582,16 +578,16 @@ impl PInterpolatorMut {
             return vec![];
         }
 
-        if (path.front().unwrap().0 - p1).abs() < 1.0 / 128.0 {
-            if zero_asymptote_dist(*path.front().unwrap()) < 1.0 / 64.0 {
-                path.push_front((p1.floor(), zero_asymptote_value(*path.front().unwrap())));
-            }
+        if (path.front().unwrap().0 - p1).abs() < 1.0 / 128.0
+            && zero_asymptote_dist(*path.front().unwrap()) < 1.0 / 64.0
+        {
+            path.push_front((p1.floor(), zero_asymptote_value(*path.front().unwrap())));
         }
 
-        if (path.back().unwrap().0 - p2).abs() < 1.0 / 128.0 {
-            if zero_asymptote_dist(*path.back().unwrap()) < 1.0 / 64.0 {
-                path.push_back((p2.ceil(), zero_asymptote_value(*path.back().unwrap())));
-            }
+        if (path.back().unwrap().0 - p2).abs() < 1.0 / 128.0
+            && zero_asymptote_dist(*path.back().unwrap()) < 1.0 / 64.0
+        {
+            path.push_back((p2.ceil(), zero_asymptote_value(*path.back().unwrap())));
         }
 
         Self::refine(path, |t, p| {
@@ -616,7 +612,7 @@ impl Refiner<f64> for PInterpolatorMut {
     }
 
     fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
-        t1.partial_cmp(&t2)
+        t1.partial_cmp(t2)
     }
 }
 

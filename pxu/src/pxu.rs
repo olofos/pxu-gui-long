@@ -14,7 +14,7 @@ const P_RANGE_MAX: i32 = 3;
 
 const INFINITY: f64 = 1000.0;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Component {
     P,
     Xp,
@@ -34,6 +34,7 @@ impl Component {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::enum_variant_names)]
 enum BranchPoint {
     XpPositiveAxisImXmNegative,
     XpPositiveAxisImXmPositive,
@@ -155,8 +156,8 @@ pub struct ContourGenerator {
     num_commands: usize,
 }
 
-impl ContourGenerator {
-    pub fn new() -> Self {
+impl Default for ContourGenerator {
+    fn default() -> Self {
         Self {
             cuts: vec![],
             commands: VecDeque::new(),
@@ -168,6 +169,12 @@ impl ContourGenerator {
             bctx: ContourGeneratorBuildTimeContext::new(),
             num_commands: 0,
         }
+    }
+}
+
+impl ContourGenerator {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn update(&mut self, pt: &PxuPoint) -> bool {
@@ -526,7 +533,7 @@ impl ContourGenerator {
                 let mut cut = Cut::new(
                     component,
                     vec![path.clone()],
-                    self.rctx.cut_data.branch_point.clone(),
+                    self.rctx.cut_data.branch_point,
                     cut_type,
                 );
                 cut.visibility = visibility;
@@ -565,7 +572,7 @@ impl ContourGenerator {
                             paths: vec![new_path],
                             branch_point: None,
                             typ: cut.typ.clone(),
-                            component: cut.component.clone(),
+                            component: cut.component,
                             visibility: vec![],
                         };
                         for vis in cut.visibility.iter() {
@@ -1605,6 +1612,7 @@ impl ContourGenerator {
             .im_xm_negative()
             .push_cut(p_range);
 
+        #[allow(clippy::comparison_chain)]
         if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
@@ -1896,15 +1904,13 @@ impl Cut {
     }
 
     fn shift(mut self, dz: Complex64) -> Self {
-        let dz: Complex64 = dz.into();
-
         for path in self.paths.iter_mut() {
             for z in path.iter_mut() {
                 *z += dz;
             }
         }
 
-        for z in self.branch_point.iter_mut() {
+        if let Some(ref mut z) = self.branch_point {
             *z += dz;
         }
         self
@@ -1927,7 +1933,7 @@ impl Cut {
                     let t = cross(q - p, s) / cross(r, s);
                     let u = cross(q - p, r) / cross(r, s);
 
-                    if 0.0 <= t && t <= 1.0 && 0.0 <= u && u <= 1.0 {
+                    if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
                         return Some((i, j, p + t * r));
                     }
                 }
@@ -2117,16 +2123,16 @@ impl PxuPoint {
     ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| u(p, self.consts, &sheet_data) - new_u,
-                |p| du_dp(p, self.consts, &sheet_data),
+                |p| u(p, self.consts, sheet_data) - new_u,
+                |p| du_dp(p, self.consts, sheet_data),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| u_crossed(p, self.consts, &sheet_data) - new_u,
-                |p| du_crossed_dp(p, self.consts, &sheet_data),
+                |p| u_crossed(p, self.consts, sheet_data) - new_u,
+                |p| du_crossed_dp(p, self.consts, sheet_data),
                 guess,
                 1.0e-6,
                 50,
