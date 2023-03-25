@@ -351,7 +351,8 @@ impl PInterpolatorMut {
         }
     }
 
-    pub fn goto_re(&mut self, re: f64) {
+
+    pub fn goto_re(&mut self, re: f64) -> &mut Self {
         let im = self.pt.evaluate(self.consts).im;
 
         let pt = if im.abs() < 1.0e-5 {
@@ -362,9 +363,11 @@ impl PInterpolatorMut {
         };
 
         self.goto(pt);
+
+        self
     }
 
-    pub fn goto_im(&mut self, im: f64) {
+    pub fn goto_im(&mut self, im: f64) -> &mut Self {
         let re = self.pt.evaluate(self.consts).re;
         let pt = if im.abs() < 1.0e-5 {
             InterpolationPoint::Re(re)
@@ -373,25 +376,31 @@ impl PInterpolatorMut {
             InterpolationPoint::C(x)
         };
         self.goto(pt);
+
+        self
     }
 
-    pub fn goto_xp(&mut self, p: f64, m: f64) {
+    pub fn goto_xp(&mut self, p: f64, m: f64) -> &mut Self {
         let pt = InterpolationPoint::Xp(p, m);
         if self.goto(pt) {
             self.pt = pt;
         }
+
+        self
     }
 
-    pub fn goto_xm(&mut self, p: f64, m: f64) {
+    pub fn goto_xm(&mut self, p: f64, m: f64) -> &mut Self {
         let pt = InterpolationPoint::Xm(p, m);
         if self.goto(pt) {
             self.pt = pt;
         }
+
+        self
     }
 
-    pub fn goto_p(&mut self, p: f64) {
+    pub fn goto_p(&mut self, p: f64) -> &mut Self {
         if !self.valid {
-            return;
+            return self;
         }
 
         match self.pt {
@@ -399,13 +408,14 @@ impl PInterpolatorMut {
             InterpolationPoint::Xm(_, m) => self.goto_xm(p, m),
             _ => {
                 self.valid = false;
+                self
             }
         }
     }
 
-    pub fn goto_m(&mut self, m: f64) {
+    pub fn goto_m(&mut self, m: f64) -> &mut Self {
         if !self.valid {
-            return;
+            return self;
         }
 
         match self.pt {
@@ -413,6 +423,7 @@ impl PInterpolatorMut {
             InterpolationPoint::Xm(p, _) => self.goto_xm(p, m),
             _ => {
                 self.valid = false;
+                self
             }
         }
     }
