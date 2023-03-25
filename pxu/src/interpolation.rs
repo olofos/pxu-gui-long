@@ -674,25 +674,26 @@ impl EPInterpolator {
     }
 
     pub fn get_cut_p(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
-        self.get_cut_f(|p, _, _| p)
+        self.get_cut_f(|p, _, _| p, false)
     }
 
     pub fn get_cut_xp(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
-        self.get_cut_f(Self::cut_xp)
+        self.get_cut_f(Self::cut_xp, true)
     }
 
     pub fn get_cut_xm(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
-        self.get_cut_f(Self::cut_xm)
+        self.get_cut_f(Self::cut_xm, true)
     }
 
     pub fn get_cut_u(&mut self) -> (Option<Complex64>, Option<Vec<Complex64>>) {
         let p_start = self.p_start;
-        self.get_cut_f(|p, im, consts| Self::cut_u(p, im, consts, p_start))
+        self.get_cut_f(|p, im, consts| Self::cut_u(p, im, consts, p_start), true)
     }
 
     fn get_cut_f(
         &mut self,
         cut_f: impl Fn(Complex64, f64, CouplingConstants) -> Complex64,
+        reverse: bool,
     ) -> (Option<Complex64>, Option<Vec<Complex64>>) {
         let consts = self.consts;
 
@@ -702,14 +703,15 @@ impl EPInterpolator {
         let branch_point = branch_point_p.map(|p| cut_f(p, 0.0, consts));
         let mut path = VecDeque::new();
 
-        path.extend(
-            starting_path
-                .iter()
-                .rev()
-                .map(|(im, p)| ((-im, *p), cut_f(*p, -im, consts))),
-        );
-
-        path.pop_back();
+        if reverse {
+            path.extend(
+                starting_path
+                    .iter()
+                    .rev()
+                    .map(|(im, p)| ((-im, *p), cut_f(*p, -im, consts))),
+            );
+            path.pop_back();
+        }
 
         path.extend(
             starting_path
