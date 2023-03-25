@@ -208,7 +208,7 @@ impl ContourGenerator {
 
         self.grid_p = vec![vec![
             Complex64::from(P_RANGE_MIN as f64),
-            Complex64::from(P_RANGE_MAX as f64),
+            Complex64::from(P_RANGE_MAX as f64 + 1.0),
         ]];
     }
 
@@ -740,6 +740,7 @@ impl ContourGenerator {
         let p_start = p_range as f64;
         let k = consts.k() as f64;
         const M_MAX: i32 = 60;
+        const M_MIN: i32 = 20;
         {
             let p0 = p_start + 1.0 / 16.0;
             let p2 = p_start + 15.0 / 16.0;
@@ -768,7 +769,7 @@ impl ContourGenerator {
 
             self.p_start_xp(p0);
 
-            for m in 3..=(2 * consts.k()) {
+            for m in 3..=M_MIN {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
@@ -803,14 +804,22 @@ impl ContourGenerator {
                 self.goto_xp(p0, m as f64).p_grid_line();
             }
 
-            self.p_start_xp(p2).goto_xp(p2, p_start * k + 3.0);
+            if k > 0.0 {
+                self.p_start_xp(p2).goto_xp(p2, p_start * k + 3.0);
 
-            for m in (p_range * consts.k() + 3)..=((p_range + 1) * consts.k() + 1) {
-                self.goto_xp(p0, m as f64).p_grid_line();
-            }
+                for m in (p_range * consts.k() + 3)..=((p_range + 1) * consts.k() + 1) {
+                    self.goto_xp(p0, m as f64).p_grid_line();
+                }
 
-            for m in ((p_range + 1) * consts.k() + 3)..=M_MAX {
-                self.goto_xp(p0, m as f64).p_grid_line();
+                for m in ((p_range + 1) * consts.k() + 3)..=M_MAX {
+                    self.goto_xp(p0, m as f64).p_grid_line();
+                }
+            } else {
+                self.p_start_xp((p0 + p2) / 2.0).goto_m(3.0);
+
+                for m in 3..=M_MAX {
+                    self.goto_m(m as f64).p_grid_line();
+                }
             }
 
             self.p_start_xp(p0)
@@ -1753,7 +1762,7 @@ impl ContourGenerator {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CutType {
     E,
     DebugPath,
