@@ -33,15 +33,22 @@ impl Component {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
-enum BranchPoint {
+pub enum BranchPointType {
     XpPositiveAxisImXmNegative,
     XpPositiveAxisImXmPositive,
     XpNegativeAxisFromAboveWithImXmNegative,
     XpNegativeAxisFromBelowWithImXmNegative,
     XpNegativeAxisFromAboveWithImXmPositive,
     XpNegativeAxisFromBelowWithImXmPositive,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BranchPointData {
+    pub p: f64,
+    pub m: f64,
+    pub typ: BranchPointType,
 }
 
 #[derive(Debug)]
@@ -63,7 +70,7 @@ enum GeneratorCommands {
     AddGridLineX(f64),
     AddGridLineP,
 
-    ComputeBranchPoint(i32, BranchPoint),
+    ComputeBranchPoint(i32, BranchPointType),
     ClearCut,
     ComputeCutX(CutDirection),
     ComputeCutXFull(XCut),
@@ -101,7 +108,7 @@ struct BuildTimeCutData {
 struct ContourGeneratorRuntimeContext {
     p_int: Option<PInterpolatorMut>,
     e_int: Option<EPInterpolator>,
-    branch_point_data: Option<(f64, f64, BranchPoint)>, // (p, m, branch_point_type)
+    branch_point_data: Option<BranchPointData>,
     cut_data: RuntimeCutData,
 }
 
@@ -169,6 +176,69 @@ impl Default for ContourGenerator {
             bctx: ContourGeneratorBuildTimeContext::new(),
             num_commands: 0,
         }
+    }
+}
+
+fn branch_point_mass(p_start: f64, k: f64, branch_point_type: BranchPointType) -> f64 {
+    match branch_point_type {
+        BranchPointType::XpPositiveAxisImXmNegative => 2.0 * p_start * k + 2.0,
+        BranchPointType::XpPositiveAxisImXmPositive => -(2.0 * p_start * k + 2.0),
+
+        BranchPointType::XpNegativeAxisFromAboveWithImXmNegative => (2.0 * p_start + 1.0) * k + 2.0,
+        BranchPointType::XpNegativeAxisFromBelowWithImXmNegative => (2.0 * p_start - 1.0) * k + 2.0,
+
+        BranchPointType::XpNegativeAxisFromAboveWithImXmPositive => {
+            -((2.0 * p_start + 1.0) * k + 2.0)
+        }
+
+        BranchPointType::XpNegativeAxisFromBelowWithImXmPositive => {
+            -((2.0 * p_start - 1.0) * k + 2.0)
+        }
+    }
+}
+
+pub fn compute_branch_point(
+    p_range: i32,
+    branch_point_type: BranchPointType,
+    consts: CouplingConstants,
+) -> Option<BranchPointData> {
+    let p_start = p_range as f64;
+    let k = consts.k() as f64;
+    let s = consts.s();
+    let u_of_x = |x: Complex64| -> Complex64 { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
+    let du_dx = |x: Complex64| -> Complex64 { (x - s) * (x + 1.0 / s) / (x * x) };
+
+    let u_of_s = u_of_x(Complex64::from(s))
+        * match branch_point_type {
+            BranchPointType::XpPositiveAxisImXmNegative
+            | BranchPointType::XpPositiveAxisImXmPositive => 1.0,
+            BranchPointType::XpNegativeAxisFromAboveWithImXmNegative
+            | BranchPointType::XpNegativeAxisFromAboveWithImXmPositive
+            | BranchPointType::XpNegativeAxisFromBelowWithImXmNegative
+            | BranchPointType::XpNegativeAxisFromBelowWithImXmPositive => -1.0,
+        };
+
+    let m = branch_point_mass(p_start, k, branch_point_type);
+    let guess = xp(0.5, m, consts);
+
+    let x_branch_point = nr::find_root(
+        |x| u_of_x(x) - u_of_s - m * Complex64::i() / consts.h,
+        du_dx,
+        guess,
+        1.0e-3,
+        10,
+    );
+
+    if let Some(x_branch_point) = x_branch_point {
+        let p = x_branch_point.arg().abs() / std::f64::consts::PI;
+        Some(BranchPointData {
+            p,
+            m,
+            typ: branch_point_type,
+        })
+    } else {
+        log::info!("Could not find branch point");
+        None
     }
 }
 
@@ -276,28 +346,6 @@ impl ContourGenerator {
             return;
         };
 
-        fn branch_point_mass(p_start: f64, k: f64, branch_point_type: BranchPoint) -> f64 {
-            match branch_point_type {
-                BranchPoint::XpPositiveAxisImXmNegative => 2.0 * p_start * k + 2.0,
-                BranchPoint::XpPositiveAxisImXmPositive => -(2.0 * p_start * k + 2.0),
-
-                BranchPoint::XpNegativeAxisFromAboveWithImXmNegative => {
-                    (2.0 * p_start + 1.0) * k + 2.0
-                }
-                BranchPoint::XpNegativeAxisFromBelowWithImXmNegative => {
-                    (2.0 * p_start - 1.0) * k + 2.0
-                }
-
-                BranchPoint::XpNegativeAxisFromAboveWithImXmPositive => {
-                    -((2.0 * p_start + 1.0) * k + 2.0)
-                }
-
-                BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => {
-                    -((2.0 * p_start - 1.0) * k + 2.0)
-                }
-            }
-        }
-
         match command {
             AddGridLineU(y) => {
                 self.grid_u.push(vec![
@@ -388,47 +436,15 @@ impl ContourGenerator {
             }
 
             ComputeBranchPoint(p_range, branch_point_type) => {
-                let p_start = p_range as f64;
-                let k = consts.k() as f64;
-                let s = consts.s();
-                let u_of_x = |x: Complex64| -> Complex64 { x + 1.0 / x - (s - 1.0 / s) * x.ln() };
-                let du_dx = |x: Complex64| -> Complex64 { (x - s) * (x + 1.0 / s) / (x * x) };
-
-                let u_of_s = u_of_x(Complex64::from(s))
-                    * match branch_point_type {
-                        BranchPoint::XpPositiveAxisImXmNegative
-                        | BranchPoint::XpPositiveAxisImXmPositive => 1.0,
-                        BranchPoint::XpNegativeAxisFromAboveWithImXmNegative
-                        | BranchPoint::XpNegativeAxisFromAboveWithImXmPositive
-                        | BranchPoint::XpNegativeAxisFromBelowWithImXmNegative
-                        | BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => -1.0,
-                    };
-
-                let m = branch_point_mass(p_start, k, branch_point_type);
-                let guess = xp(0.5, m, consts);
-
-                let x_branch_point = nr::find_root(
-                    |x| u_of_x(x) - u_of_s - m * Complex64::i() / consts.h,
-                    du_dx,
-                    guess,
-                    1.0e-3,
-                    10,
-                );
-
-                if let Some(x_branch_point) = x_branch_point {
-                    let p = x_branch_point.arg().abs() / std::f64::consts::PI;
-                    self.rctx.branch_point_data = Some((p, m, branch_point_type));
-                } else {
-                    log::info!("Could not find branch point");
-                    self.rctx.branch_point_data = None;
-                };
+                self.rctx.branch_point_data =
+                    compute_branch_point(p_range, branch_point_type, consts);
             }
 
             ComputeCutX(cut_direction) => {
                 self.rctx.cut_data.path = None;
                 self.rctx.cut_data.branch_point = None;
 
-                let Some((p_branch_point, m, branch_point_type)) = self.rctx.branch_point_data else {
+                let Some(BranchPointData { p: p_branch_point, m, typ: branch_point_type }) = self.rctx.branch_point_data else {
                     log::info!("No branch point set");
                     return;
                 };
@@ -439,15 +455,15 @@ impl ContourGenerator {
                 };
 
                 let path = match branch_point_type {
-                    BranchPoint::XpPositiveAxisImXmNegative
-                    | BranchPoint::XpNegativeAxisFromAboveWithImXmNegative
-                    | BranchPoint::XpNegativeAxisFromBelowWithImXmNegative => {
+                    BranchPointType::XpPositiveAxisImXmNegative
+                    | BranchPointType::XpNegativeAxisFromAboveWithImXmNegative
+                    | BranchPointType::XpNegativeAxisFromBelowWithImXmNegative => {
                         XInterpolator::generate_xm(p_start, p_end, m, consts)
                     }
 
-                    BranchPoint::XpPositiveAxisImXmPositive
-                    | BranchPoint::XpNegativeAxisFromAboveWithImXmPositive
-                    | BranchPoint::XpNegativeAxisFromBelowWithImXmPositive => {
+                    BranchPointType::XpPositiveAxisImXmPositive
+                    | BranchPointType::XpNegativeAxisFromAboveWithImXmPositive
+                    | BranchPointType::XpNegativeAxisFromBelowWithImXmPositive => {
                         XInterpolator::generate_xp(p_start, p_end, m, consts)
                     }
                 };
@@ -931,7 +947,11 @@ impl ContourGenerator {
         self.add(GeneratorCommands::ClearCut)
     }
 
-    fn compute_branch_point(&mut self, p_range: i32, branch_point_type: BranchPoint) -> &mut Self {
+    fn compute_branch_point(
+        &mut self,
+        p_range: i32,
+        branch_point_type: BranchPointType,
+    ) -> &mut Self {
         self.add(GeneratorCommands::ComputeBranchPoint(
             p_range,
             branch_point_type,
@@ -1119,7 +1139,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
@@ -1130,7 +1150,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
@@ -1141,7 +1161,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
@@ -1152,7 +1172,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::Log(Component::Xp))
@@ -1217,14 +1237,14 @@ impl ContourGenerator {
                 .push_cut(p_range);
 
             self.clear_cut()
-                .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+                .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
                 .push_cut(p_range);
 
             self.clear_cut()
-                .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+                .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
                 .log_branch(p_range)
@@ -1277,7 +1297,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
@@ -1288,7 +1308,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
@@ -1299,7 +1319,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
@@ -1310,7 +1330,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Negative)
                 .create_cut(Component::Xm, CutType::ULongNegative(Component::Xp))
@@ -1378,7 +1398,7 @@ impl ContourGenerator {
             if p_range != 0 {
                 // For p = 0 we add this cut after the E cut
                 self.clear_cut()
-                    .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+                    .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                     .compute_cut_path_x(CutDirection::Negative)
                     .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                     .log_branch(p_range)
@@ -1388,7 +1408,7 @@ impl ContourGenerator {
             if p_range != -1 {
                 // For p = -1 we add this cut after the E cut
                 self.clear_cut()
-                    .compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+                    .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
                     .compute_cut_path_x(CutDirection::Negative)
                     .create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                     .log_branch(p_range)
@@ -1463,7 +1483,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
@@ -1474,7 +1494,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromAboveWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromAboveWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
@@ -1485,7 +1505,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmNegative,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
@@ -1496,7 +1516,7 @@ impl ContourGenerator {
             self.clear_cut()
                 .compute_branch_point(
                     p_range,
-                    BranchPoint::XpNegativeAxisFromBelowWithImXmPositive,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmPositive,
                 )
                 .compute_cut_path_x(CutDirection::Positive)
                 .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
@@ -1629,7 +1649,7 @@ impl ContourGenerator {
                 .xm_inside()
                 .push_cut(p_range);
 
-            self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmPositive)
+            self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(p_range, Component::Xm);
 
@@ -1670,7 +1690,7 @@ impl ContourGenerator {
                 .xp_outside()
                 .push_cut(p_range);
 
-            self.compute_branch_point(p_range, BranchPoint::XpPositiveAxisImXmNegative)
+            self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(p_range, Component::Xp);
 
