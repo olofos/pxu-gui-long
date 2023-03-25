@@ -351,6 +351,13 @@ impl PInterpolatorMut {
         }
     }
 
+    pub fn p(&self) -> Complex64 {
+        self.p
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.valid
+    }
 
     pub fn goto_re(&mut self, re: f64) -> &mut Self {
         let im = self.pt.evaluate(self.consts).im;
@@ -421,6 +428,21 @@ impl PInterpolatorMut {
         match self.pt {
             InterpolationPoint::Xp(p, _) => self.goto_xp(p, m),
             InterpolationPoint::Xm(p, _) => self.goto_xm(p, m),
+            _ => {
+                self.valid = false;
+                self
+            }
+        }
+    }
+
+    pub fn goto_conj(&mut self) -> &mut Self {
+        if !self.valid {
+            return self;
+        }
+
+        match self.pt {
+            InterpolationPoint::Xp(p, m) => self.goto_xm(p, m),
+            InterpolationPoint::Xm(p, m) => self.goto_xp(p, m),
             _ => {
                 self.valid = false;
                 self
