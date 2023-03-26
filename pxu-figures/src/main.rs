@@ -3,8 +3,186 @@ use itertools::Itertools;
 use num::complex::Complex64;
 use std::fs::File;
 use std::io::{prelude::*, BufWriter};
-use std::process::{Command, Stdio};
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
 
+#[derive(Debug, Clone)]
+struct Bounds {
+    x_min: f64,
+    x_max: f64,
+    y_min: f64,
+    y_max: f64,
+}
+
+impl Bounds {
+    fn inside(&self, z: &Complex64) -> bool {
+        let x_range = self.x_min..=self.x_max;
+        let y_range = self.y_min..=self.y_max;
+        x_range.contains(&z.re) && y_range.contains(&z.im)
+    }
+
+    fn crosses(&self, z1: &Complex64, z2: &Complex64) -> bool {
+        (z1.re < self.x_min) && (z2.re > self.x_max)
+            || (z2.re < self.x_min) && (z1.re > self.x_max)
+            || (z1.im < self.y_min) && (z2.im > self.y_max)
+            || (z2.im < self.y_min) && (z1.im > self.y_max)
+    }
+}
+
+#[derive(Debug)]
+struct Figure {
+    name: String,
+    bounds: Bounds,
+    writer: BufWriter<File>,
+}
+
+const LUALATEX: &str = "lualatex.exe";
+const FIGURE_PATH: &str = "./figures";
+const TEX_EXT: &str = "tex";
+
+impl Figure {
+    const FILE_START: &str = r#"
+\nonstopmode
+\documentclass[10pt,a4paper]{article}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{tikzpicture}
+\setlength\PreviewBorder{0pt}
+\pdfvariable suppressoptionalinfo \numexpr 1023 \relax
+\begin{document}
+\pagestyle{empty}
+\begin{tikzpicture}
+"#;
+
+    const FILE_END: &str = r#"
+\end{tikzpicture}
+\end{document}
+"#;
+
+    fn new(name: &str, x_max: f64, x_min: f64, y_max: f64, y_min: f64) -> std::io::Result<Self> {
+        let mut path = PathBuf::from(FIGURE_PATH);
+        path.set_file_name(name);
+        path.set_extension(TEX_EXT);
+
+        let file = File::create(&path)?;
+        let mut writer = BufWriter::new(file);
+
+        let bounds = Bounds {
+            x_max,
+            x_min,
+            y_max,
+            y_min,
+        };
+
+        writer.write_all(Self::FILE_START.as_bytes())?;
+
+        writeln!(writer, "\\begin{{axis}}[hide axis,width=10cm,height=6cm,ticks=none,xmin={x_min},xmax={x_max},ymin={y_min},ymax={y_max},clip]")?;
+
+        Ok(Self {
+            name: name.to_owned(),
+            writer,
+            bounds,
+        })
+    }
+
+    fn format_coordinate(p: Complex64) -> String {
+        format!("({:.3},{:.3})", p.re, p.im)
+    }
+
+    fn format_contour(contour: Vec<Complex64>) -> Vec<String> {
+        let mut coordinates = contour
+            .into_iter()
+            .map(format_coordinate)
+            .collect::<Vec<_>>();
+        coordinates.dedup();
+        coordinates
+    }
+
+    fn crop(&self, contour: &Vec<Complex64>) -> Vec<Complex64> {
+        if contour.len() < 2 {
+            return vec![];
+        }
+
+        let mut coordinates: Vec<Complex64> = vec![];
+
+        let include = |z1, z2| {
+            self.bounds.inside(z1) || self.bounds.inside(z2) || self.bounds.crosses(z1, z2)
+        };
+
+        if let [z1, z2] = &contour[0..=1] {
+            if include(z1, z2) {
+                coordinates.push(*z1);
+            }
+        }
+
+        for (z1, z2, z3) in contour.iter().tuple_windows::<(_, _, _)>() {
+            if include(z1, z2) || include(z2, z3) {
+                coordinates.push(*z2);
+            }
+        }
+
+        if let [z1, z2] = &contour[(contour.len() - 2)..=(contour.len() - 1)] {
+            if include(z1, z2) {
+                coordinates.push(*z2);
+            }
+        }
+
+        coordinates
+    }
+
+    // fn add_grid_line(&mut self) {
+    //     let coordinates = Self::format_contour(crop(contour, xmin, xmax, ymin, ymax));
+
+    //     if !coordinates.is_empty() {
+    //         writeln!(
+    //             file,
+    //             "\\addplot [very thin,gray] coordinates {{ {} }};",
+    //             coordinates.join(" ")
+    //         )?;
+    //     }
+    // }
+
+    fn finnish(mut self) -> std::io::Result<Child> {
+        writeln!(self.writer, "\\end{{axis}}\n")?;
+        self.writer.write_all(Self::FILE_END.as_bytes())?;
+        self.writer.flush()?;
+
+        let mut path = PathBuf::from(FIGURE_PATH);
+        path.set_file_name(self.name);
+        path.set_extension(TEX_EXT);
+
+        let mut cmd = Command::new(LUALATEX);
+        cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+            .args(["--interaction=nonstopmode", "--output-format=pdf"])
+            .arg(path.as_os_str())
+            .stderr(Stdio::null())
+            .stdout(Stdio::null());
+
+        log::info!("Running Lualatex",);
+        cmd.spawn()
+    }
+}
+
+trait Node {
+    fn m_node(&mut self);
+}
+
+// impl Node for PInterpolatorMut {
+//     fn m_node(&mut self) {
+//         let mut p_int2 = self.clone();
+//         p_int2.goto_p(p0 - 0.001);
+//         let p1 = p_int2.p();
+//         p_int2.goto_p(p0 + 0.001);
+//         let p2 = p_int2.p();
+//         let dp = p2 - p1;
+
+//         let dx = dp.re * 10.0 / (xmax - xmin);
+//         let dy = dp.im * 6.0 / (ymax - ymin);
+
+//         let angle = dy.atan2(dx) * 180.0 / std::f64::consts::PI;
+//     }
+// }
 
 fn crop(
     contour: &Vec<Complex64>,
@@ -75,7 +253,8 @@ fn main() -> std::io::Result<()> {
     while !contour_generator.update(&pt) {}
 
     {
-        let the_file = File::create("test.tex")?;
+        let path = PathBuf::from("./figures").join("test.tex");
+        let the_file = File::create(&path)?;
         let mut file = BufWriter::new(the_file);
 
         let begin = r#"
@@ -277,8 +456,14 @@ fn main() -> std::io::Result<()> {
     }
 
     {
+        let mut path = PathBuf::from(FIGURE_PATH);
+        path.set_file_name("test");
+        path.set_extension(TEX_EXT);
+
         let mut cmd = Command::new("lualatex.exe");
-        cmd.args(["--interaction=nonstopmode", "--output-format=pdf", "test"])
+        cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+            .args(["--interaction=nonstopmode", "--output-format=pdf"])
+            .arg(path.as_os_str())
             .stderr(Stdio::null())
             .stdout(Stdio::null());
 
