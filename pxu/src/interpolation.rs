@@ -26,6 +26,14 @@ impl InterpolationPoint {
             Self::Re(re) => Complex64::from(re),
         }
     }
+
+    pub fn normalized(&self, consts: CouplingConstants) -> Self {
+        match self {
+            Self::Xp(p, m) => Self::Xp(p - p.floor(), m + p.floor() * consts.k() as f64),
+            Self::Xm(p, m) => Self::Xm(p - p.floor(), m + p.floor() * consts.k() as f64),
+            _ => *self,
+        }
+    }
 }
 
 enum InterpolationStrategy {
@@ -353,6 +361,10 @@ impl PInterpolatorMut {
 
     pub fn p(&self) -> Complex64 {
         self.p
+    }
+
+    pub fn pt(&self) -> InterpolationPoint {
+        self.pt
     }
 
     pub fn is_valid(&self) -> bool {
