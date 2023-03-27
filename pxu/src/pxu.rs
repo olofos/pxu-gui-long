@@ -304,7 +304,7 @@ impl ContourGenerator {
         }
     }
     pub fn get_visible_cuts(
-        &mut self,
+        &self,
         pt: &PxuPoint,
         component: Component,
         long_cuts: bool,
