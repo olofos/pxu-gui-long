@@ -247,6 +247,12 @@ impl ContourGenerator {
         Self::default()
     }
 
+    pub fn generate_all(pt: &PxuPoint) -> Self {
+        let mut generator = Self::new();
+        while !generator.update(pt) {}
+        generator
+    }
+
     pub fn update(&mut self, pt: &PxuPoint) -> bool {
         if let Some(consts) = self.consts {
             if consts != pt.consts {
