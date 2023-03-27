@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::interpolation::{EPInterpolator, PInterpolatorMut, XInterpolator};
+use crate::interpolation::{EPInterpolator, InterpolationPoint, PInterpolatorMut, XInterpolator};
 use crate::kinematics::{
     du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, u_crossed, xm,
     xm_crossed, xp, xp_crossed, CouplingConstants, SheetData,
@@ -12,7 +12,7 @@ use num::complex::Complex64;
 const P_RANGE_MIN: i32 = -3;
 const P_RANGE_MAX: i32 = 3;
 
-const INFINITY: f64 = 1000.0;
+const INFINITY: f64 = 100.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Component {
@@ -148,14 +148,25 @@ impl ContourGeneratorBuildTimeContext {
     }
 }
 
+pub enum GridLineComponent {
+    Real,
+    Xp(f64),
+    Xm(f64),
+}
+
+pub struct GridLine {
+    pub path: Vec<Complex64>,
+    pub component: GridLineComponent,
+}
+
 pub struct ContourGenerator {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommands>,
     consts: Option<CouplingConstants>,
 
-    grid_p: Vec<Vec<Complex64>>,
-    grid_x: Vec<Vec<Complex64>>,
-    grid_u: Vec<Vec<Complex64>>,
+    grid_p: Vec<GridLine>,
+    grid_x: Vec<GridLine>,
+    grid_u: Vec<GridLine>,
 
     rctx: ContourGeneratorRuntimeContext,
     bctx: ContourGeneratorBuildTimeContext,
@@ -282,10 +293,13 @@ impl ContourGenerator {
         self.grid_u.clear();
         self.cuts.clear();
 
-        self.grid_p = vec![vec![
-            Complex64::from(P_RANGE_MIN as f64),
-            Complex64::from(P_RANGE_MAX as f64 + 1.0),
-        ]];
+        self.grid_p = vec![GridLine {
+            path: vec![
+                Complex64::from(P_RANGE_MIN as f64),
+                Complex64::from(P_RANGE_MAX as f64 + 1.0),
+            ],
+            component: GridLineComponent::Real,
+        }];
     }
 
     pub fn progress(&self) -> f32 {
@@ -296,7 +310,7 @@ impl ContourGenerator {
         }
     }
 
-    pub fn get_grid(&self, component: Component) -> &Vec<Vec<Complex64>> {
+    pub fn get_grid(&self, component: Component) -> &Vec<GridLine> {
         match component {
             Component::P => &self.grid_p,
             Component::Xp | Component::Xm => &self.grid_x,
@@ -354,25 +368,35 @@ impl ContourGenerator {
 
         match command {
             AddGridLineU(y) => {
-                self.grid_u.push(vec![
-                    Complex64::new(-INFINITY, y),
-                    Complex64::new(INFINITY, y),
-                ]);
+                self.grid_u.push(GridLine {
+                    path: vec![Complex64::new(-INFINITY, y), Complex64::new(INFINITY, y)],
+                    component: GridLineComponent::Real,
+                });
             }
 
             AddGridLineX(m) => {
                 let path = XInterpolator::generate_xp_full(0, m, consts);
-                self.grid_x.push(path.iter().map(|x| x.conj()).collect());
-                self.grid_x.push(path);
+                self.grid_x.push(GridLine {
+                    path: path.iter().map(|x| x.conj()).collect(),
+                    component: GridLineComponent::Xm(m),
+                });
+                self.grid_x.push(GridLine {
+                    path,
+                    component: GridLineComponent::Xp(m),
+                });
             }
 
             AddGridLineXReal(x) => {
                 if x > 0.0 {
-                    self.grid_x
-                        .push(vec![Complex64::from(x), Complex64::from(INFINITY)]);
+                    self.grid_x.push(GridLine {
+                        path: vec![Complex64::from(x), Complex64::from(INFINITY)],
+                        component: GridLineComponent::Real,
+                    });
                 } else {
-                    self.grid_x
-                        .push(vec![Complex64::from(x), Complex64::from(-INFINITY)]);
+                    self.grid_x.push(GridLine {
+                        path: vec![Complex64::from(x), Complex64::from(-INFINITY)],
+                        component: GridLineComponent::Real,
+                    });
                 }
             }
 
@@ -417,8 +441,29 @@ impl ContourGenerator {
             AddGridLineP => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 let path = p_int.contour();
-                self.grid_p.push(path.iter().map(|p| p.conj()).collect());
-                self.grid_p.push(path);
+
+                let (component, conj_component) = match p_int.pt() {
+                    InterpolationPoint::Xp(_, m) => {
+                        (GridLineComponent::Xp(m), GridLineComponent::Xm(m))
+                    }
+                    InterpolationPoint::Xm(_, m) => {
+                        (GridLineComponent::Xm(m), GridLineComponent::Xp(m))
+                    }
+                    InterpolationPoint::Re(_) => (GridLineComponent::Real, GridLineComponent::Real),
+                    _ => {
+                        log::warn!("Cannot draw grid line for C");
+                        return;
+                    }
+                };
+
+                self.grid_p.push(GridLine {
+                    path: path.iter().map(|p| p.conj()).collect(),
+                    component: conj_component,
+                });
+                self.grid_p.push(GridLine {
+                    path: path,
+                    component,
+                });
             }
 
             ClearCut => {
@@ -745,7 +790,7 @@ impl ContourGenerator {
     }
 
     fn generate_x_grid(&mut self, p_range: i32, consts: CouplingConstants) {
-        for m in (p_range * consts.k())..=((p_range + 1) * consts.k()) {
+        for m in (p_range * consts.k())..((p_range + 1) * consts.k()) {
             self.add(GeneratorCommands::AddGridLineX(m as f64));
         }
 

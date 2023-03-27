@@ -174,8 +174,9 @@ impl Plot {
 
                 let grid_contours = contour_generator.get_grid(self.component);
 
-                for points in grid_contours {
-                    let points = points
+                for grid_line in grid_contours {
+                    let points = grid_line
+                        .path
                         .iter()
                         .map(|z| to_screen * egui::pos2(z.re as f32, -z.im as f32))
                         .collect::<Vec<_>>();
