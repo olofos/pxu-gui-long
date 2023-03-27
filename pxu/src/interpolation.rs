@@ -562,7 +562,7 @@ impl PInterpolatorMut {
                 if z.im.abs() < 1.0 / 128.0 {
                     return self.contour_re(z.re);
                 } else {
-                    log::info!("Can't draw contour for non real C (found {:?})", self.pt);
+                    log::warn!("Can't draw contour for non real C (found {:?})", self.pt);
                     return vec![];
                 }
             }

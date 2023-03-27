@@ -265,7 +265,7 @@ impl ContourGenerator {
             self.consts = Some(pt.consts);
             self.generate_commands(pt);
             self.num_commands = self.commands.len();
-            log::info!("Generated {} commands", self.num_commands,)
+            log::debug!("Generated {} commands", self.num_commands,)
         }
 
         if let Some(command) = self.commands.pop_front() {
@@ -276,7 +276,7 @@ impl ContourGenerator {
     }
 
     fn clear(&mut self) {
-        log::info!("Clearing grid and cuts");
+        log::debug!("Clearing grid and cuts");
         self.commands.clear();
         self.grid_x.clear();
         self.grid_u.clear();
@@ -451,7 +451,7 @@ impl ContourGenerator {
                 self.rctx.cut_data.branch_point = None;
 
                 let Some(BranchPointData { p: p_branch_point, m, typ: branch_point_type }) = self.rctx.branch_point_data else {
-                    log::info!("No branch point set");
+                    log::warn!("No branch point set");
                     return;
                 };
 
@@ -538,12 +538,12 @@ impl ContourGenerator {
 
             PushCut(p_range, component, cut_type, visibility) => {
                 let Some(ref path) = self.rctx.cut_data.path else {
-                    log::info!("No path for cut");
+                    log::warn!("No path for cut");
                     return;
                 };
 
                 if self.rctx.cut_data.path.is_none() {
-                    log::info!("No path for cut");
+                    log::warn!("No path for cut");
                     return;
                 };
 
@@ -617,7 +617,7 @@ impl ContourGenerator {
                             };
                             new_cut.visibility.push(vis);
                         }
-                        log::info!("Intersection found");
+                        log::debug!("Intersection found");
                         self.cuts.push(cut.shift_conj(shift));
                         self.cuts.push(cut);
                         self.cuts.push(new_cut.shift_conj(shift));
@@ -627,7 +627,7 @@ impl ContourGenerator {
                     }
                 }
 
-                log::info!("No intersection found");
+                log::debug!("No intersection found");
 
                 self.cuts.push(cut.conj());
                 self.cuts.push(cut);
@@ -986,12 +986,12 @@ impl ContourGenerator {
 
     fn push_cut(&mut self, p_range: i32) -> &mut Self {
         let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
-            log::info!("Can't push cut without component");
+            log::warn!("Can't push cut without component");
             self.bctx.clear();
             return self;
         };
         let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_data.cut_type, None) else {
-            log::info!("Can't push cut without type");
+            log::warn!("Can't push cut without type");
             self.bctx.clear();
             return self;
         };
@@ -1011,7 +1011,7 @@ impl ContourGenerator {
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
         if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
-            log::info!("New cut created before previous cut was pushed");
+            log::warn!("New cut created before previous cut was pushed");
         }
         self.bctx.cut_data.component = Some(component);
         self.bctx.cut_data.cut_type = Some(cut_type);
@@ -1123,8 +1123,6 @@ impl ContourGenerator {
     }
 
     fn generate_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
-        log::info!("{p_range}");
-
         let p_start = p_range as f64;
         let k = consts.k() as f64;
         let s = consts.s();
@@ -2055,7 +2053,7 @@ impl PxuPoint {
         }
 
         if (self.p - p).re.abs() > 0.125 || (self.p - p).im.abs() > 0.25 {
-            log::info!(
+            log::debug!(
                 "p jump too large {} {}",
                 (self.p - p).norm_sqr(),
                 (self.p - p).re.abs()
@@ -2064,7 +2062,7 @@ impl PxuPoint {
         }
 
         if (self.xp - new_xp).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
-            log::info!(
+            log::debug!(
                 "xp jump too large: {} ({}) {} ({})",
                 (self.xp - new_xp).norm_sqr(),
                 (self.xp - new_xp).norm_sqr() * (self.consts.h * self.consts.h),
@@ -2075,7 +2073,7 @@ impl PxuPoint {
         }
 
         if (self.xm - new_xm).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
-            log::info!(
+            log::debug!(
                 "xm jump too large: {} ({}) {} ({})",
                 (self.xm - new_xm).norm_sqr(),
                 (self.xm - new_xm).norm_sqr() * (self.consts.h * self.consts.h),
@@ -2087,7 +2085,7 @@ impl PxuPoint {
         }
 
         if (self.u - new_u).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
-            log::info!("u jump too large");
+            log::debug!("u jump too large");
             // return false;
         }
 
@@ -2215,7 +2213,7 @@ impl PxuPoint {
                 }
                 _ => {}
             }
-            log::info!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
+            log::debug!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
         for guess in vec![
