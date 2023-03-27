@@ -162,7 +162,7 @@ pub struct GridLine {
 pub struct ContourGenerator {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommands>,
-    consts: Option<CouplingConstants>,
+    pub consts: Option<CouplingConstants>,
 
     grid_p: Vec<GridLine>,
     grid_x: Vec<GridLine>,
@@ -258,9 +258,10 @@ impl ContourGenerator {
         Self::default()
     }
 
-    pub fn generate_all(pt: &PxuPoint) -> Self {
+    pub fn generate_all(consts: CouplingConstants) -> Self {
+        let pt = PxuPoint::new(0.5, consts);
         let mut generator = Self::new();
-        while !generator.update(pt) {}
+        while !generator.update(&pt) {}
         generator
     }
 
@@ -460,10 +461,7 @@ impl ContourGenerator {
                     path: path.iter().map(|p| p.conj()).collect(),
                     component: conj_component,
                 });
-                self.grid_p.push(GridLine {
-                    path: path,
-                    component,
-                });
+                self.grid_p.push(GridLine { path, component });
             }
 
             ClearCut => {
@@ -602,6 +600,7 @@ impl ContourGenerator {
                     vec![path.clone()],
                     self.rctx.cut_data.branch_point,
                     cut_type,
+                    p_range,
                 );
                 cut.visibility = visibility;
 
@@ -639,6 +638,7 @@ impl ContourGenerator {
                             paths: vec![new_path],
                             branch_point: None,
                             typ: cut.typ.clone(),
+                            p_range,
                             component: cut.component,
                             visibility: vec![],
                         };
@@ -1928,6 +1928,7 @@ pub struct Cut {
     pub paths: Vec<Vec<Complex64>>,
     pub branch_point: Option<Complex64>,
     pub typ: CutType,
+    pub p_range: i32,
     visibility: Vec<CutVisibilityCondition>,
 }
 
@@ -1937,12 +1938,14 @@ impl Cut {
         paths: Vec<Vec<Complex64>>,
         branch_point: Option<Complex64>,
         typ: CutType,
+        p_range: i32,
     ) -> Self {
         Self {
             component,
             paths,
             branch_point,
             typ,
+            p_range,
             visibility: vec![],
         }
     }
@@ -1955,12 +1958,14 @@ impl Cut {
             .collect();
         let branch_point = self.branch_point.map(|z| z.conj());
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
+
         Cut {
             component: self.component.conj(),
             paths,
             branch_point,
             typ: self.typ.conj(),
             visibility,
+            p_range: self.p_range,
         }
     }
 
@@ -1978,6 +1983,7 @@ impl Cut {
             branch_point,
             typ: self.typ.conj(),
             visibility,
+            p_range: self.p_range,
         }
     }
 
