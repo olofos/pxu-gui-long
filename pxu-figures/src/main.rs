@@ -112,7 +112,6 @@ impl FigureWriter {
         let height = size.height;
 
         writeln!(writer, "\\begin{{axis}}[hide axis,scale only axis,ticks=none,xmin={x_min},xmax={x_max},ymin={y_min},ymax={y_max},clip,width={width}cm,height={height}cm]")?;
-        // writeln!(writer, "\\begin{{axis}}[hide axis,scale only axis,ticks=none,width={width}cm,height={height}cm]")?;
 
         Ok(Self {
             name: name.to_owned(),
@@ -207,7 +206,7 @@ impl FigureWriter {
         };
 
         for path in cut.paths.iter() {
-            self.add_plot(&[&[color, style], options].concat(), path)?
+            self.add_plot(&[&[color, style, "thick"], options].concat(), path)?
         }
 
         if let Some(branch_point) = cut.branch_point {
@@ -263,7 +262,7 @@ impl FigureCompiler {
     fn new(figure: FigureWriter, cache: Arc<cache::Cache>) -> Result<Self> {
         let name = figure.name;
         if cache.check(&name)? {
-            log::info!("[{name}] Matches cached entry");
+            log::info!("[{name}]: Matches cached entry");
             let child = Command::new("/bin/true").spawn()?;
             Ok(Self { name, child })
         } else {
@@ -307,6 +306,7 @@ impl Summary {
     \usepackage{caption}
     \captionsetup{labelformat=empty}
     \begin{document}
+    \pagestyle{empty}
     "#;
 
     const END: &str = r#"\end{document}"#;
@@ -402,7 +402,7 @@ fn fig_xpl_preimage(
         Bounds::new(-2.6..2.6, -0.7..0.7),
         Size {
             width: 15.0,
-            height: 4.0,
+            height: 6.0,
         },
     )?;
 
@@ -555,8 +555,8 @@ fn fig_p_plane_long_cuts_regions(
         "p_plane_long_cuts_regions",
         Bounds::new(-2.6..2.6, -0.7..0.7),
         Size {
-            width: 10.0,
-            height: 4.0,
+            width: 15.0,
+            height: 6.0,
         },
     )?;
 
@@ -653,17 +653,19 @@ fn main() -> std::io::Result<()> {
     let contour_generator_ref = Arc::new(contour_generator);
     let cache_ref = Arc::new(cache);
 
-    let handles = fig_functions.into_iter().map(|f| {
+    let mut handles = vec![];
+
+    for f in fig_functions {
         let contour_generator_ref = contour_generator_ref.clone();
         let cache_ref = cache_ref.clone();
-        thread::spawn(move || {
+        handles.push(thread::spawn(move || {
             let figure = f(contour_generator_ref, cache_ref)?;
-            let result = figure.wait()?;
-            Result::Ok(result)
-        })
-    });
+            figure.wait()
+        }));
+    }
 
     let names = handles
+        .into_iter()
         .map(|handle| {
             handle
                 .join()
