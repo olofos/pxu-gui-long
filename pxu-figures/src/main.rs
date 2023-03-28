@@ -11,6 +11,10 @@ use std::io::{prelude::*, BufWriter, Result};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::thread;
+
+mod cache;
 
 fn error(message: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::Other, message)
@@ -64,6 +68,7 @@ struct Figure {
 const LUALATEX: &str = "lualatex.exe";
 const FIGURE_PATH: &str = "./figures";
 const TEX_EXT: &str = "tex";
+const PDF_EXT: &str = "pdf";
 
 impl Figure {
     const FILE_START: &str = r#"
@@ -233,12 +238,12 @@ impl Figure {
         )
     }
 
-    fn finnish(mut self) -> std::io::Result<FigureCompiler> {
+    fn finnish(mut self, cache: Arc<cache::Cache>) -> std::io::Result<FigureCompiler> {
         writeln!(self.writer, "\\end{{axis}}\n")?;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
 
-        FigureCompiler::new(self)
+        FigureCompiler::new(self, cache)
     }
 
     fn transform_vec(&self, v: Complex64) -> Complex64 {
@@ -255,22 +260,28 @@ struct FigureCompiler {
 }
 
 impl FigureCompiler {
-    fn new(figure: Figure) -> Result<Self> {
+    fn new(figure: Figure, cache: Arc<cache::Cache>) -> Result<Self> {
         let name = figure.name;
-        let mut path = PathBuf::from(FIGURE_PATH).join(name.clone());
-        path.set_extension(TEX_EXT);
+        if cache.check(&name)? {
+            log::info!("[{name}] Matches cached entry");
+            let child = Command::new("/bin/true").spawn()?;
+            Ok(Self { name, child })
+        } else {
+            let mut path = PathBuf::from(FIGURE_PATH).join(name.clone());
+            path.set_extension(TEX_EXT);
 
-        let mut cmd = Command::new(LUALATEX);
-        cmd.arg(format!("--output-directory={}", FIGURE_PATH))
-            .args(["--interaction=nonstopmode", "--output-format=pdf"])
-            .arg(path.as_os_str())
-            .stderr(Stdio::null())
-            .stdout(Stdio::null());
+            let mut cmd = Command::new(LUALATEX);
+            cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+                .args(["--interaction=nonstopmode", "--output-format=pdf"])
+                .arg(path.as_os_str())
+                .stderr(Stdio::null())
+                .stdout(Stdio::null());
 
-        log::info!("[{name}]: Running Lualatex");
-        let child = cmd.spawn()?;
+            log::info!("[{name}]: Running Lualatex");
+            let child = cmd.spawn()?;
 
-        Ok(Self { name, child })
+            Ok(Self { name, child })
+        }
     }
 
     fn wait(mut self) -> Result<String> {
@@ -333,7 +344,10 @@ impl Node for PInterpolatorMut {
     }
 }
 
-fn fig_xpl_preimage(contour_generator: &ContourGenerator) -> Result<FigureCompiler> {
+fn fig_xpl_preimage(
+    contour_generator: Arc<ContourGenerator>,
+    cache: Arc<cache::Cache>,
+) -> Result<FigureCompiler> {
     let mut figure = Figure::new(
         "xpL-preimage",
         Bounds::new(-2.6..2.6, -0.7..0.7),
@@ -455,10 +469,13 @@ fn fig_xpl_preimage(contour_generator: &ContourGenerator) -> Result<FigureCompil
         }
     }
 
-    figure.finnish()
+    figure.finnish(cache)
 }
 
-fn fig_xpl_cover(contour_generator: &ContourGenerator) -> Result<FigureCompiler> {
+fn fig_xpl_cover(
+    contour_generator: Arc<ContourGenerator>,
+    cache: Arc<cache::Cache>,
+) -> Result<FigureCompiler> {
     let mut figure = Figure::new(
         "xpL-cover",
         Bounds::new(-6.0..6.0, -0.2..4.0),
@@ -478,10 +495,13 @@ fn fig_xpl_cover(contour_generator: &ContourGenerator) -> Result<FigureCompiler>
     {
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
-    figure.finnish()
+    figure.finnish(cache)
 }
 
-fn fig_p_plane_long_cuts_regions(contour_generator: &ContourGenerator) -> Result<FigureCompiler> {
+fn fig_p_plane_long_cuts_regions(
+    contour_generator: Arc<ContourGenerator>,
+    cache: Arc<cache::Cache>,
+) -> Result<FigureCompiler> {
     let mut figure = Figure::new(
         "p_plane_long_cuts_regions",
         Bounds::new(-2.6..2.6, -0.7..0.7),
@@ -562,7 +582,7 @@ fn fig_p_plane_long_cuts_regions(contour_generator: &ContourGenerator) -> Result
         figure.add_cut(cut, &[])?;
     }
 
-    figure.finnish()
+    figure.finnish(cache)
 }
 
 fn main() -> std::io::Result<()> {
@@ -570,18 +590,54 @@ fn main() -> std::io::Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
+    let cache = cache::Cache::load(FIGURE_PATH)?;
+
     let consts = CouplingConstants::new(2.0, 5);
     let contour_generator = pxu::ContourGenerator::generate_all(consts);
 
-    let figures = vec![
-        fig_xpl_preimage(&contour_generator)?,
-        fig_xpl_cover(&contour_generator)?,
-        fig_p_plane_long_cuts_regions(&contour_generator)?,
+    // let figures = vec![
+    //     fig_xpl_preimage(contour_generator_ref.clone())?,
+    //     fig_xpl_cover(contour_generator_ref.clone())?,
+    //     fig_p_plane_long_cuts_regions(contour_generator_ref.clone())?,
+    // ];
+
+    // for c in figures {
+    //     c.wait()?;
+    // }
+
+    let fig_functions = [
+        fig_xpl_preimage,
+        fig_xpl_cover,
+        fig_p_plane_long_cuts_regions,
     ];
 
-    for c in figures {
-        c.wait()?;
+    let contour_generator_ref = Arc::new(contour_generator);
+    let cache_ref = Arc::new(cache);
+
+    let handles = fig_functions
+        .into_iter()
+        .map(|f| {
+            let contour_generator_ref = contour_generator_ref.clone();
+            let cache_ref = cache_ref.clone();
+            thread::spawn(move || {
+                let figure = f(contour_generator_ref, cache_ref)?;
+                let result = figure.wait()?;
+                Result::Ok(result)
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let mut new_cache = cache::Cache::new(FIGURE_PATH);
+
+    for handle in handles {
+        let name = handle
+            .join()
+            .map_err(|err| error(format!("Join error: {err:?}").as_str()))??;
+        new_cache.update(&name)?;
     }
+
+    log::info!("Saving cache");
+    new_cache.save();
 
     Ok(())
 }

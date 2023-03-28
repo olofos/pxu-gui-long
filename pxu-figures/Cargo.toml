@@ -10,4 +10,5 @@ log = "0.4.6"
 tracing-subscriber = "0.3"
 itertools = "0.10.5"
 num = "0.4.0"
+md5 = "0.7.0"
 pxu = { path = "../pxu" }
