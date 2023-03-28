@@ -58,7 +58,7 @@ struct Size {
 }
 
 #[derive(Debug)]
-struct Figure {
+struct FigureWriter {
     name: String,
     bounds: Bounds,
     size: Size,
@@ -68,9 +68,9 @@ struct Figure {
 const LUALATEX: &str = "lualatex.exe";
 const FIGURE_PATH: &str = "./figures";
 const TEX_EXT: &str = "tex";
-const PDF_EXT: &str = "pdf";
+const SUMMARY_NAME: &str = "all-figures";
 
-impl Figure {
+impl FigureWriter {
     const FILE_START: &str = r#"
 \nonstopmode
 \documentclass[10pt,a4paper]{article}
@@ -260,7 +260,7 @@ struct FigureCompiler {
 }
 
 impl FigureCompiler {
-    fn new(figure: Figure, cache: Arc<cache::Cache>) -> Result<Self> {
+    fn new(figure: FigureWriter, cache: Arc<cache::Cache>) -> Result<Self> {
         let name = figure.name;
         if cache.check(&name)? {
             log::info!("[{name}] Matches cached entry");
@@ -294,10 +294,59 @@ impl FigureCompiler {
     }
 }
 
+#[derive(Debug, Default)]
+struct Summary {
+    names: Vec<String>,
+}
+
+impl Summary {
+    const START: &str = r#"\nonstopmode
+    \documentclass[12pt,a4paper]{article}
+    \usepackage{graphicx}
+    \usepackage{cprotect}
+    \usepackage{caption}
+    \captionsetup{labelformat=empty}
+    \begin{document}
+    "#;
+
+    const END: &str = r#"\end{document}"#;
+
+    fn add(&mut self, name: String) {
+        self.names.push(name);
+    }
+
+    fn finnish(self) -> Result<Child> {
+        let mut path = PathBuf::from(FIGURE_PATH).join(SUMMARY_NAME);
+        path.set_extension(TEX_EXT);
+
+        let mut writer = BufWriter::new(File::create(path.clone())?);
+
+        writer.write_all(Self::START.as_bytes())?;
+
+        for name in self.names {
+            writeln!(writer,"\\begin{{figure}}\\centering\\includegraphics{{{FIGURE_PATH}/{name}}}\\cprotect\\caption{{\\verb|\\includegraphics{{{FIGURE_PATH}/{name}}}|}}\\end{{figure}}")?;
+        }
+
+        writer.write_all(Self::END.as_bytes())?;
+
+        writer.flush()?;
+
+        let mut cmd = Command::new(LUALATEX);
+        cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+            .args(["--interaction=nonstopmode", "--output-format=pdf"])
+            .arg(path.as_os_str())
+            .stderr(Stdio::null())
+            .stdout(Stdio::null());
+
+        log::info!("[{SUMMARY_NAME}]: Running Lualatex");
+        cmd.spawn()
+    }
+}
+
 trait Node {
     fn write_m_node(
         &mut self,
-        figure: &mut Figure,
+        figure: &mut FigureWriter,
         anchor: &str,
         rot_sign: i32,
         consts: CouplingConstants,
@@ -307,7 +356,7 @@ trait Node {
 impl Node for PInterpolatorMut {
     fn write_m_node(
         &mut self,
-        figure: &mut Figure,
+        figure: &mut FigureWriter,
         anchor: &str,
         rot_sign: i32,
         consts: CouplingConstants,
@@ -348,11 +397,11 @@ fn fig_xpl_preimage(
     contour_generator: Arc<ContourGenerator>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
-    let mut figure = Figure::new(
+    let mut figure = FigureWriter::new(
         "xpL-preimage",
         Bounds::new(-2.6..2.6, -0.7..0.7),
         Size {
-            width: 10.0,
+            width: 15.0,
             height: 4.0,
         },
     )?;
@@ -476,7 +525,7 @@ fn fig_xpl_cover(
     contour_generator: Arc<ContourGenerator>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
-    let mut figure = Figure::new(
+    let mut figure = FigureWriter::new(
         "xpL-cover",
         Bounds::new(-6.0..6.0, -0.2..4.0),
         Size {
@@ -502,7 +551,7 @@ fn fig_p_plane_long_cuts_regions(
     contour_generator: Arc<ContourGenerator>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
-    let mut figure = Figure::new(
+    let mut figure = FigureWriter::new(
         "p_plane_long_cuts_regions",
         Bounds::new(-2.6..2.6, -0.7..0.7),
         Size {
@@ -595,16 +644,6 @@ fn main() -> std::io::Result<()> {
     let consts = CouplingConstants::new(2.0, 5);
     let contour_generator = pxu::ContourGenerator::generate_all(consts);
 
-    // let figures = vec![
-    //     fig_xpl_preimage(contour_generator_ref.clone())?,
-    //     fig_xpl_cover(contour_generator_ref.clone())?,
-    //     fig_p_plane_long_cuts_regions(contour_generator_ref.clone())?,
-    // ];
-
-    // for c in figures {
-    //     c.wait()?;
-    // }
-
     let fig_functions = [
         fig_xpl_preimage,
         fig_xpl_cover,
@@ -614,30 +653,39 @@ fn main() -> std::io::Result<()> {
     let contour_generator_ref = Arc::new(contour_generator);
     let cache_ref = Arc::new(cache);
 
-    let handles = fig_functions
-        .into_iter()
-        .map(|f| {
-            let contour_generator_ref = contour_generator_ref.clone();
-            let cache_ref = cache_ref.clone();
-            thread::spawn(move || {
-                let figure = f(contour_generator_ref, cache_ref)?;
-                let result = figure.wait()?;
-                Result::Ok(result)
-            })
+    let handles = fig_functions.into_iter().map(|f| {
+        let contour_generator_ref = contour_generator_ref.clone();
+        let cache_ref = cache_ref.clone();
+        thread::spawn(move || {
+            let figure = f(contour_generator_ref, cache_ref)?;
+            let result = figure.wait()?;
+            Result::Ok(result)
         })
-        .collect::<Vec<_>>();
+    });
+
+    let names = handles
+        .map(|handle| {
+            handle
+                .join()
+                .map_err(|err| error(format!("Join error: {err:?}").as_str()))?
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let mut new_cache = cache::Cache::new(FIGURE_PATH);
+    let mut summary = Summary::default();
 
-    for handle in handles {
-        let name = handle
-            .join()
-            .map_err(|err| error(format!("Join error: {err:?}").as_str()))??;
+    for name in names {
         new_cache.update(&name)?;
+        summary.add(name);
+    }
+
+    if summary.finnish()?.wait()?.success() {
+        log::info!("[{SUMMARY_NAME}] Done.");
+    } else {
+        log::error!("[{SUMMARY_NAME}] Error.");
     }
 
     log::info!("Saving cache");
-    new_cache.save();
-
+    new_cache.save()?;
     Ok(())
 }
