@@ -1954,7 +1954,7 @@ impl Cut {
         let paths = self
             .paths
             .iter()
-            .map(|path| path.iter().map(|z| z.conj()).collect())
+            .map(|path| path.iter().rev().map(|z| z.conj()).collect())
             .collect();
         let branch_point = self.branch_point.map(|z| z.conj());
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
