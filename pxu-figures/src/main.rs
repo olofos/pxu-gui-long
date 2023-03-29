@@ -257,7 +257,7 @@ progress_file=io.open(""#;
         )
     }
 
-    fn finnish(mut self, cache: Arc<cache::Cache>) -> std::io::Result<FigureCompiler> {
+    fn finish(mut self, cache: Arc<cache::Cache>) -> std::io::Result<FigureCompiler> {
         writeln!(self.writer, "\\end{{axis}}\n")?;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
@@ -358,7 +358,7 @@ impl Summary {
         self.names.push(name);
     }
 
-    fn finnish(self) -> Result<Child> {
+    fn finish(self) -> Result<Child> {
         let mut path = PathBuf::from(FIGURE_PATH).join(SUMMARY_NAME);
         path.set_extension(TEX_EXT);
 
@@ -561,7 +561,7 @@ fn fig_xpl_preimage(
         }
     }
 
-    figure.finnish(cache)
+    figure.finish(cache)
 }
 
 fn fig_xpl_cover(
@@ -587,7 +587,7 @@ fn fig_xpl_cover(
     {
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
-    figure.finnish(cache)
+    figure.finish(cache)
 }
 
 fn fig_p_plane_long_cuts_regions(
@@ -674,7 +674,7 @@ fn fig_p_plane_long_cuts_regions(
         figure.add_cut(cut, &[])?;
     }
 
-    figure.finnish(cache)
+    figure.finish(cache)
 }
 
 fn main() -> std::io::Result<()> {
@@ -759,7 +759,7 @@ fn main() -> std::io::Result<()> {
 
     println!("[4/4] Building summary");
 
-    if summary.finnish()?.wait()?.success() {
+    if summary.finish()?.wait()?.success() {
         log::info!("[{SUMMARY_NAME}] Done.");
     } else {
         log::error!("[{SUMMARY_NAME}] Error.");
