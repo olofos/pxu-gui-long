@@ -12,3 +12,4 @@ itertools = "0.10.5"
 num = "0.4.0"
 md5 = "0.7.0"
 pxu = { path = "../pxu" }
+indicatif = "0.17.3"

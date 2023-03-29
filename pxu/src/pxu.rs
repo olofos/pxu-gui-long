@@ -303,11 +303,11 @@ impl ContourGenerator {
         }];
     }
 
-    pub fn progress(&self) -> f32 {
+    pub fn progress(&self) -> (usize, usize) {
         if self.num_commands > 0 {
-            1.0 - self.commands.len() as f32 / self.num_commands as f32
+            (self.num_commands - self.commands.len(), self.num_commands)
         } else {
-            0.0
+            (0, 1)
         }
     }
 

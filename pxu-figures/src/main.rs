@@ -14,6 +14,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::thread;
 
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+
 mod cache;
 
 fn error(message: &str) -> std::io::Error {
@@ -63,6 +65,7 @@ struct FigureWriter {
     bounds: Bounds,
     size: Size,
     writer: BufWriter<File>,
+    plot_count: u64,
 }
 
 const LUALATEX: &str = "lualatex.exe";
@@ -71,9 +74,14 @@ const TEX_EXT: &str = "tex";
 const SUMMARY_NAME: &str = "all-figures";
 
 impl FigureWriter {
-    const FILE_START: &str = r#"
+    const FILE_START_1: &str = r#"
 \nonstopmode
 \documentclass[10pt,a4paper]{article}
+\usepackage{luatextra}
+\begin{luacode}
+progress_file=io.open(""#;
+    const FILE_START_2: &str = r#"","w")
+\end{luacode}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepgfplotslibrary{fillbetween}
@@ -88,6 +96,8 @@ impl FigureWriter {
 
     const FILE_END: &str = r#"
 \end{tikzpicture}
+\directlua{progress_file:write("!")}
+\directlua{io.close(progress_file)}
 \end{document}
 "#;
 
@@ -100,7 +110,13 @@ impl FigureWriter {
         let file = File::create(&path)?;
         let mut writer = BufWriter::new(file);
 
-        writer.write_all(Self::FILE_START.as_bytes())?;
+        let mut progress_path = path.clone();
+        progress_path.set_extension("prg");
+        writer.write_all(Self::FILE_START_1.as_bytes())?;
+        write!(writer, "{}", progress_path.to_string_lossy())?;
+        writer.write_all(Self::FILE_START_2.as_bytes())?;
+
+        let _ = std::fs::remove_file(progress_path);
 
         let x_min = bounds.x_range.start;
         let x_max = bounds.x_range.end;
@@ -118,6 +134,7 @@ impl FigureWriter {
             writer,
             bounds,
             size,
+            plot_count: 0,
         })
     }
 
@@ -181,6 +198,9 @@ impl FigureWriter {
                 options.join(","),
                 coordinates.join(" ")
             )?;
+            writeln!(self.writer, r#"\directlua{{progress_file:write(".")}}"#)?;
+            writeln!(self.writer, r#"\directlua{{progress_file:flush()}}"#)?;
+            self.plot_count += 1;
         }
         Ok(())
     }
@@ -256,6 +276,7 @@ impl FigureWriter {
 struct FigureCompiler {
     name: String,
     child: Child,
+    plot_count: u64,
 }
 
 impl FigureCompiler {
@@ -264,7 +285,11 @@ impl FigureCompiler {
         if cache.check(&name)? {
             log::info!("[{name}]: Matches cached entry");
             let child = Command::new("/bin/true").spawn()?;
-            Ok(Self { name, child })
+            Ok(Self {
+                name,
+                child,
+                plot_count: 0,
+            })
         } else {
             let mut path = PathBuf::from(FIGURE_PATH).join(name.clone());
             path.set_extension(TEX_EXT);
@@ -279,16 +304,34 @@ impl FigureCompiler {
             log::info!("[{name}]: Running Lualatex");
             let child = cmd.spawn()?;
 
-            Ok(Self { name, child })
+            Ok(Self {
+                name,
+                child,
+                plot_count: figure.plot_count,
+            })
         }
     }
 
-    fn wait(mut self) -> Result<String> {
-        if self.child.wait()?.success() {
-            log::info!("[{}]: Lualatex done.", self.name);
-        } else {
-            log::error!("[{}]: Lualatex failed.", self.name);
+    fn wait(mut self, pb: &ProgressBar) -> Result<String> {
+        pb.set_length(self.plot_count);
+        let mut path = PathBuf::from(FIGURE_PATH).join(&self.name);
+        path.set_extension("prg");
+        loop {
+            if let Ok(meta) = path.metadata() {
+                pb.set_position(meta.len());
+            }
+
+            if let Some(result) = self.child.try_wait()? {
+                if result.success() {
+                    log::info!("[{}]: Lualatex done.", self.name);
+                } else {
+                    log::error!("[{}]: Lualatex failed.", self.name);
+                }
+                break;
+            }
+            thread::sleep(std::time::Duration::from_millis(250));
         }
+        let _ = std::fs::remove_file(path);
         Ok(self.name)
     }
 }
@@ -566,7 +609,7 @@ fn fig_p_plane_long_cuts_regions(
 
     let pt = &pxu::PxuPoint::new(0.5, consts);
 
-    let color_physical = "yellow!10";
+    let color_physical = "blue!10";
     let color_mirror_p = "red!10";
     let color_mirror_m = "green!10";
 
@@ -635,14 +678,35 @@ fn fig_p_plane_long_cuts_regions(
 }
 
 fn main() -> std::io::Result<()> {
-    tracing_subscriber::fmt::fmt()
-        .with_writer(std::io::stderr)
-        .init();
+    // tracing_subscriber::fmt::fmt()
+    //     .with_writer(std::io::stderr)
+    //     .init();
+
+    let spinner_style = ProgressStyle::with_template(
+        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+    )
+    .unwrap()
+    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
 
     let cache = cache::Cache::load(FIGURE_PATH)?;
 
     let consts = CouplingConstants::new(2.0, 5);
-    let contour_generator = pxu::ContourGenerator::generate_all(consts);
+    // let contour_generator = pxu::ContourGenerator::generate_all(consts);
+    let pt = pxu::PxuPoint::new(0.5, consts);
+
+    let mut contour_generator = pxu::ContourGenerator::new();
+
+    println!("[1/3] Generating contours");
+    let pb = ProgressBar::new(1);
+    pb.set_style(spinner_style.clone());
+    loop {
+        pb.set_length(contour_generator.progress().1 as u64);
+        pb.set_position(contour_generator.progress().0 as u64);
+        if contour_generator.update(&pt) {
+            pb.finish_and_clear();
+            break;
+        }
+    }
 
     let fig_functions = [
         fig_xpl_preimage,
@@ -655,12 +719,21 @@ fn main() -> std::io::Result<()> {
 
     let mut handles = vec![];
 
+    println!("[2/3] Builing figures");
+    let mb = MultiProgress::new();
+
     for f in fig_functions {
         let contour_generator_ref = contour_generator_ref.clone();
         let cache_ref = cache_ref.clone();
+        let pb = mb.add(ProgressBar::new_spinner());
+        pb.set_style(spinner_style.clone());
         handles.push(thread::spawn(move || {
+            pb.set_message("Generating tex file");
             let figure = f(contour_generator_ref, cache_ref)?;
-            figure.wait()
+            pb.set_message(format!("Compiling {}.tex", figure.name));
+            let result = figure.wait(&pb);
+            pb.finish_and_clear();
+            result
         }));
     }
 
@@ -681,13 +754,16 @@ fn main() -> std::io::Result<()> {
         summary.add(name);
     }
 
+    println!("[3/4] Saving cache");
+    new_cache.save()?;
+
+    println!("[4/4] Building summary");
+
     if summary.finnish()?.wait()?.success() {
         log::info!("[{SUMMARY_NAME}] Done.");
     } else {
         log::error!("[{SUMMARY_NAME}] Error.");
     }
 
-    log::info!("Saving cache");
-    new_cache.save()?;
     Ok(())
 }

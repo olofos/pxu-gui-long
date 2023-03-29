@@ -534,9 +534,8 @@ impl eframe::App for TemplateApp {
 
                     self.frame_history.ui(ui);
 
-                    ui.add(
-                        egui::ProgressBar::new(self.contour_generator.progress()).show_percentage(),
-                    );
+                    let (current, total) = self.contour_generator.progress();
+                    ui.add(egui::ProgressBar::new(current as f32 / total as f32).show_percentage());
                 }
             }
 
