@@ -259,13 +259,13 @@ impl ContourGenerator {
     }
 
     pub fn generate_all(consts: CouplingConstants) -> Self {
-        let pt = PxuPoint::new(0.5, consts);
+        let pt = Point::new(0.5, consts);
         let mut generator = Self::new();
         while !generator.update(&pt) {}
         generator
     }
 
-    pub fn update(&mut self, pt: &PxuPoint) -> bool {
+    pub fn update(&mut self, pt: &Point) -> bool {
         if let Some(consts) = self.consts {
             if consts != pt.consts {
                 self.consts = None;
@@ -320,7 +320,7 @@ impl ContourGenerator {
     }
     pub fn get_visible_cuts(
         &self,
-        pt: &PxuPoint,
+        pt: &Point,
         component: Component,
         long_cuts: bool,
     ) -> impl Iterator<Item = &Cut> {
@@ -335,7 +335,7 @@ impl ContourGenerator {
 
     pub fn get_crossed_cuts(
         &mut self,
-        pt: &PxuPoint,
+        pt: &Point,
         component: Component,
         new_value: Complex64,
         long_cuts: bool,
@@ -737,7 +737,7 @@ impl ContourGenerator {
         self.add(GeneratorCommands::AddGridLineP)
     }
 
-    fn generate_commands(&mut self, pt: &PxuPoint) {
+    fn generate_commands(&mut self, pt: &Point) {
         let consts = pt.consts;
         self.generate_u_grid(consts);
 
@@ -1875,7 +1875,7 @@ enum CutVisibilityCondition {
 }
 
 impl CutVisibilityCondition {
-    fn check(&self, pt: &PxuPoint, long_cuts: bool) -> bool {
+    fn check(&self, pt: &Point, long_cuts: bool) -> bool {
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i8 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
@@ -2026,13 +2026,13 @@ impl Cut {
         None
     }
 
-    pub fn is_visible(&self, pt: &PxuPoint, long_cuts: bool) -> bool {
+    pub fn is_visible(&self, pt: &Point, long_cuts: bool) -> bool {
         self.visibility.iter().all(|cond| cond.check(pt, long_cuts))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct PxuPoint {
+pub struct Point {
     pub p: Complex64,
     pub xp: Complex64,
     pub xm: Complex64,
@@ -2041,7 +2041,7 @@ pub struct PxuPoint {
     pub sheet_data: SheetData,
 }
 
-impl PxuPoint {
+impl Point {
     pub fn new(p: impl Into<Complex64>, consts: CouplingConstants) -> Self {
         let p: Complex64 = p.into();
         let log_branch_p = 0;

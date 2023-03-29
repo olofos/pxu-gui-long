@@ -6,7 +6,6 @@ use num::complex::Complex64;
 
 use ::pxu::kinematics::CouplingConstants;
 use ::pxu::pxu;
-use ::pxu::pxu::PxuPoint;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq, Default)]
 enum UCutType {
@@ -23,7 +22,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     consts: CouplingConstants,
     #[serde(skip)]
-    pxu: PxuPoint,
+    pxu: pxu::Point,
     #[serde(skip)]
     z: num::complex::Complex64,
     #[serde(skip)]
@@ -64,7 +63,7 @@ impl Plot {
         show_dots: bool,
         show_cuts: bool,
         u_cut_type: UCutType,
-        pxu: &mut PxuPoint,
+        pxu: &mut pxu::Point,
     ) {
         egui::Frame::canvas(ui.style())
             .outer_margin(Margin::same(0.0))
@@ -388,7 +387,7 @@ impl Default for TemplateApp {
         let p_range = 0;
         Self {
             consts,
-            pxu: PxuPoint::new(p_range as f64 + 0.25, consts),
+            pxu: pxu::Point::new(p_range as f64 + 0.25, consts),
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             contour_generator: pxu::ContourGenerator::new(),

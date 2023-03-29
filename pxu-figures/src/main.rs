@@ -471,7 +471,7 @@ fn fig_xpl_preimage(
         return Err(error("No consts set"));
     };
 
-    let pt = &pxu::PxuPoint::new(0.5, consts);
+    let pt = &pxu::Point::new(0.5, consts);
 
     for contour in contour_generator.get_grid(pxu::Component::P).iter()
     // .take(100)
@@ -627,7 +627,7 @@ fn fig_p_plane_long_cuts_regions(
         return Err(error("No consts set"));
     };
 
-    let pt = &pxu::PxuPoint::new(0.5, consts);
+    let pt = &pxu::Point::new(0.5, consts);
 
     let color_physical = "blue!10";
     let color_mirror_p = "red!10";
@@ -712,7 +712,7 @@ fn main() -> std::io::Result<()> {
 
     let consts = CouplingConstants::new(2.0, 5);
     // let contour_generator = pxu::ContourGenerator::generate_all(consts);
-    let pt = pxu::PxuPoint::new(0.5, consts);
+    let pt = pxu::Point::new(0.5, consts);
 
     let mut contour_generator = pxu::ContourGenerator::new();
 
