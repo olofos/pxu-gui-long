@@ -66,6 +66,7 @@ struct FigureWriter {
     size: Size,
     writer: BufWriter<File>,
     plot_count: u64,
+    component: pxu::Component,
 }
 
 const LUALATEX: &str = "lualatex.exe";
@@ -101,7 +102,12 @@ progress_file=io.open(""#;
 \end{document}
 "#;
 
-    fn new(name: &str, bounds: Bounds, size: Size) -> std::io::Result<Self> {
+    fn new(
+        name: &str,
+        bounds: Bounds,
+        size: Size,
+        component: pxu::Component,
+    ) -> std::io::Result<Self> {
         let mut path = PathBuf::from(FIGURE_PATH).join(name);
         path.set_extension(TEX_EXT);
 
@@ -135,6 +141,7 @@ progress_file=io.open(""#;
             bounds,
             size,
             plot_count: 0,
+            component,
         })
     }
 
@@ -259,6 +266,16 @@ progress_file=io.open(""#;
 
     fn finish(mut self, cache: Arc<cache::Cache>) -> std::io::Result<FigureCompiler> {
         writeln!(self.writer, "\\end{{axis}}\n")?;
+        let component_name = match self.component {
+            pxu::Component::P => "p",
+            pxu::Component::Xp => "x^+",
+            pxu::Component::Xm => "x^-",
+            pxu::Component::U => "u",
+        };
+        writeln!(
+            self.writer,
+            "\\node at (current bounding box.north east) [anchor=north east,fill=white,outer sep=0.1cm,draw] {{$\\scriptstyle {component_name}$}};"
+        )?;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
 
@@ -429,7 +446,7 @@ impl Node for PInterpolatorMut {
             _ => unreachable!(),
         };
 
-        writeln!(figure.writer,"\\node[scale=0.3,anchor={anchor},inner sep=0.4pt,rotate={rotation:.1},{color}] at ({:.3}, {:.3}) {{$\\scriptscriptstyle {}$}};",
+        writeln!(figure.writer,"\\node[scale=0.5,anchor={anchor},inner sep=0.4pt,rotate={rotation:.1},{color}] at ({:.3}, {:.3}) {{$\\scriptscriptstyle {}$}};",
                  self.p().re,
                  self.p().im,
                  m)
@@ -447,6 +464,7 @@ fn fig_xpl_preimage(
             width: 15.0,
             height: 6.0,
         },
+        pxu::Component::P,
     )?;
 
     let Some(consts) = contour_generator.consts else {
@@ -575,6 +593,7 @@ fn fig_xpl_cover(
             width: 6.0,
             height: 4.0,
         },
+        pxu::Component::Xp,
     )?;
 
     figure.add_axis()?;
@@ -582,7 +601,7 @@ fn fig_xpl_cover(
         .get_grid(pxu::Component::Xp)
         .iter()
         .filter(
-            |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=5.0).contains(&m)),
+            |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=6.0).contains(&m)),
         )
     {
         figure.add_grid_line(contour, &["thin", "black"])?;
@@ -601,6 +620,7 @@ fn fig_p_plane_long_cuts_regions(
             width: 15.0,
             height: 6.0,
         },
+        pxu::Component::P,
     )?;
 
     let Some(consts) = contour_generator.consts else {
