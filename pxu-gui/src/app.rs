@@ -22,7 +22,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     consts: CouplingConstants,
     #[serde(skip)]
-    pxu: pxu::Point,
+    pxu: Vec<pxu::Point>,
     #[serde(skip)]
     z: num::complex::Complex64,
     #[serde(skip)]
@@ -387,7 +387,7 @@ impl Default for TemplateApp {
         let p_range = 0;
         Self {
             consts,
-            pxu: pxu::Point::new(p_range as f64 + 0.25, consts),
+            pxu: vec![pxu::Point::new(p_range as f64 + 0.25, consts)],
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             contour_generator: pxu::ContourGenerator::new(),
@@ -500,28 +500,32 @@ impl eframe::App for TemplateApp {
 
             {
                 ui.label(format!(
-                    "Momentum: {:.2} ({:.2})",
-                    self.pxu.p,
-                    self.pxu.xp.arg() / std::f64::consts::PI
+                    "Momentum: {:.2}",
+                    self.pxu.iter().map(|pxu| pxu.p).sum::<Complex64>()
                 ));
 
                 {
-                    let xp = self.pxu.xp;
-                    let xm = self.pxu.xm;
-                    let en =
-                        -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm);
+                    let en = self
+                        .pxu
+                        .iter()
+                        .map(|pxu| {
+                            let xp = pxu.xp;
+                            let xm = pxu.xm;
+                            -Complex64::i() * pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
+                        })
+                        .sum::<Complex64>();
                     ui.label(format!("Energy: {:.2}", en));
                 }
 
                 ui.label(format!(
                     "Log branches: {:+} {:+}",
-                    self.pxu.sheet_data.log_branch_p, self.pxu.sheet_data.log_branch_m
+                    self.pxu[0].sheet_data.log_branch_p, self.pxu[0].sheet_data.log_branch_m
                 ));
 
-                ui.label(format!("E branch: {:+} ", self.pxu.sheet_data.e_branch));
+                ui.label(format!("E branch: {:+} ", self.pxu[0].sheet_data.e_branch));
                 ui.label(format!(
                     "U branch: ({:+},{:+}) ",
-                    self.pxu.sheet_data.u_branch.0, self.pxu.sheet_data.u_branch.1
+                    self.pxu[0].sheet_data.u_branch.0, self.pxu[0].sheet_data.u_branch.1
                 ));
             }
 
@@ -561,7 +565,9 @@ impl eframe::App for TemplateApp {
         }
 
         if old_consts != self.consts {
-            self.pxu.set_coupling_constants(self.consts);
+            self.pxu
+                .iter_mut()
+                .for_each(|pxu| pxu.set_coupling_constants(self.consts));
 
             // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
 
@@ -581,7 +587,7 @@ impl eframe::App for TemplateApp {
             while (chrono::Utc::now() - start).num_milliseconds()
                 < (1000.0 / 20.0f64).floor() as i64
             {
-                if self.contour_generator.update(&self.pxu) {
+                if self.contour_generator.update(&self.pxu[0]) {
                     break;
                 }
                 ctx.request_repaint();
@@ -598,7 +604,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu,
+                    &mut self.pxu[0],
                 );
 
                 self.u_plot.draw(
@@ -608,7 +614,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu,
+                    &mut self.pxu[0],
                 );
             });
             ui.horizontal(|ui| {
@@ -619,7 +625,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu,
+                    &mut self.pxu[0],
                 );
 
                 self.xm_plot.draw(
@@ -629,7 +635,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu,
+                    &mut self.pxu[0],
                 );
             });
         });
