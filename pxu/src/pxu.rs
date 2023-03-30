@@ -340,7 +340,7 @@ impl ContourGenerator {
     }
 
     pub fn get_crossed_cuts(
-        &mut self,
+        &self,
         pt: &Point,
         component: Component,
         new_value: Complex64,
@@ -2053,6 +2053,50 @@ impl State {
             points,
             consts,
             active_point: 0,
+        }
+    }
+
+    pub fn active_point(&self) -> &Point {
+        &self.points[self.active_point]
+    }
+
+    pub fn update(
+        &mut self,
+        active_point: usize,
+        component: Component,
+        new_value: Complex64,
+        contour_generator: &ContourGenerator,
+        u_cut_type: UCutType,
+    ) {
+        let crossed_cuts = contour_generator
+            .get_crossed_cuts(&self.points[active_point], component, new_value, u_cut_type)
+            .collect::<Vec<_>>();
+
+        self.active_point = active_point;
+        self.points[self.active_point].update(component, new_value, &crossed_cuts);
+
+        for i in (self.active_point + 1)..self.points.len() {
+            let new_value = if self.points[i - 1].sheet_data.e_branch > 0 {
+                xm(self.points[i - 1].p, 1.0, self.points[i - 1].consts)
+            } else {
+                xm_crossed(self.points[i - 1].p, 1.0, self.points[i - 1].consts)
+            };
+            let crossed_cuts = contour_generator
+                .get_crossed_cuts(&self.points[i], Component::Xp, new_value, u_cut_type)
+                .collect::<Vec<_>>();
+            self.points[i].update(Component::Xp, new_value, &crossed_cuts);
+        }
+
+        for i in (0..self.active_point).rev() {
+            let new_value = if self.points[i + 1].sheet_data.e_branch > 0 {
+                xp(self.points[i + 1].p, 1.0, self.points[i + 1].consts)
+            } else {
+                xp_crossed(self.points[i + 1].p, 1.0, self.points[i + 1].consts)
+            };
+            let crossed_cuts = contour_generator
+                .get_crossed_cuts(&self.points[i], Component::Xm, new_value, u_cut_type)
+                .collect::<Vec<_>>();
+            self.points[i].update(Component::Xm, new_value, &crossed_cuts);
         }
     }
 }

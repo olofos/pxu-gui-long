@@ -117,9 +117,8 @@ impl Plot {
                     vec![]
                 };
 
-                let mut stroke = egui::epaint::Stroke::NONE;
-
                 let mut hovered_point = None;
+                let mut dragged_point = None;
 
                 for j in 0..pxu.points.len() {
                     let z = pxu.points[j].get(self.component);
@@ -135,11 +134,7 @@ impl Plot {
                     }
 
                     if point_response.dragged() {
-                        pxu.active_point = j;
-                    }
-
-                    if point_response.hovered() || point_response.dragged() {
-                        stroke = egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
+                        dragged_point = Some(j);
                     }
 
                     if point_response.dragged() {
@@ -147,65 +142,7 @@ impl Plot {
                             to_screen.inverse() * (center + point_response.drag_delta());
                         let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                        let crossed_cuts = contour_generator
-                            .get_crossed_cuts(&pxu.points[j], self.component, new_value, u_cut_type)
-                            .collect::<Vec<_>>();
-
-                        pxu.points[pxu.active_point].update(
-                            self.component,
-                            new_value,
-                            &crossed_cuts,
-                        );
-
-                        for i in (pxu.active_point + 1)..pxu.points.len() {
-                            let new_value = if pxu.points[i - 1].sheet_data.e_branch > 0 {
-                                ::pxu::kinematics::xm(
-                                    pxu.points[i - 1].p,
-                                    1.0,
-                                    pxu.points[i - 1].consts,
-                                )
-                            } else {
-                                ::pxu::kinematics::xm_crossed(
-                                    pxu.points[i - 1].p,
-                                    1.0,
-                                    pxu.points[i - 1].consts,
-                                )
-                            };
-                            let crossed_cuts = contour_generator
-                                .get_crossed_cuts(
-                                    &pxu.points[i],
-                                    pxu::Component::Xp,
-                                    new_value,
-                                    u_cut_type,
-                                )
-                                .collect::<Vec<_>>();
-                            pxu.points[i].update(pxu::Component::Xp, new_value, &crossed_cuts);
-                        }
-                    }
-
-                    for i in (0..pxu.active_point).rev() {
-                        let new_value = if pxu.points[i + 1].sheet_data.e_branch > 0 {
-                            ::pxu::kinematics::xp(
-                                pxu.points[i + 1].p,
-                                1.0,
-                                pxu.points[i + 1].consts,
-                            )
-                        } else {
-                            ::pxu::kinematics::xp_crossed(
-                                pxu.points[i + 1].p,
-                                1.0,
-                                pxu.points[i + 1].consts,
-                            )
-                        };
-                        let crossed_cuts = contour_generator
-                            .get_crossed_cuts(
-                                &pxu.points[i],
-                                pxu::Component::Xm,
-                                new_value,
-                                u_cut_type == UCutType::Long,
-                            )
-                            .collect::<Vec<_>>();
-                        pxu.points[i].update(pxu::Component::Xm, new_value, &crossed_cuts);
+                        pxu.update(j, self.component, new_value, contour_generator, u_cut_type);
                     }
                 }
 
