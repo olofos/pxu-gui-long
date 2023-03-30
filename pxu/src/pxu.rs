@@ -774,7 +774,7 @@ impl ContourGenerator {
         }
     }
 
-    fn generate_x_grid(&mut self, p_range: i32, consts: CouplingConstants) {
+    fn generate_x_grid(&mut self, p_range: i32, _consts: CouplingConstants) {
         if p_range == 0 {
             for m in -50..50 {
                 self.add(GeneratorCommands::AddGridLineX(m as f64));
