@@ -480,7 +480,7 @@ fn fig_xpl_preimage(
     }
 
     for cut in contour_generator
-        .get_visible_cuts(pt, pxu::Component::P, true)
+        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[])?;
@@ -650,7 +650,7 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in contour_generator.get_visible_cuts(pt, pxu::Component::P, true) {
+    for cut in contour_generator.get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long) {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
             | pxu::CutType::ULongNegative(pxu::Component::Xp) => color_mirror_p,
@@ -683,7 +683,7 @@ fn fig_p_plane_long_cuts_regions(
     }
 
     for cut in contour_generator
-        .get_visible_cuts(pt, pxu::Component::P, true)
+        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| {
             matches!(
                 cut.typ,

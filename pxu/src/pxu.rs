@@ -33,6 +33,13 @@ impl Component {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UCutType {
+    #[default]
+    Long,
+    Short,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum BranchPointType {
@@ -321,7 +328,7 @@ impl ContourGenerator {
         &self,
         pt: &Point,
         component: Component,
-        long_cuts: bool,
+        u_cut_type: UCutType,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
         pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
@@ -329,7 +336,7 @@ impl ContourGenerator {
 
         self.cuts
             .iter()
-            .filter(move |c| c.component == component && c.is_visible(&pt, long_cuts))
+            .filter(move |c| c.component == component && c.is_visible(&pt, u_cut_type))
     }
 
     pub fn get_crossed_cuts(
@@ -337,7 +344,7 @@ impl ContourGenerator {
         pt: &Point,
         component: Component,
         new_value: Complex64,
-        long_cuts: bool,
+        u_cut_type: UCutType,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
         pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
@@ -353,7 +360,7 @@ impl ContourGenerator {
 
         self.cuts.iter().filter(move |c| {
             c.component == component
-                && c.is_visible(&pt, long_cuts)
+                && c.is_visible(&pt, u_cut_type)
                 && c.intersection(pt.get(component), new_value).is_some()
         })
     }
@@ -1854,7 +1861,8 @@ enum CutVisibilityCondition {
 }
 
 impl CutVisibilityCondition {
-    fn check(&self, pt: &Point, long_cuts: bool) -> bool {
+    fn check(&self, pt: &Point, u_cut_type: UCutType) -> bool {
+        let long_cuts = u_cut_type == UCutType::Long;
         match self {
             Self::ImXp(sign) => pt.xp.im.signum() as i8 == sign.signum(),
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
@@ -1865,17 +1873,17 @@ impl CutVisibilityCondition {
 
             Self::ImXpOrUpBranch(b1, b2) => {
                 if long_cuts {
-                    Self::ImXp(*b1).check(pt, long_cuts)
+                    Self::ImXp(*b1).check(pt, u_cut_type)
                 } else {
-                    Self::UpBranch(*b2).check(pt, long_cuts)
+                    Self::UpBranch(*b2).check(pt, u_cut_type)
                 }
             }
 
             Self::ImXmOrUmBranch(b1, b2) => {
                 if long_cuts {
-                    Self::ImXm(*b1).check(pt, long_cuts)
+                    Self::ImXm(*b1).check(pt, u_cut_type)
                 } else {
-                    Self::UmBranch(*b2).check(pt, long_cuts)
+                    Self::UmBranch(*b2).check(pt, u_cut_type)
                 }
             }
 
@@ -2005,8 +2013,10 @@ impl Cut {
         None
     }
 
-    pub fn is_visible(&self, pt: &Point, long_cuts: bool) -> bool {
-        self.visibility.iter().all(|cond| cond.check(pt, long_cuts))
+    pub fn is_visible(&self, pt: &Point, u_cut_type: UCutType) -> bool {
+        self.visibility
+            .iter()
+            .all(|cond| cond.check(pt, u_cut_type))
     }
 }
 

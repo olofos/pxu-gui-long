@@ -6,13 +6,7 @@ use num::complex::Complex64;
 
 use ::pxu::kinematics::CouplingConstants;
 use ::pxu::pxu;
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq, Default)]
-enum UCutType {
-    #[default]
-    Long,
-    Short,
-}
+use ::pxu::pxu::UCutType;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -41,6 +35,7 @@ pub struct TemplateApp {
     p_range: i32,
     show_dots: bool,
     show_cuts: bool,
+    #[serde(skip)]
     u_cut_type: UCutType,
     #[serde(skip)]
     #[cfg(debug_assertions)]
@@ -153,12 +148,7 @@ impl Plot {
                         let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
                         let crossed_cuts = contour_generator
-                            .get_crossed_cuts(
-                                &pxu.points[pxu.active_point],
-                                self.component,
-                                new_value,
-                                u_cut_type == UCutType::Long,
-                            )
+                            .get_crossed_cuts(&pxu.points[j], self.component, new_value, u_cut_type)
                             .collect::<Vec<_>>();
 
                         pxu.points[pxu.active_point].update(
@@ -186,7 +176,7 @@ impl Plot {
                                     &pxu.points[i],
                                     pxu::Component::Xp,
                                     new_value,
-                                    u_cut_type == UCutType::Long,
+                                    u_cut_type,
                                 )
                                 .collect::<Vec<_>>();
                             pxu.points[i].update(pxu::Component::Xp, new_value, &crossed_cuts);
@@ -287,14 +277,11 @@ impl Plot {
                         0.0
                     };
 
-                    let long_cuts = match u_cut_type {
-                        UCutType::Long => true,
-                        UCutType::Short => false,
-                    };
-
                     let visible_cuts = contour_generator
-                        .get_visible_cuts(&pxu.points[pxu.active_point], self.component, long_cuts)
+                        .get_visible_cuts(&pxu.points[pxu.active_point], self.component, u_cut_type)
                         .collect::<Vec<_>>();
+
+                    let long_cuts = u_cut_type == UCutType::Long;
 
                     for cut in visible_cuts {
                         let color = match cut.typ {
