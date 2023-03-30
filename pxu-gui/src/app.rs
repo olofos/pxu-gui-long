@@ -31,8 +31,6 @@ pub struct TemplateApp {
     xm_plot: Plot,
     #[serde(skip)]
     u_plot: Plot,
-    #[serde(skip)]
-    p_range: i32,
     show_dots: bool,
     show_cuts: bool,
     #[serde(skip)]
@@ -433,7 +431,6 @@ impl Default for TemplateApp {
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
-            p_range,
             show_dots: false,
             show_cuts: true,
             u_cut_type: Default::default(),
@@ -487,7 +484,6 @@ impl eframe::App for TemplateApp {
         });
 
         let old_consts = self.consts;
-        let old_p_range = self.p_range;
 
         egui::SidePanel::right("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
@@ -503,7 +499,6 @@ impl eframe::App for TemplateApp {
                     .integer()
                     .text("k"),
             );
-            ui.add(egui::Slider::new(&mut self.p_range, -10..=5).text("Range"));
             ui.add(
                 egui::Slider::from_get_set(1.0..=((2 * self.pxu.consts.k()) as f64), |n| {
                     if let Some(n) = n {
@@ -619,31 +614,8 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        if old_consts != self.consts || old_p_range != self.p_range {
-            // self.pxu = PxuPoint::new(
-            //     self.pxu.p + 2.0 * PI * (self.p_range - old_p_range) as f64,
-            //     self.consts,
-            // );
-        }
-
         if old_consts != self.consts {
             self.pxu = pxu::State::new(self.pxu.points.len(), self.consts);
-            // self.pxu
-            //     .points
-            //     .iter_mut()
-            //     .for_each(|pxu| pxu.set_coupling_constants(self.consts));
-
-            // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
-
-            // self.u_plot.height /= (self.consts.h / old_consts.h) as f32;
-            // if self.consts.k() > 1 && old_consts.k() > 1 {
-            //     self.xp_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
-            //     self.u_plot.height *= (2 * self.consts.k()) as f32 / (2 * old_consts.k()) as f32;
-            // }
-        }
-
-        if old_p_range != self.p_range {
-            self.p_plot.origin.x += (self.p_range - old_p_range) as f32;
         }
 
         {
