@@ -66,7 +66,6 @@ enum XCut {
 #[derive(Debug)]
 enum GeneratorCommands {
     AddGridLineU(f64),
-    AddGridLineXReal(f64),
     AddGridLineX(f64),
     AddGridLineP,
 
@@ -385,20 +384,6 @@ impl ContourGenerator {
                     path,
                     component: GridLineComponent::Xp(m),
                 });
-            }
-
-            AddGridLineXReal(x) => {
-                if x > 0.0 {
-                    self.grid_x.push(GridLine {
-                        path: vec![Complex64::from(x), Complex64::from(INFINITY)],
-                        component: GridLineComponent::Real,
-                    });
-                } else {
-                    self.grid_x.push(GridLine {
-                        path: vec![Complex64::from(x), Complex64::from(-INFINITY)],
-                        component: GridLineComponent::Real,
-                    });
-                }
             }
 
             EStart(p_range) => {
