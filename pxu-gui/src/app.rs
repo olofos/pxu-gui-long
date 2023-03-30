@@ -504,7 +504,7 @@ impl eframe::App for TemplateApp {
                     .text("k"),
             );
             ui.add(
-                egui::Slider::from_get_set(1.0..=((2 * self.pxu.consts.k()) as f64), |n| {
+                egui::Slider::from_get_set(1.0..=8.0, |n| {
                     if let Some(n) = n {
                         self.pxu = pxu::State::new(n as usize, self.pxu.consts);
                     }
