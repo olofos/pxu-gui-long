@@ -2357,6 +2357,42 @@ impl Point {
                 return;
             }
         }
-        log::info!("no sol");
+    }
+
+    pub fn same_sheet(&self, other: &Point, component: Component, u_cut_type: UCutType) -> bool {
+        let sd1 = &self.sheet_data;
+        let sd2 = &other.sheet_data;
+
+        match component {
+            Component::P => sd1.e_branch == sd2.e_branch,
+            Component::U => {
+                if sd1.log_branch_m != sd2.log_branch_m || sd1.log_branch_p != sd2.log_branch_p {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.xp.im.signum() == other.xp.im.signum()
+                        && self.xm.im.signum() == other.xm.im.signum()
+                } else {
+                    sd1.u_branch == sd2.u_branch
+                }
+            }
+            Component::Xp => {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.xm.im.signum() == other.xm.im.signum()
+                } else {
+                    sd1.u_branch.1 == sd2.u_branch.1
+                }
+            }
+            Component::Xm => {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.xp.im.signum() == other.xp.im.signum()
+                } else {
+                    sd1.u_branch.0 == sd2.u_branch.0
+                }
+            }
+        }
     }
 }

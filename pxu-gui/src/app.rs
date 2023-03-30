@@ -327,7 +327,11 @@ impl Plot {
 
                     let fill = if is_active {
                         Color32::BLUE
-                    } else if pxu.points[i].sheet_data == pxu.active_point().sheet_data {
+                    } else if pxu.points[i].same_sheet(
+                        pxu.active_point(),
+                        self.component,
+                        u_cut_type,
+                    ) {
                         Color32::BLACK
                     } else {
                         Color32::GRAY
