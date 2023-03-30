@@ -22,7 +22,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     consts: CouplingConstants,
     #[serde(skip)]
-    pxu: Vec<pxu::Point>,
+    pxu: pxu::State,
     #[serde(skip)]
     z: num::complex::Complex64,
     #[serde(skip)]
@@ -63,7 +63,7 @@ impl Plot {
         show_dots: bool,
         show_cuts: bool,
         u_cut_type: UCutType,
-        pxu: &mut Vec<pxu::Point>,
+        pxu: &mut pxu::State,
     ) {
         egui::Frame::canvas(ui.style())
             .outer_margin(Margin::same(0.0))
@@ -121,43 +121,102 @@ impl Plot {
                     vec![]
                 };
 
-                let z = pxu[0].get(self.component);
+                let mut stroke = egui::epaint::Stroke::NONE;
 
-                let size = egui::epaint::Vec2::splat(8.0);
-                let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-                let point_rect = egui::Rect::from_center_size(center, size);
-                let point_id = response.id.with(0);
-                let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
+                let mut hovered_point = None;
 
-                let stroke = if point_response.hovered() || point_response.dragged() {
-                    egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
-                } else {
-                    egui::epaint::Stroke::NONE
-                };
+                for j in 0..pxu.points.len() {
+                    let z = pxu.points[j].get(self.component);
 
-                let radius = if point_response.hovered() || point_response.dragged() {
-                    6.0
-                } else {
-                    4.0
-                };
+                    let size = egui::epaint::Vec2::splat(8.0);
+                    let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+                    let point_rect = egui::Rect::from_center_size(center, size);
+                    let point_id = response.id.with(j);
+                    let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
 
-                if point_response.dragged() {
-                    let new_value = to_screen.inverse() * (center + point_response.drag_delta());
-                    let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
+                    if point_response.hovered() {
+                        hovered_point = Some(j);
+                    }
 
-                    let crossed_cuts = contour_generator
-                        .get_crossed_cuts(
-                            pxu,
+                    if point_response.dragged() {
+                        pxu.active_point = j;
+                    }
+
+                    if point_response.hovered() || point_response.dragged() {
+                        stroke = egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
+                    }
+
+                    if point_response.dragged() {
+                        let new_value =
+                            to_screen.inverse() * (center + point_response.drag_delta());
+                        let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
+
+                        let crossed_cuts = contour_generator
+                            .get_crossed_cuts(
+                                &pxu.points[pxu.active_point],
+                                self.component,
+                                new_value,
+                                u_cut_type == UCutType::Long,
+                            )
+                            .collect::<Vec<_>>();
+
+                        pxu.points[pxu.active_point].update(
                             self.component,
                             new_value,
-                            u_cut_type == UCutType::Long,
-                        )
-                        .collect::<Vec<_>>();
+                            &crossed_cuts,
+                        );
 
-                    pxu.update(self.component, new_value, &crossed_cuts);
+                        for i in (pxu.active_point + 1)..pxu.points.len() {
+                            let new_value = if pxu.points[i - 1].sheet_data.e_branch > 0 {
+                                ::pxu::kinematics::xm(
+                                    pxu.points[i - 1].p,
+                                    1.0,
+                                    pxu.points[i - 1].consts,
+                                )
+                            } else {
+                                ::pxu::kinematics::xm_crossed(
+                                    pxu.points[i - 1].p,
+                                    1.0,
+                                    pxu.points[i - 1].consts,
+                                )
+                            };
+                            let crossed_cuts = contour_generator
+                                .get_crossed_cuts(
+                                    &pxu.points[i],
+                                    pxu::Component::Xp,
+                                    new_value,
+                                    u_cut_type == UCutType::Long,
+                                )
+                                .collect::<Vec<_>>();
+                            pxu.points[i].update(pxu::Component::Xp, new_value, &crossed_cuts);
+                        }
+                    }
+
+                    for i in (0..pxu.active_point).rev() {
+                        let new_value = if pxu.points[i + 1].sheet_data.e_branch > 0 {
+                            ::pxu::kinematics::xp(
+                                pxu.points[i + 1].p,
+                                1.0,
+                                pxu.points[i + 1].consts,
+                            )
+                        } else {
+                            ::pxu::kinematics::xp_crossed(
+                                pxu.points[i + 1].p,
+                                1.0,
+                                pxu.points[i + 1].consts,
+                            )
+                        };
+                        let crossed_cuts = contour_generator
+                            .get_crossed_cuts(
+                                &pxu.points[i],
+                                pxu::Component::Xm,
+                                new_value,
+                                u_cut_type == UCutType::Long,
+                            )
+                            .collect::<Vec<_>>();
+                        pxu.points[i].update(pxu::Component::Xm, new_value, &crossed_cuts);
+                    }
                 }
-
-                let z = pxu.get(self.component);
 
                 let grid_contours = contour_generator.get_grid(self.component);
 
@@ -185,21 +244,44 @@ impl Plot {
                     }
                 }
 
-                let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+                for (i, pt) in pxu.points.iter().enumerate() {
+                    let z = pt.get(self.component);
+                    let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
 
-                shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                    center,
-                    radius,
-                    fill: Color32::BLUE,
-                    stroke,
-                }));
+                    let radius = if let Some(hovered_point) = hovered_point {
+                        if hovered_point == i {
+                            6.0
+                        } else {
+                            4.0
+                        }
+                    } else {
+                        4.0
+                    };
+
+                    shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                        center,
+                        radius,
+                        fill: if i == pxu.active_point {
+                            Color32::BLUE
+                        } else {
+                            Color32::GRAY
+                        },
+                        stroke: if i == pxu.active_point {
+                            stroke
+                        } else {
+                            egui::epaint::Stroke::NONE
+                        },
+                    }));
+                }
 
                 let mut branch_point_shapes = vec![];
 
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
-                        2.0 * (pxu.sheet_data.log_branch_p * pxu.consts.k()) as f32
-                            / pxu.consts.h as f32
+                        2.0 * (pxu.points[pxu.active_point].sheet_data.log_branch_p
+                            * pxu.points[pxu.active_point].consts.k())
+                            as f32
+                            / pxu.points[pxu.active_point].consts.h as f32
                     } else {
                         0.0
                     };
@@ -210,7 +292,7 @@ impl Plot {
                     };
 
                     let visible_cuts = contour_generator
-                        .get_visible_cuts(pxu, self.component, long_cuts)
+                        .get_visible_cuts(&pxu.points[pxu.active_point], self.component, long_cuts)
                         .collect::<Vec<_>>();
 
                     for cut in visible_cuts {
@@ -371,11 +453,26 @@ impl Plot {
 
 impl Default for TemplateApp {
     fn default() -> Self {
+        let bound_state_number = 3;
+
         let consts = CouplingConstants::new(2.0, 5);
         let p_range = 0;
+
+        let state = pxu::State::new(bound_state_number, consts);
+        log::info!(
+            "\nxp         xm         u\n{}",
+            state
+                .points
+                .iter()
+                .map(|pt| format!("{:.2} {:.2} {:.2}", pt.xp, pt.xm, pt.u))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
         Self {
             consts,
-            pxu: vec![pxu::Point::new(p_range as f64 + 0.25, consts)],
+            // pxu: vec![pxu::Point::new(p0, consts), pxu::Point::new(p_conj, consts)],
+            pxu: state,
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
             contour_generator: pxu::ContourGenerator::new(),
@@ -470,6 +567,16 @@ impl eframe::App for TemplateApp {
                     .text("k"),
             );
             ui.add(egui::Slider::new(&mut self.p_range, -10..=5).text("Range"));
+            ui.add(
+                egui::Slider::from_get_set(1.0..=((2 * self.pxu.consts.k()) as f64), |n| {
+                    if let Some(n) = n {
+                        self.pxu = pxu::State::new(n as usize, self.pxu.consts);
+                    }
+                    self.pxu.points.len() as f64
+                })
+                .integer()
+                .text("M"),
+            );
 
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
             ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
@@ -489,12 +596,13 @@ impl eframe::App for TemplateApp {
             {
                 ui.label(format!(
                     "Momentum: {:.2}",
-                    self.pxu.iter().map(|pxu| pxu.p).sum::<Complex64>()
+                    self.pxu.points.iter().map(|pxu| pxu.p).sum::<Complex64>()
                 ));
 
                 {
                     let en = self
                         .pxu
+                        .points
                         .iter()
                         .map(|pxu| {
                             let xp = pxu.xp;
@@ -507,13 +615,22 @@ impl eframe::App for TemplateApp {
 
                 ui.label(format!(
                     "Log branches: {:+} {:+}",
-                    self.pxu[0].sheet_data.log_branch_p, self.pxu[0].sheet_data.log_branch_m
+                    self.pxu.points[self.pxu.active_point]
+                        .sheet_data
+                        .log_branch_p,
+                    self.pxu.points[self.pxu.active_point]
+                        .sheet_data
+                        .log_branch_m
                 ));
 
-                ui.label(format!("E branch: {:+} ", self.pxu[0].sheet_data.e_branch));
+                ui.label(format!(
+                    "E branch: {:+} ",
+                    self.pxu.points[self.pxu.active_point].sheet_data.e_branch
+                ));
                 ui.label(format!(
                     "U branch: ({:+},{:+}) ",
-                    self.pxu[0].sheet_data.u_branch.0, self.pxu[0].sheet_data.u_branch.1
+                    self.pxu.points[self.pxu.active_point].sheet_data.u_branch.0,
+                    self.pxu.points[self.pxu.active_point].sheet_data.u_branch.1
                 ));
             }
 
@@ -553,9 +670,11 @@ impl eframe::App for TemplateApp {
         }
 
         if old_consts != self.consts {
-            self.pxu
-                .iter_mut()
-                .for_each(|pxu| pxu.set_coupling_constants(self.consts));
+            self.pxu = pxu::State::new(self.pxu.points.len(), self.consts);
+            // self.pxu
+            //     .points
+            //     .iter_mut()
+            //     .for_each(|pxu| pxu.set_coupling_constants(self.consts));
 
             // self.xp_plot.height *= (self.consts.s() / old_consts.s()) as f32;
 
@@ -575,7 +694,10 @@ impl eframe::App for TemplateApp {
             while (chrono::Utc::now() - start).num_milliseconds()
                 < (1000.0 / 20.0f64).floor() as i64
             {
-                if self.contour_generator.update(&self.pxu[0]) {
+                if self
+                    .contour_generator
+                    .update(&self.pxu.points[self.pxu.active_point])
+                {
                     break;
                 }
                 ctx.request_repaint();
@@ -592,7 +714,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu[0],
+                    &mut self.pxu,
                 );
 
                 self.u_plot.draw(
@@ -602,7 +724,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu[0],
+                    &mut self.pxu,
                 );
             });
             ui.horizontal(|ui| {
@@ -613,7 +735,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu[0],
+                    &mut self.pxu,
                 );
 
                 self.xm_plot.draw(
@@ -623,7 +745,7 @@ impl eframe::App for TemplateApp {
                     self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
-                    &mut self.pxu[0],
+                    &mut self.pxu,
                 );
             });
         });

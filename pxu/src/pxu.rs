@@ -2011,6 +2011,43 @@ impl Cut {
 }
 
 #[derive(Debug, Clone)]
+pub struct State {
+    pub points: Vec<Point>,
+    pub consts: CouplingConstants,
+    pub active_point: usize,
+}
+
+impl State {
+    pub fn new(m: usize, consts: CouplingConstants) -> Self {
+        let mut points = vec![];
+
+        let mut p_int = PInterpolatorMut::xp(0.15, consts);
+        p_int.goto_m(m as f64);
+        points.push(Point::new(p_int.p(), consts));
+
+        for i in 1..m {
+            let mut pt = points[i - 1].clone();
+            let u = pt.u;
+            let steps = 4;
+            for n in 1..=steps {
+                pt.update(
+                    Component::U,
+                    u - 2.0 * Complex64::i() / consts.h * (n as f64 / steps as f64),
+                    &[],
+                );
+            }
+            points.push(pt);
+        }
+
+        Self {
+            points,
+            consts,
+            active_point: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Point {
     pub p: Complex64,
     pub xp: Complex64,
@@ -2263,8 +2300,9 @@ impl Point {
             };
 
             if self.try_set(p, &new_sheet_data) {
-                break;
+                return;
             }
         }
+        log::info!("no sol");
     }
 }
