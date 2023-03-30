@@ -531,43 +531,63 @@ impl eframe::App for TemplateApp {
             ui.separator();
 
             {
+                let p = self.pxu.points.iter().map(|pxu| pxu.p).sum::<Complex64>();
+                ui.label(format!("Momentum: {:.2}", p));
+
+                let en = self
+                    .pxu
+                    .points
+                    .iter()
+                    .map(|pxu| {
+                        let xp = pxu.xp;
+                        let xm = pxu.xm;
+                        -Complex64::i() * pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
+                    })
+                    .sum::<Complex64>();
                 ui.label(format!(
-                    "Momentum: {:.2}",
-                    self.pxu.points.iter().map(|pxu| pxu.p).sum::<Complex64>()
+                    "Energy: {:.2} / {:.2}",
+                    en,
+                    ::pxu::kinematics::en(p, self.pxu.points.len() as f64, self.pxu.consts)
+                ));
+            }
+
+            ui.separator();
+
+            {
+                ui.label("Active excitation:");
+
+                ui.label(format!("Momentum: {:.2}", self.pxu.active_point().p));
+
+                let xp = self.pxu.active_point().xp;
+                let xm = self.pxu.active_point().xm;
+
+                ui.label(format!(
+                    "Energy: {:.2}",
+                    -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
                 ));
 
-                {
-                    let en = self
-                        .pxu
-                        .points
-                        .iter()
-                        .map(|pxu| {
-                            let xp = pxu.xp;
-                            let xm = pxu.xm;
-                            -Complex64::i() * pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
-                        })
-                        .sum::<Complex64>();
-                    ui.label(format!("Energy: {:.2}", en));
-                }
+                ui.add_space(10.0);
+                ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
+                ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
+                ui.label(format!("u: {:.3}", self.pxu.active_point().u));
+
+                ui.add_space(10.0);
+                ui.label("Branch info:");
 
                 ui.label(format!(
                     "Log branches: {:+} {:+}",
-                    self.pxu.points[self.pxu.active_point]
-                        .sheet_data
-                        .log_branch_p,
-                    self.pxu.points[self.pxu.active_point]
-                        .sheet_data
-                        .log_branch_m
+                    self.pxu.active_point().sheet_data.log_branch_p,
+                    self.pxu.active_point().sheet_data.log_branch_m
                 ));
 
                 ui.label(format!(
                     "E branch: {:+} ",
-                    self.pxu.points[self.pxu.active_point].sheet_data.e_branch
+                    self.pxu.active_point().sheet_data.e_branch
                 ));
                 ui.label(format!(
                     "U branch: ({:+},{:+}) ",
-                    self.pxu.points[self.pxu.active_point].sheet_data.u_branch.0,
-                    self.pxu.points[self.pxu.active_point].sheet_data.u_branch.1
+                    self.pxu.active_point().sheet_data.u_branch.0,
+                    self.pxu.active_point().sheet_data.u_branch.1
                 ));
             }
 
