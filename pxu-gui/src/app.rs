@@ -63,7 +63,7 @@ impl Plot {
         show_dots: bool,
         show_cuts: bool,
         u_cut_type: UCutType,
-        pxu: &mut pxu::Point,
+        pxu: &mut Vec<pxu::Point>,
     ) {
         egui::Frame::canvas(ui.style())
             .outer_margin(Margin::same(0.0))
@@ -100,40 +100,28 @@ impl Plot {
 
                 let origin = to_screen * egui::pos2(0.0, 0.0);
 
-                let mut shapes = vec![
-                    egui::epaint::Shape::line(
-                        vec![
-                            egui::pos2(rect.left(), origin.y),
-                            egui::pos2(rect.right(), origin.y),
-                        ],
-                        Stroke::new(0.75, Color32::DARK_GRAY),
-                    ),
-                    egui::epaint::Shape::line(
-                        vec![
-                            egui::pos2(origin.x, rect.bottom()),
-                            egui::pos2(origin.x, rect.top()),
-                        ],
-                        Stroke::new(0.75, Color32::DARK_GRAY),
-                    ),
-                ];
-
-                if self.component == pxu::Component::P {
-                    for i in -5..5 {
-                        if i == 0 {
-                            continue;
-                        }
-                        let origin = to_screen * egui::pos2(i as f32, 0.0);
-                        shapes.push(egui::epaint::Shape::line(
+                let mut shapes = if self.component != pxu::Component::P {
+                    vec![
+                        egui::epaint::Shape::line(
+                            vec![
+                                egui::pos2(rect.left(), origin.y),
+                                egui::pos2(rect.right(), origin.y),
+                            ],
+                            Stroke::new(0.75, Color32::DARK_GRAY),
+                        ),
+                        egui::epaint::Shape::line(
                             vec![
                                 egui::pos2(origin.x, rect.bottom()),
                                 egui::pos2(origin.x, rect.top()),
                             ],
                             Stroke::new(0.75, Color32::DARK_GRAY),
-                        ));
-                    }
-                }
+                        ),
+                    ]
+                } else {
+                    vec![]
+                };
 
-                let z = pxu.get(self.component);
+                let z = pxu[0].get(self.component);
 
                 let size = egui::epaint::Vec2::splat(8.0);
                 let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
