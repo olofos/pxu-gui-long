@@ -43,6 +43,7 @@ pub struct TemplateApp {
     show_cuts: bool,
     u_cut_type: UCutType,
     #[serde(skip)]
+    #[cfg(debug_assertions)]
     frame_history: crate::frame_history::FrameHistory,
 }
 
@@ -504,6 +505,7 @@ impl Default for TemplateApp {
             show_dots: false,
             show_cuts: true,
             u_cut_type: Default::default(),
+            #[cfg(debug_assertions)]
             frame_history: Default::default(),
         }
     }
@@ -534,8 +536,11 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.frame_history
-            .on_new_frame(ctx.input().time, _frame.info().cpu_usage);
+        #[cfg(debug_assertions)]
+        {
+            self.frame_history
+                .on_new_frame(ctx.input().time, _frame.info().cpu_usage);
+        }
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
