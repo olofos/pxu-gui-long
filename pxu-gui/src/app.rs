@@ -235,36 +235,6 @@ impl Plot {
                     }
                 }
 
-                for (i, pt) in pxu.points.iter().enumerate() {
-                    let z = pt.get(self.component);
-                    let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
-
-                    let radius = if let Some(hovered_point) = hovered_point {
-                        if hovered_point == i {
-                            6.0
-                        } else {
-                            4.0
-                        }
-                    } else {
-                        4.0
-                    };
-
-                    shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                        center,
-                        radius,
-                        fill: if i == pxu.active_point {
-                            Color32::BLUE
-                        } else {
-                            Color32::GRAY
-                        },
-                        stroke: if i == pxu.active_point {
-                            stroke
-                        } else {
-                            egui::epaint::Stroke::NONE
-                        },
-                    }));
-                }
-
                 let mut branch_point_shapes = vec![];
 
                 if show_cuts {
@@ -396,6 +366,44 @@ impl Plot {
                             ));
                         }
                     }
+                }
+
+                for (i, pt) in pxu.points.iter().enumerate() {
+                    let is_hovered = matches!(hovered_point, Some(n) if n == i);
+                    let is_dragged = matches!(dragged_point, Some(n) if n == i);
+                    let is_active = pxu.active_point == i;
+
+                    let z = pt.get(self.component);
+                    let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+
+                    let radius = if is_hovered || is_dragged {
+                        6.0
+                    } else if is_active {
+                        5.0
+                    } else {
+                        4.0
+                    };
+
+                    let stroke = if is_active {
+                        egui::epaint::Stroke::new(2.0, Color32::LIGHT_BLUE)
+                    } else {
+                        egui::epaint::Stroke::NONE
+                    };
+
+                    let fill = if is_active {
+                        Color32::BLUE
+                    } else if pxu.points[i].sheet_data == pxu.active_point().sheet_data {
+                        Color32::BLACK
+                    } else {
+                        Color32::GRAY
+                    };
+
+                    shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                        center,
+                        radius,
+                        fill,
+                        stroke,
+                    }));
                 }
 
                 {
