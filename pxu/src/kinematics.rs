@@ -36,11 +36,29 @@ impl CouplingConstants {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UBranch {
+    Outside,
+    Between,
+    Inside,
+}
+
+impl std::fmt::Display for UBranch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Outside => "outside",
+            Self::Between => "between",
+            Self::Inside => "inside",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SheetData {
     pub log_branch_p: i32,
     pub log_branch_m: i32,
     pub e_branch: i32,
-    pub u_branch: (i32, i32),
+    pub u_branch: (UBranch, UBranch),
 }
 
 pub fn en(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
