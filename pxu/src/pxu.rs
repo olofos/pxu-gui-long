@@ -2049,10 +2049,12 @@ impl State {
             points.push(pt);
         }
 
+        let active_point = points.len() / 2;
+
         Self {
             points,
             consts,
-            active_point: 0,
+            active_point,
         }
     }
 
