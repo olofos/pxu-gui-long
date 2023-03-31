@@ -521,6 +521,7 @@ impl eframe::App for TemplateApp {
             ui.horizontal(|ui| {
                 ui.label("U cuts: ");
                 ui.radio_value(&mut self.u_cut_type, UCutType::Long, "Long");
+                ui.radio_value(&mut self.u_cut_type, UCutType::SemiShort, "Semi short");
                 ui.radio_value(&mut self.u_cut_type, UCutType::Short, "Short");
             });
 

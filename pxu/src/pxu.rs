@@ -1917,6 +1917,7 @@ enum CutVisibilityCondition {
     LongCuts,
     SemiShortCuts,
     ShortCuts,
+    ShortOrSemiShortCuts,
 }
 
 impl CutVisibilityCondition {
@@ -1927,28 +1928,45 @@ impl CutVisibilityCondition {
             Self::ImXm(sign) => pt.xm.im.signum() as i8 == sign.signum(),
             Self::LogBranch(b) => *b == (pt.sheet_data.log_branch_p + pt.sheet_data.log_branch_m),
             Self::EBranch(b) => pt.sheet_data.e_branch == *b,
-            Self::UpBranch(b) => pt.sheet_data.u_branch.0 == *b,
-            Self::UmBranch(b) => pt.sheet_data.u_branch.1 == *b,
-
-            Self::ImXpOrUpBranch(b1, b2) => {
-                if long_cuts {
-                    Self::ImXp(*b1).check(pt, u_cut_type)
+            Self::UpBranch(b) => {
+                if u_cut_type == UCutType::SemiShort {
+                    if *b == UBranch::Between || *b == UBranch::Inside {
+                        pt.sheet_data.u_branch.0 != UBranch::Outside
+                    } else {
+                        pt.sheet_data.u_branch.0 == UBranch::Outside
+                    }
                 } else {
-                    Self::UpBranch(b2.clone()).check(pt, u_cut_type)
+                    pt.sheet_data.u_branch.0 == *b
+                }
+            }
+            Self::UmBranch(b) => {
+                if u_cut_type == UCutType::SemiShort {
+                    if *b == UBranch::Between || *b == UBranch::Inside {
+                        pt.sheet_data.u_branch.1 != UBranch::Outside
+                    } else {
+                        pt.sheet_data.u_branch.1 == UBranch::Outside
+                    }
+                } else {
+                    pt.sheet_data.u_branch.1 == *b
                 }
             }
 
-            Self::ImXmOrUmBranch(b1, b2) => {
-                if long_cuts {
-                    Self::ImXm(*b1).check(pt, u_cut_type)
-                } else {
-                    Self::UmBranch(b2.clone()).check(pt, u_cut_type)
-                }
-            }
+            Self::ImXpOrUpBranch(b1, b2) => match u_cut_type {
+                UCutType::Long => Self::ImXp(*b1).check(pt, u_cut_type),
+                UCutType::SemiShort => Self::UpBranch(b2.clone()).check(pt, u_cut_type),
+                UCutType::Short => false,
+            },
+
+            Self::ImXmOrUmBranch(b1, b2) => match u_cut_type {
+                UCutType::Long => Self::ImXm(*b1).check(pt, u_cut_type),
+                UCutType::SemiShort => Self::UmBranch(b2.clone()).check(pt, u_cut_type),
+                UCutType::Short => false,
+            },
 
             Self::LongCuts => long_cuts,
             Self::SemiShortCuts => u_cut_type == UCutType::SemiShort,
             Self::ShortCuts => u_cut_type == UCutType::Short,
+            Self::ShortOrSemiShortCuts => !long_cuts,
         }
     }
 
@@ -1966,6 +1984,7 @@ impl CutVisibilityCondition {
             Self::LongCuts => Self::LongCuts,
             Self::SemiShortCuts => Self::SemiShortCuts,
             Self::ShortCuts => Self::ShortCuts,
+            Self::ShortOrSemiShortCuts => Self::ShortOrSemiShortCuts,
         }
     }
 }
@@ -2406,6 +2425,18 @@ impl Point {
                     new_sheet_data.u_branch = (
                         new_sheet_data.u_branch.0,
                         new_sheet_data.u_branch.1.cross_scallion(),
+                    );
+                }
+                CutType::UShortKidney(Component::Xp) => {
+                    new_sheet_data.u_branch = (
+                        new_sheet_data.u_branch.0.cross_kidney(),
+                        new_sheet_data.u_branch.1,
+                    );
+                }
+                CutType::UShortKidney(Component::Xm) => {
+                    new_sheet_data.u_branch = (
+                        new_sheet_data.u_branch.0,
+                        new_sheet_data.u_branch.1.cross_kidney(),
                     );
                 }
                 CutType::Log(Component::Xp) => {
