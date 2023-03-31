@@ -120,7 +120,7 @@ enum GeneratorCommands {
     ComputeCutEU,
     SetCutPath(Vec<Complex64>, Option<Complex64>),
     PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
-    SplitCut(i32, Component, CutType),
+    SplitCut(i32, Component, CutType, bool),
 
     EStart(i32),
 
@@ -633,7 +633,7 @@ impl ContourGenerator {
                 self.cuts.push(cut.shift(shift));
             }
 
-            SplitCut(p_range, component, cut_typ) => {
+            SplitCut(p_range, component, cut_typ, bp_old) => {
                 let Some(mut cut) = self.cuts.pop() else {return};
                 let Some(_) = self.cuts.pop() else {return};
                 let Some(ref path) = self.rctx.cut_data.path else { return };
@@ -667,6 +667,10 @@ impl ContourGenerator {
                             component: cut.component,
                             visibility: vec![],
                         };
+                        if !bp_old && cut.branch_point.is_some() {
+                            new_cut.branch_point = cut.branch_point;
+                            cut.branch_point = None;
+                        }
                         for vis in cut.visibility.iter() {
                             let vis = match vis {
                                 CutVisibilityCondition::UpBranch(b) => {
@@ -1078,8 +1082,16 @@ impl ContourGenerator {
         self
     }
 
-    fn split_cut(&mut self, p_range: i32, component: Component, cut_type: CutType) -> &mut Self {
-        self.add(GeneratorCommands::SplitCut(p_range, component, cut_type))
+    fn split_cut(
+        &mut self,
+        p_range: i32,
+        component: Component,
+        cut_type: CutType,
+        bp_old: bool,
+    ) -> &mut Self {
+        self.add(GeneratorCommands::SplitCut(
+            p_range, component, cut_type, bp_old,
+        ))
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
@@ -1155,6 +1167,14 @@ impl ContourGenerator {
         self
     }
 
+    fn xp_inside(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::UpBranch(UBranch::Inside));
+        self
+    }
+
     fn xm_outside(&mut self) -> &mut Self {
         self.bctx
             .cut_data
@@ -1171,11 +1191,35 @@ impl ContourGenerator {
         self
     }
 
+    fn xm_inside(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::UmBranch(UBranch::Inside));
+        self
+    }
+
     fn semishort_cuts(&mut self) -> &mut Self {
         self.bctx
             .cut_data
             .visibility
             .push(CutVisibilityCondition::SemiShortCuts);
+        self
+    }
+
+    fn short_cuts(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::ShortCuts);
+        self
+    }
+
+    fn short_or_semishort_cuts(&mut self) -> &mut Self {
+        self.bctx
+            .cut_data
+            .visibility
+            .push(CutVisibilityCondition::ShortOrSemiShortCuts);
         self
     }
 
@@ -1579,16 +1623,19 @@ impl ContourGenerator {
                 .xp_between()
                 .push_cut(p_range);
 
-            self.clear_cut()
-                .compute_branch_point(
-                    p_range,
-                    BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
-                )
-                .compute_cut_path_x(CutDirection::Positive)
-                .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
-                .log_branch(p_range)
-                .xp_between()
-                .push_cut(p_range);
+            if p_range != 0 {
+                // For p = 0 we add this after E
+                self.clear_cut()
+                    .compute_branch_point(
+                        p_range,
+                        BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
+                    )
+                    .compute_cut_path_x(CutDirection::Positive)
+                    .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_between()
+                    .push_cut(p_range);
+            }
 
             self.clear_cut()
                 .compute_branch_point(
@@ -1723,7 +1770,7 @@ impl ContourGenerator {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
                 .semishort_cuts()
-                .xm_between()
+                .xm_inside()
                 .push_cut(p_range);
 
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
@@ -1732,10 +1779,17 @@ impl ContourGenerator {
                     p_range,
                     Component::Xm,
                     CutType::UShortScallion(Component::Xp),
+                    true,
                 );
 
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
+                .push_cut(p_range);
+        } else if p_range == -1 {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range)
+                .semishort_cuts()
+                .xm_between()
                 .push_cut(p_range);
         } else if p_range < 0 {
             self.create_cut(Component::Xp, CutType::E)
@@ -1761,7 +1815,26 @@ impl ContourGenerator {
         if p_range == 0 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
+                .xp_inside()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .compute_branch_point(
+                    p_range,
+                    BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
+                )
+                .compute_cut_path_x(CutDirection::Positive);
+
+            self.split_cut(
+                p_range,
+                Component::Xp,
+                CutType::UShortKidney(Component::Xp),
+                false,
+            );
+
+            self.create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range)
                 .xp_between()
                 .push_cut(p_range);
         } else if p_range == -1 {
@@ -1777,6 +1850,7 @@ impl ContourGenerator {
                     p_range,
                     Component::Xp,
                     CutType::UShortScallion(Component::Xp),
+                    true,
                 );
 
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
@@ -1825,6 +1899,7 @@ impl ContourGenerator {
                 p_range,
                 Component::Xm,
                 CutType::UShortScallion(Component::Xp),
+                true,
             );
 
             self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
@@ -1850,6 +1925,7 @@ impl ContourGenerator {
                 p_range,
                 Component::Xp,
                 CutType::UShortScallion(Component::Xp),
+                true,
             );
 
             self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
