@@ -35,8 +35,8 @@ impl Component {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UCutType {
-    #[default]
     Long,
+    #[default]
     Short,
 }
 
