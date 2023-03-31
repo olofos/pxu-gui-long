@@ -2368,8 +2368,13 @@ impl Point {
         match component {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
-                if sd1.log_branch_m != sd2.log_branch_m || sd1.log_branch_p != sd2.log_branch_p {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
                     false
+                } else if self.consts.k() > 0
+                    && (sd1.log_branch_p - sd1.log_branch_m)
+                        != (sd2.log_branch_p - sd2.log_branch_m)
+                {
+                    return false;
                 } else if u_cut_type == UCutType::Long {
                     self.xp.im.signum() == other.xp.im.signum()
                         && self.xm.im.signum() == other.xm.im.signum()
