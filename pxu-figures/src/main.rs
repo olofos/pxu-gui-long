@@ -227,6 +227,10 @@ progress_file=io.open(""#;
             pxu::CutType::ULongNegative(pxu::Component::Xp) => ("red", "dashed"),
             pxu::CutType::ULongPositive(pxu::Component::Xm) => ("green", ""),
             pxu::CutType::ULongNegative(pxu::Component::Xm) => ("green", "dashed"),
+            pxu::CutType::UShortScallion(pxu::Component::Xp) => ("red", ""),
+            pxu::CutType::UShortKidney(pxu::Component::Xp) => ("red", "dashed"),
+            pxu::CutType::UShortScallion(pxu::Component::Xm) => ("green", ""),
+            pxu::CutType::UShortKidney(pxu::Component::Xm) => ("green", "dashed"),
             _ => {
                 return Ok(());
             }
@@ -697,6 +701,47 @@ fn fig_p_plane_long_cuts_regions(
     figure.finish(cache)
 }
 
+fn fig_p_plane_short_cuts(
+    contour_generator: Arc<ContourGenerator>,
+    cache: Arc<cache::Cache>,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-plane-short-cuts",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 25.0,
+            height: 6.0 * 25.0 / 15.0,
+        },
+        pxu::Component::P,
+    )?;
+
+    let Some(consts) = contour_generator.consts else {
+        return Err(error("No consts set"));
+    };
+
+    let pt = &pxu::Point::new(0.5, consts);
+
+    for contour in contour_generator.get_grid(pxu::Component::P).iter()
+    // .take(100)
+    {
+        figure.add_grid_line(contour, &[])?;
+    }
+
+    for cut in contour_generator
+        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::SemiShort)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &[])?;
+    }
+
+    figure.finish(cache)
+}
+
 fn main() -> std::io::Result<()> {
     // tracing_subscriber::fmt::fmt()
     //     .with_writer(std::io::stderr)
@@ -732,6 +777,7 @@ fn main() -> std::io::Result<()> {
         fig_xpl_preimage,
         fig_xpl_cover,
         fig_p_plane_long_cuts_regions,
+        fig_p_plane_short_cuts,
     ];
 
     let contour_generator_ref = Arc::new(contour_generator);
