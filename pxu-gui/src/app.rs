@@ -514,6 +514,7 @@ impl eframe::App for TemplateApp {
                 .text("M"),
             );
 
+            #[cfg(debug_assertions)]
             ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
             ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
 
