@@ -1653,7 +1653,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pxu_gui"
+name = "pxu-gui"
 version = "0.1.0"
 dependencies = [
  "chrono",

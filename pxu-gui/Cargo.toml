@@ -1,5 +1,5 @@
 [package]
-name = "pxu_gui"
+name = "pxu-gui"
 version = "0.1.0"
 authors = ["Olof Ohlsson Sax <olof.ohlsson.sax@gmail.com>"]
 edition = "2021"
