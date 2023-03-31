@@ -694,10 +694,10 @@ impl ContourGenerator {
                             new_cut.visibility.push(vis);
                         }
                         log::debug!("Intersection found");
-                        self.cuts.push(cut.shift_conj(shift));
-                        self.cuts.push(cut);
                         self.cuts.push(new_cut.shift_conj(shift));
                         self.cuts.push(new_cut);
+                        self.cuts.push(cut.shift_conj(shift));
+                        self.cuts.push(cut);
 
                         return;
                     }
@@ -1648,37 +1648,41 @@ impl ContourGenerator {
                 .xp_between()
                 .push_cut(p_range);
 
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(
-                        -us,
-                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
-                    )),
-                )
-                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                .log_branch(p_range)
-                .xp_between()
-                .push_cut(p_range);
+            if p_range != -1 {
+                self.clear_cut()
+                    .set_cut_path(
+                        vec![
+                            Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                            Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        ],
+                        Some(Complex64::new(
+                            -us,
+                            -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                        )),
+                    )
+                    .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_between()
+                    .push_cut(p_range);
+            }
 
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(
-                        -us,
-                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-                    )),
-                )
-                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                .log_branch(p_range)
-                .xp_between()
-                .push_cut(p_range);
+            if p_range != 0 {
+                self.clear_cut()
+                    .set_cut_path(
+                        vec![
+                            Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                            Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        ],
+                        Some(Complex64::new(
+                            -us,
+                            -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                        )),
+                    )
+                    .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_between()
+                    .push_cut(p_range);
+            }
 
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
@@ -1902,8 +1906,50 @@ impl ContourGenerator {
                 true,
             );
 
-            self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
+                )
+                .split_cut(
+                    p_range,
+                    Component::Xp,
+                    CutType::UShortKidney(Component::Xm),
+                    false,
+                );
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
+                )
+                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range)
+                .xp_between()
                 .push_cut(p_range);
         } else if p_range == -1 {
             self.compute_cut_e_u()
@@ -1928,7 +1974,38 @@ impl ContourGenerator {
                 true,
             );
 
-            self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                    )),
+                )
+                .split_cut(
+                    p_range,
+                    Component::Xm,
+                    CutType::UShortKidney(Component::Xp),
+                    false,
+                );
+
+            self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range)
+                .xp_between()
+                .push_cut(p_range);
+
+            self.clear_cut()
+                .set_cut_path(
+                    vec![
+                        Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+                )
+                .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
                 .push_cut(p_range);
         } else if p_range > 0 {
