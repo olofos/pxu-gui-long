@@ -39,7 +39,8 @@ impl UBranch {
             Self::Outside => Self::Between,
             Self::Between => Self::Outside,
             Self::Inside => {
-                unreachable!("Can't cross scallion from inside kidney");
+                log::error!("Can't cross scallion from inside kidney");
+                Self::Outside
             }
         }
     }
@@ -49,7 +50,8 @@ impl UBranch {
             Self::Inside => Self::Between,
             Self::Between => Self::Inside,
             Self::Outside => {
-                unreachable!("Can't cross kidney from outside scallion");
+                log::error!("Can't cross kidney from outside scallion");
+                Self::Inside
             }
         }
     }
