@@ -1789,12 +1789,6 @@ impl ContourGenerator {
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .log_branch(p_range)
                 .push_cut(p_range);
-        } else if p_range == -1 {
-            self.create_cut(Component::Xp, CutType::E)
-                .log_branch(p_range)
-                .short_or_semishort_cuts()
-                .xm_between()
-                .push_cut(p_range);
         } else if p_range < 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
@@ -2640,13 +2634,12 @@ impl Point {
         match component {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
-                    false
-                } else if self.consts.k() > 0
-                    && (sd1.log_branch_p - sd1.log_branch_m)
-                        != (sd2.log_branch_p - sd2.log_branch_m)
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
+                    || self.consts.k() > 0
+                        && (sd1.log_branch_p - sd1.log_branch_m)
+                            != (sd2.log_branch_p - sd2.log_branch_m)
                 {
-                    return false;
+                    false
                 } else if u_cut_type == UCutType::Long {
                     self.xp.im.signum() == other.xp.im.signum()
                         && self.xm.im.signum() == other.xm.im.signum()
