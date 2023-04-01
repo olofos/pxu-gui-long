@@ -1773,7 +1773,7 @@ impl ContourGenerator {
         if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xm_inside()
                 .push_cut(p_range);
 
@@ -1792,19 +1792,19 @@ impl ContourGenerator {
         } else if p_range == -1 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xm_between()
                 .push_cut(p_range);
         } else if p_range < 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xm_between()
                 .push_cut(p_range);
         } else {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xm_outside()
                 .push_cut(p_range);
         }
