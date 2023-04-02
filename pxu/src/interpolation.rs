@@ -183,61 +183,73 @@ where
 {
     fn mid_point(t1: &T, t2: &T) -> T;
     fn cmp(t1: &T, t2: &T) -> Option<std::cmp::Ordering>;
+}
 
-    fn refine_raw(
-        points: impl Into<Vec<(T, Complex64)>>,
-        eval: impl Fn(T, Complex64) -> Option<Complex64>,
-    ) -> Vec<(T, Complex64)> {
-        let mut points: Vec<(T, Complex64)> = points.into();
+impl Refiner<(f64, Complex64)> for (f64, Complex64) {
+    fn mid_point(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> (f64, Complex64) {
+        ((t1.0 + t2.0) / 2.0, (t1.1 + t2.1) / 2.0)
+    }
 
-        let min_cos = (2.0 * TAU / 360.0).cos();
+    fn cmp(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> Option<std::cmp::Ordering> {
+        t1.0.partial_cmp(&t2.0)
+    }
+}
 
-        for i in 0.. {
-            let mut refinements: Vec<(T, Complex64)> = vec![];
+impl Refiner<f64> for f64 {
+    fn mid_point(t1: &f64, t2: &f64) -> f64 {
+        (t1 + t2) / 2.0
+    }
 
-            let mut prev = false;
-            for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
-                let z1 = x2 - x1;
-                let z2 = x3 - x2;
-                let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
-                if cos < min_cos {
-                    if !prev {
-                        refinements.push((Self::mid_point(p1, p2), (x1 + x2) / 2.0));
-                    }
-                    refinements.push((Self::mid_point(p2, p3), (x2 + x3) / 2.0));
-                } else {
-                    prev = false;
+    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
+        t1.partial_cmp(t2)
+    }
+}
+
+fn refine<T: Refiner<T> + Clone>(
+    points: impl Into<Vec<(T, Complex64)>>,
+    eval: impl Fn(T, Complex64) -> Option<Complex64>,
+) -> Vec<Complex64> {
+    let mut points: Vec<(T, Complex64)> = points.into();
+
+    let min_cos = (2.0 * TAU / 360.0).cos();
+
+    for i in 0.. {
+        let mut refinements: Vec<(T, Complex64)> = vec![];
+
+        let mut prev = false;
+        for ((p1, x1), (p2, x2), (p3, x3)) in points.iter().tuple_windows::<(_, _, _)>() {
+            let z1 = x2 - x1;
+            let z2 = x3 - x2;
+            let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
+            if cos < min_cos {
+                if !prev {
+                    refinements.push((T::mid_point(p1, p2), (x1 + x2) / 2.0));
                 }
-            }
-
-            if refinements.is_empty() {
-                break;
-            }
-
-            for (point, z) in refinements {
-                let Some(x) = eval(point.clone(), z) else {continue;};
-                points.push((point, x));
-            }
-
-            points.sort_by(|(p1, _), (p2, _)| Self::cmp(p1, p2).unwrap());
-
-            if i >= 5 {
-                break;
+                refinements.push((T::mid_point(p2, p3), (x2 + x3) / 2.0));
+            } else {
+                prev = false;
             }
         }
 
-        points
+        if refinements.is_empty() {
+            break;
+        }
+
+        for (point, z) in refinements {
+            let Some(x) = eval(point.clone(), z) else {continue;};
+            points.push((point, x));
+        }
+
+        points.sort_unstable_by(|(p1, _), (p2, _)| {
+            T::cmp(p1, p2).unwrap_or(std::cmp::Ordering::Greater)
+        });
+
+        if i >= 5 {
+            break;
+        }
     }
 
-    fn refine(
-        points: impl Into<Vec<(T, Complex64)>>,
-        eval: impl Fn(T, Complex64) -> Option<Complex64>,
-    ) -> Vec<Complex64> {
-        Self::refine_raw(points, eval)
-            .into_iter()
-            .map(|(_, x)| x)
-            .collect()
-    }
+    points.into_iter().map(|(_, x)| x).collect()
 }
 
 impl XInterpolator {
@@ -310,7 +322,7 @@ impl XInterpolator {
             }
         }
 
-        Self::refine(points, |p, _| Some(xp(p, m, consts)))
+        refine(points, |p, _| Some(xp(p, m, consts)))
     }
 
     pub fn generate_xm(
@@ -323,16 +335,6 @@ impl XInterpolator {
             .into_iter()
             .map(|x| x.conj())
             .collect()
-    }
-}
-
-impl Refiner<f64> for XInterpolator {
-    fn mid_point(t1: &f64, t2: &f64) -> f64 {
-        (t1 + t2) / 2.0
-    }
-
-    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
-        t1.partial_cmp(t2)
     }
 }
 
@@ -557,7 +559,7 @@ impl PInterpolatorMut {
         path.pop_back();
         path.extend(self.generate_path(pt2));
 
-        Self::refine(path, |t, p| {
+        refine(path, |t, p| {
             let pt = InterpolationPoint::Re(t);
             let w = pt.evaluate(self.consts);
             self.find_point(w, p)
@@ -635,7 +637,7 @@ impl PInterpolatorMut {
             path.push_back((p2.ceil(), zero_asymptote_value(*path.back().unwrap())));
         }
 
-        Self::refine(path, |t, p| {
+        refine(path, |t, p| {
             let pt = pt_at(t);
             let w = pt.evaluate(self.consts);
             self.find_point(w, p)
@@ -648,16 +650,6 @@ impl PInterpolatorMut {
 
     fn df(&self, z: Complex64) -> Complex64 {
         dxp_dp(z, 1.0, self.consts)
-    }
-}
-
-impl Refiner<f64> for PInterpolatorMut {
-    fn mid_point(t1: &f64, t2: &f64) -> f64 {
-        (t1 + t2) / 2.0
-    }
-
-    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
-        t1.partial_cmp(t2)
     }
 }
 
@@ -755,7 +747,7 @@ impl EPInterpolator {
 
         let eval = |(im, p_guess), _| self.find_p_at_im(im, p_guess).map(|p| cut_f(p, im, consts));
 
-        let path = Self::refine(path, eval);
+        let path = refine(path, eval);
 
         (branch_point, Some(path))
     }
@@ -804,15 +796,5 @@ impl EPInterpolator {
         }
         self.starting_path_p = Some(path);
         &self.starting_path_p
-    }
-}
-
-impl Refiner<(f64, Complex64)> for EPInterpolator {
-    fn mid_point(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> (f64, Complex64) {
-        ((t1.0 + t2.0) / 2.0, (t1.1 + t2.1) / 2.0)
-    }
-
-    fn cmp(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> Option<std::cmp::Ordering> {
-        t1.0.partial_cmp(&t2.0)
     }
 }
