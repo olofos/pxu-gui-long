@@ -193,6 +193,9 @@ impl Plot {
                             pxu::CutType::E => Color32::BLACK,
 
                             pxu::CutType::Log(comp) => {
+                                if u_cut_type == UCutType::Short && comp != cut.component {
+                                    continue;
+                                }
                                 if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
                                 } else {
