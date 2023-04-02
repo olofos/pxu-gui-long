@@ -1199,7 +1199,7 @@ impl ContourGenerator {
         self
     }
 
-    fn semishort_cuts(&mut self) -> &mut Self {
+    fn _semishort_cuts(&mut self) -> &mut Self {
         self.bctx
             .cut_data
             .visibility
@@ -1207,7 +1207,7 @@ impl ContourGenerator {
         self
     }
 
-    fn short_cuts(&mut self) -> &mut Self {
+    fn _short_cuts(&mut self) -> &mut Self {
         self.bctx
             .cut_data
             .visibility
@@ -1838,7 +1838,7 @@ impl ContourGenerator {
         } else if p_range == -1 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_outside()
                 .push_cut(p_range);
 
@@ -1857,13 +1857,13 @@ impl ContourGenerator {
         } else if p_range < 0 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_outside()
                 .push_cut(p_range);
         } else {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_between()
                 .xm_outside()
                 .push_cut(p_range);
@@ -1881,7 +1881,7 @@ impl ContourGenerator {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_between()
                 .xm_between()
                 .push_cut(p_range);
@@ -1949,7 +1949,7 @@ impl ContourGenerator {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_outside()
                 .xm_between()
                 .push_cut(p_range);
@@ -2006,7 +2006,7 @@ impl ContourGenerator {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_between()
                 .xm_outside()
                 .push_cut(p_range);
@@ -2014,7 +2014,7 @@ impl ContourGenerator {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
                 .log_branch(p_range)
-                .semishort_cuts()
+                .short_or_semishort_cuts()
                 .xp_outside()
                 .xm_between()
                 .push_cut(p_range);
@@ -2100,14 +2100,16 @@ impl CutVisibilityCondition {
 
             Self::ImXpOrUpBranch(b1, b2) => match u_cut_type {
                 UCutType::Long => Self::ImXp(*b1).check(pt, u_cut_type),
-                UCutType::SemiShort => Self::UpBranch(b2.clone()).check(pt, u_cut_type),
-                UCutType::Short => false,
+                UCutType::SemiShort | UCutType::Short => {
+                    Self::UpBranch(b2.clone()).check(pt, u_cut_type)
+                }
             },
 
             Self::ImXmOrUmBranch(b1, b2) => match u_cut_type {
                 UCutType::Long => Self::ImXm(*b1).check(pt, u_cut_type),
-                UCutType::SemiShort => Self::UmBranch(b2.clone()).check(pt, u_cut_type),
-                UCutType::Short => false,
+                UCutType::SemiShort | UCutType::Short => {
+                    Self::UmBranch(b2.clone()).check(pt, u_cut_type)
+                }
             },
 
             Self::LongCuts => long_cuts,
