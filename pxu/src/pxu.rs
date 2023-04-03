@@ -2617,9 +2617,20 @@ impl ContourGenerator {
                     p_range,
                     BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
                 )
-                .compute_cut_path_x(CutDirection::Negative)
-                .create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .compute_cut_path_x(CutDirection::Negative);
+
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .xp_between()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range)
+                .xp_inside()
+                .im_xp_positive()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range + 1)
+                .xp_inside()
+                .im_xp_negative()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -2627,32 +2638,20 @@ impl ContourGenerator {
                     p_range,
                     BranchPointType::XpNegativeAxisFromAboveWithImXmPositive,
                 )
-                .compute_cut_path_x(CutDirection::Negative)
-                .create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .compute_cut_path_x(CutDirection::Negative);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .xp_between()
                 .push_cut(p_range);
-
-            // self.clear_cut()
-            //     .compute_branch_point(
-            //         p_range,
-            //         BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
-            //     )
-            //     .compute_cut_path_x(CutDirection::Negative)
-            //     // .create_cut(Component::Xm, CutType::Log(Component::Xp))
-            //     .create_cut(Component::Xm, CutType::DebugPath)
-            //     .xp_between()
-            //     .push_cut(p_range);
-
-            // self.clear_cut()
-            //     .compute_branch_point(
-            //         p_range,
-            //         BranchPointType::XpNegativeAxisFromBelowWithImXmPositive,
-            //     )
-            //     .compute_cut_path_x(CutDirection::Negative)
-            //     .create_cut(Component::Xm, CutType::Log(Component::Xp))
-            //     .log_branch(p_range)
-            //     .xp_between()
-            //     .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range)
+                .xp_inside()
+                .im_xp_positive()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range + 1)
+                .xp_inside()
+                .im_xp_negative()
+                .push_cut(p_range);
 
             {
                 self.clear_cut()
