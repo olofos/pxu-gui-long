@@ -2368,7 +2368,7 @@ impl ContourGenerator {
         if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .xm_inside()
+                .xm_between()
                 .push_cut(p_range);
 
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
@@ -2908,33 +2908,6 @@ impl ContourGenerator {
                 .im_xm_positive()
                 .push_cut(p_range);
 
-            // // if p_range != 0
-            // {
-            //     // For p = 0 we add this after E
-            //     self.clear_cut()
-            //         .compute_branch_point(
-            //             p_range,
-            //             BranchPointType::XpNegativeAxisFromBelowWithImXmNegative,
-            //         )
-            //         .compute_cut_path_x(CutDirection::Positive)
-            //         // .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
-            //         .create_cut(Component::Xm, CutType::DebugPath)
-            //         // .log_branch(p_range)
-            //         .xp_between()
-            //         .push_cut(p_range);
-            // }
-
-            // self.clear_cut()
-            //     .compute_branch_point(
-            //         p_range,
-            //         BranchPointType::XpNegativeAxisFromBelowWithImXmPositive,
-            //     )
-            //     .compute_cut_path_x(CutDirection::Positive)
-            //     .create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
-            //     .log_branch(p_range)
-            //     .xp_between()
-            //     .push_cut(p_range);
-
             if p_range != -1 {
                 self.clear_cut()
                     .set_cut_path(
@@ -3054,7 +3027,7 @@ impl ContourGenerator {
         if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .xm_inside()
+                .xm_between()
                 .push_cut(p_range);
 
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
@@ -3069,15 +3042,38 @@ impl ContourGenerator {
             // self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
             //     .log_branch(p_range)
             //     .push_cut(p_range);
-        } else if p_range < 0 {
+        }
+        if p_range == -1 {
+            // self.create_cut(Component::Xp, CutType::E)
+            //     .log_branch(p_range)
+            //     // .xm_between()
+            //     .push_cut(p_range);
+        }
+        if p_range < -1 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
-                .xm_between()
+                .xm_inside()
+                .im_xm_negative()
                 .push_cut(p_range);
-        } else {
+        }
+        if p_range <= -1 {
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range + 1)
+                .xm_inside()
+                .im_xm_positive()
+                .push_cut(p_range);
+        }
+        if p_range > 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
                 .xm_outside()
+                .im_xp_negative()
+                .push_cut(p_range);
+
+            self.create_cut(Component::Xp, CutType::E)
+                .log_branch(p_range - 1)
+                .xm_outside()
+                .im_xp_positive()
                 .push_cut(p_range);
         }
 
@@ -3107,8 +3103,9 @@ impl ContourGenerator {
             //     .log_branch(p_range)
             //     .xp_between()
             //     .push_cut(p_range);
-        } else if p_range == -1 {
-            self.create_cut(Component::Xm, CutType::E)
+        }
+        if p_range == -1 {
+            self.create_cut(Component::Xm, CutType::DebugPath)
                 .log_branch(p_range)
                 .xp_outside()
                 .push_cut(p_range);
@@ -3125,16 +3122,32 @@ impl ContourGenerator {
             // self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
             //     .log_branch(p_range)
             //     .push_cut(p_range);
-        } else if p_range < 0 {
+        }
+        if p_range < -1 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
                 .xp_outside()
+                .im_xm_negative()
                 .push_cut(p_range);
-        } else {
+        }
+        if p_range < -1 {
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range + 1)
+                .xp_outside()
+                .im_xm_positive()
+                .push_cut(p_range);
+        }
+        if p_range > 0 {
             self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
-                .xp_between()
-                .xm_outside()
+                .xp_inside()
+                .im_xp_negative()
+                .push_cut(p_range);
+
+            self.create_cut(Component::Xm, CutType::E)
+                .log_branch(p_range - 1)
+                .xp_inside()
+                .im_xp_positive()
                 .push_cut(p_range);
         }
 
