@@ -742,6 +742,50 @@ fn fig_p_plane_short_cuts(
     figure.finish(cache)
 }
 
+fn fig_xp_cuts_1(
+    contour_generator: Arc<ContourGenerator>,
+    cache: Arc<cache::Cache>,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xp-cuts-1",
+        Bounds::new(-4.0..4.0, -6.0..6.0),
+        Size {
+            width: 12.0,
+            height: 18.0,
+        },
+        pxu::Component::Xp,
+    )?;
+
+    figure.add_axis()?;
+    for contour in contour_generator
+        .get_grid(pxu::Component::Xp)
+        .iter()
+        .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["thin", "black"])?;
+    }
+
+    let Some(consts) = contour_generator.consts else {
+        return Err(error("No consts set"));
+    };
+    let mut pt = pxu::Point::new(1.5, consts);
+    pt.sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
+
+    for cut in contour_generator
+        .get_visible_cuts(&pt, pxu::Component::Xp, pxu::UCutType::SemiShort)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"])?;
+    }
+
+    figure.finish(cache)
+}
+
 fn main() -> std::io::Result<()> {
     // tracing_subscriber::fmt::fmt()
     //     .with_writer(std::io::stderr)
@@ -778,6 +822,7 @@ fn main() -> std::io::Result<()> {
         fig_xpl_cover,
         fig_p_plane_long_cuts_regions,
         fig_p_plane_short_cuts,
+        fig_xp_cuts_1,
     ];
 
     let contour_generator_ref = Arc::new(contour_generator);
