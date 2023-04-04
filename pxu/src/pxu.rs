@@ -119,7 +119,13 @@ enum GeneratorCommands {
     ComputeCutEXm,
     ComputeCutEU,
     SetCutPath(Vec<Complex64>, Option<Complex64>),
-    PushCut(i32, Component, CutType, Vec<CutVisibilityCondition>),
+    PushCut(
+        i32,
+        Component,
+        CutType,
+        Option<Complex64>,
+        Vec<CutVisibilityCondition>,
+    ),
     SplitCut(i32, Component, CutType, bool),
 
     EStart(i32),
@@ -606,7 +612,7 @@ impl ContourGenerator {
                 self.rctx.cut_data.branch_point = branchpoint;
             }
 
-            PushCut(p_range, component, cut_type, visibility) => {
+            PushCut(p_range, component, cut_type, period, visibility) => {
                 let Some(ref path) = self.rctx.cut_data.path else {
                     log::warn!("No path for cut");
                     return;
@@ -622,14 +628,15 @@ impl ContourGenerator {
                     _ => Complex64::from(0.0),
                 };
 
-                let mut cut = Cut::new(
+                let cut = Cut::new(
                     component,
                     vec![path.clone()],
                     self.rctx.cut_data.branch_point,
                     cut_type,
                     p_range,
+                    period,
+                    visibility,
                 );
-                cut.visibility = visibility;
 
                 self.cuts.push(cut.conj().shift(shift));
                 self.cuts.push(cut.shift(shift));
@@ -667,6 +674,7 @@ impl ContourGenerator {
                             typ: cut.typ.clone(),
                             p_range,
                             component: cut.component,
+                            period: None,
                             visibility: vec![],
                         };
                         if !bp_old && cut.branch_point.is_some() {
@@ -1073,10 +1081,12 @@ impl ContourGenerator {
             self.bctx.clear();
             return self;
         };
+        let period = None;
         self.add(GeneratorCommands::PushCut(
             p_range,
             component,
             cut_type,
+            period,
             self.bctx.cut_data.visibility.clone(),
         ));
         self.bctx.clear();
@@ -3489,6 +3499,7 @@ pub struct Cut {
     pub branch_point: Option<Complex64>,
     pub typ: CutType,
     pub p_range: i32,
+    pub period: Option<Complex64>,
     visibility: Vec<CutVisibilityCondition>,
 }
 
@@ -3499,6 +3510,8 @@ impl Cut {
         branch_point: Option<Complex64>,
         typ: CutType,
         p_range: i32,
+        period: Option<Complex64>,
+        visibility: Vec<CutVisibilityCondition>,
     ) -> Self {
         Self {
             component,
@@ -3506,7 +3519,8 @@ impl Cut {
             branch_point,
             typ,
             p_range,
-            visibility: vec![],
+            period,
+            visibility,
         }
     }
 
@@ -3525,6 +3539,7 @@ impl Cut {
             branch_point,
             typ: self.typ.conj(),
             visibility,
+            period: self.period,
             p_range: self.p_range,
         }
     }
@@ -3543,6 +3558,7 @@ impl Cut {
             branch_point,
             typ: self.typ.conj(),
             visibility,
+            period: self.period,
             p_range: self.p_range,
         }
     }
