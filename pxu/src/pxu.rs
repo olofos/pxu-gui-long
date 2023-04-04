@@ -2603,6 +2603,7 @@ impl ContourGenerator {
 
         {
             // Log
+
             self.clear_cut()
                 .set_cut_path(
                     vec![Complex64::from(-INFINITY), Complex64::from(0.0)],
@@ -2618,7 +2619,6 @@ impl ContourGenerator {
                     BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
                 )
                 .compute_cut_path_x(CutDirection::Negative);
-
             self.create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .xp_between()
                 .push_cut(p_range);
@@ -2626,11 +2626,18 @@ impl ContourGenerator {
                 .log_branch(p_range)
                 .xp_inside()
                 .im_xp_positive()
+                .im_xm_negative()
                 .push_cut(p_range);
             self.create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range + 1)
                 .xp_inside()
                 .im_xp_negative()
+                .im_xm_negative()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range + 1)
+                .xp_inside()
+                .im_xm_positive()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -2648,26 +2655,30 @@ impl ContourGenerator {
                 .im_xp_positive()
                 .push_cut(p_range);
             self.create_cut(Component::Xm, CutType::Log(Component::Xp))
+                .log_branch(p_range)
+                .xp_inside()
+                .im_xp_negative()
+                .im_xm_negative()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::Log(Component::Xp))
                 .log_branch(p_range + 1)
                 .xp_inside()
                 .im_xp_negative()
+                .im_xm_positive()
                 .push_cut(p_range);
 
             {
-                self.clear_cut()
-                    .set_cut_path(
-                        vec![
-                            Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                            Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        ],
-                        Some(Complex64::new(
-                            -us,
-                            -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-                        )),
-                    )
-                    .create_cut(Component::U, CutType::Log(Component::Xp))
-                    // .create_cut(Component::U, CutType::DebugPath)
-                    // .log_branch(p_range)
+                self.clear_cut().set_cut_path(
+                    vec![
+                        Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+                    ],
+                    Some(Complex64::new(
+                        -us,
+                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+                    )),
+                );
+                self.create_cut(Component::U, CutType::Log(Component::Xp))
                     .xp_between()
                     .push_cut(p_range);
             }
@@ -2698,17 +2709,40 @@ impl ContourGenerator {
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
-                .compute_cut_path_x(CutDirection::Positive)
-                .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                .compute_cut_path_x(CutDirection::Positive);
+            self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                .xp_between()
+                .push_cut(p_range);
+            self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                .xp_outside()
                 .log_branch(p_range)
                 .push_cut(p_range);
 
             self.clear_cut()
                 .compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
-                .compute_cut_path_x(CutDirection::Positive)
-                .create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
-                .log_branch(p_range)
+                .compute_cut_path_x(CutDirection::Positive);
+            self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                .xp_between()
                 .push_cut(p_range);
+
+            if p_range <= 0 {
+                self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_outside()
+                    .push_cut(p_range);
+            } else {
+                self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_outside()
+                    .im_xm_positive()
+                    .push_cut(p_range);
+
+                self.create_cut(Component::Xm, CutType::ULongPositive(Component::Xp))
+                    .log_branch(p_range - 1)
+                    .xp_outside()
+                    .im_xm_negative()
+                    .push_cut(p_range);
+            }
 
             self.clear_cut()
                 .set_cut_path(
@@ -2768,11 +2802,24 @@ impl ContourGenerator {
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .xp_between()
                 .push_cut(p_range);
-            self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
-                .xp_outside()
-                .log_branch(p_range)
-                .push_cut(p_range);
-            // // }
+            if p_range <= 0 {
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    // self.create_cut(Component::Xm, CutType::DebugPath)
+                    .log_branch(p_range)
+                    .xp_outside()
+                    .push_cut(p_range);
+            } else {
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_outside()
+                    .im_xm_positive()
+                    .push_cut(p_range);
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range - 1)
+                    .xp_outside()
+                    .im_xm_negative()
+                    .push_cut(p_range);
+            }
 
             // if p_range != -1 {
             // For p = -1 we add this cut after the E cut
@@ -2782,26 +2829,45 @@ impl ContourGenerator {
             self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
                 .xp_between()
                 .push_cut(p_range);
-            self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
-                .xp_outside()
-                .log_branch(p_range)
-                .push_cut(p_range);
-            // }
-
-            if p_range != 0 && p_range != -1 {
-                // For p = 0, -1 we add this cut after the E cut
-                self.clear_cut()
-                    .set_cut_path(
-                        vec![
-                            Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                            Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
-                        ],
-                        Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
-                    )
-                    .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+            if p_range >= -1 {
+                // self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .xp_outside()
                     .log_branch(p_range)
                     .push_cut(p_range);
+            } else {
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range)
+                    .xp_outside()
+                    .im_xm_negative()
+                    .push_cut(p_range);
+
+                self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
+                    .log_branch(p_range + 1)
+                    .xp_outside()
+                    .im_xm_positive()
+                    .push_cut(p_range);
             }
+
+            // if p_range != 0 && p_range != -1 {
+            // For p = 0, -1 we add this cut after the E cut
+            self.clear_cut().set_cut_path(
+                vec![
+                    Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                    Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                ],
+                Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            );
+
+            self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+                .log_branch(p_range)
+                .xp_outside()
+                .push_cut(p_range);
+
+            self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+                .xp_between()
+                .push_cut(p_range);
+            // }
 
             let p0 = p_start + 1.0 / 8.0;
             self.clear_cut();
@@ -2907,41 +2973,50 @@ impl ContourGenerator {
                 .im_xm_positive()
                 .push_cut(p_range);
 
-            if p_range != -1 {
-                self.clear_cut()
-                    .set_cut_path(
-                        vec![
-                            Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                            Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        ],
-                        Some(Complex64::new(
-                            -us,
-                            -(1.0 + (p_range + 1) as f64 * k) / consts.h,
-                        )),
-                    )
-                    .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                    .log_branch(p_range)
-                    .xp_between()
-                    .push_cut(p_range);
-            }
+            // if p_range != -1 {
+            self.clear_cut().set_cut_path(
+                vec![
+                    Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                    Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+                ],
+                Some(Complex64::new(
+                    -us,
+                    -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+                )),
+            );
+            self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .xp_between()
+                .push_cut(p_range);
+            self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                .log_branch(p_range + 1)
+                .xp_inside()
+                .im_xp_negative()
+                .push_cut(p_range);
+            self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+                // self.create_cut(Component::U, CutType::DebugPath)
+                .log_branch(p_range)
+                .xp_inside()
+                .im_xp_positive()
+                .push_cut(p_range);
+            // }
 
-            if p_range != 0 {
-                self.clear_cut()
-                    .set_cut_path(
-                        vec![
-                            Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                            Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        ],
-                        Some(Complex64::new(
-                            -us,
-                            -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-                        )),
-                    )
-                    .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                    .log_branch(p_range)
-                    .xp_between()
-                    .push_cut(p_range);
-            }
+            // if p_range != 0 {
+            //     self.clear_cut()
+            //         .set_cut_path(
+            //             vec![
+            //                 Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+            //                 Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+            //             ],
+            //             Some(Complex64::new(
+            //                 -us,
+            //                 -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+            //             )),
+            //         )
+            //         .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+            //         .log_branch(p_range)
+            //         .xp_between()
+            //         .push_cut(p_range);
+            // }
 
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
@@ -3104,7 +3179,7 @@ impl ContourGenerator {
             //     .push_cut(p_range);
         }
         if p_range == -1 {
-            self.create_cut(Component::Xm, CutType::DebugPath)
+            self.create_cut(Component::Xm, CutType::E)
                 .log_branch(p_range)
                 .xp_outside()
                 .push_cut(p_range);
@@ -3190,33 +3265,33 @@ impl ContourGenerator {
                     false,
                 );
 
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
-                )
-                .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
-                .log_branch(p_range)
-                .push_cut(p_range);
+            // self.clear_cut()
+            //     .set_cut_path(
+            //         vec![
+            //             Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+            //             Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+            //         ],
+            //         Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            //     )
+            //     .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+            //     .log_branch(p_range)
+            //     .push_cut(p_range);
 
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                        Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(
-                        -us,
-                        -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-                    )),
-                )
-                .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                .log_branch(p_range)
-                .xp_between()
-                .push_cut(p_range);
+            // self.clear_cut()
+            //     .set_cut_path(
+            //         vec![
+            //             Complex64::new(INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+            //             Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
+            //         ],
+            //         Some(Complex64::new(
+            //             -us,
+            //             -(1.0 + (p_range - 1) as f64 * k) / consts.h,
+            //         )),
+            //     )
+            //     .create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+            //     .log_branch(p_range)
+            //     .xp_between()
+            //     .push_cut(p_range);
         } else if p_range == -1 {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
@@ -3257,22 +3332,22 @@ impl ContourGenerator {
                     false,
                 );
 
-            self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
-                .log_branch(p_range)
-                .xp_between()
-                .push_cut(p_range);
+            // self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
+            //     .log_branch(p_range)
+            //     .xp_between()
+            //     .push_cut(p_range);
 
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                        Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
-                )
-                .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
-                .log_branch(p_range)
-                .push_cut(p_range);
+            // self.clear_cut()
+            //     .set_cut_path(
+            //         vec![
+            //             Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+            //             Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+            //         ],
+            //         Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            //     )
+            //     .create_cut(Component::U, CutType::UShortScallion(Component::Xp))
+            //     .log_branch(p_range)
+            //     .push_cut(p_range);
         } else if p_range > 0 {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)

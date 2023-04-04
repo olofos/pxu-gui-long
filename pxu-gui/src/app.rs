@@ -194,9 +194,12 @@ impl Plot {
 
                             pxu::CutType::Log(comp) => {
                                 if u_cut_type == UCutType::Short && comp != cut.component {
-                                    continue;
-                                }
-                                if comp == pxu::Component::Xp {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgb(255, 128, 128)
+                                    } else {
+                                        Color32::from_rgb(128, 255, 128)
+                                    }
+                                } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
                                 } else {
                                     Color32::from_rgb(128, 255, 128)
@@ -205,10 +208,13 @@ impl Plot {
 
                             pxu::CutType::ULongNegative(comp) => {
                                 if !long_cuts {
+                                    // if comp == pxu::Component::Xp {
+                                    //     Color32::from_rgba_premultiplied(255, 0, 0, 32)
+                                    // } else {
+                                    //     Color32::from_rgba_premultiplied(0, 192, 0, 32)
+                                    // }
                                     continue;
-                                }
-
-                                if comp == pxu::Component::Xp {
+                                } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 0, 0)
                                 } else {
                                     Color32::from_rgb(0, 192, 0)
@@ -217,9 +223,12 @@ impl Plot {
 
                             pxu::CutType::ULongPositive(comp) => {
                                 if !long_cuts {
-                                    continue;
-                                }
-                                if comp == pxu::Component::Xp {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgba_premultiplied(255, 0, 0, 32)
+                                    } else {
+                                        Color32::from_rgba_premultiplied(0, 192, 0, 32)
+                                    }
+                                } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 0, 0)
                                 } else {
                                     Color32::from_rgb(0, 192, 0)
@@ -228,9 +237,12 @@ impl Plot {
 
                             pxu::CutType::UShortScallion(comp) => {
                                 if long_cuts {
-                                    continue;
-                                }
-                                if comp == pxu::Component::Xp {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgba_premultiplied(255, 0, 0, 32)
+                                    } else {
+                                        Color32::from_rgba_premultiplied(0, 192, 0, 32)
+                                    }
+                                } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 0, 0)
                                 } else {
                                     Color32::from_rgb(0, 192, 0)
@@ -239,10 +251,12 @@ impl Plot {
 
                             pxu::CutType::UShortKidney(comp) => {
                                 if long_cuts {
-                                    continue;
-                                }
-
-                                if comp == pxu::Component::Xp {
+                                    if comp == pxu::Component::Xp {
+                                        Color32::from_rgba_premultiplied(255, 0, 0, 32)
+                                    } else {
+                                        Color32::from_rgba_premultiplied(0, 192, 0, 32)
+                                    }
+                                } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 0, 0)
                                 } else {
                                     Color32::from_rgb(0, 192, 0)
