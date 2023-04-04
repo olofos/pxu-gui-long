@@ -265,57 +265,68 @@ impl Plot {
                             _ => Color32::from_rgb(255, 128, 0),
                         };
 
-                        for points in cut.paths.iter() {
-                            let points = points
-                                .iter()
-                                .map(|z| {
-                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
-                                })
-                                .collect::<Vec<_>>();
+                        let period_shifts = if let Some(ref period) = cut.period {
+                            (-5..=5).map(|n| period * n as f64).collect()
+                        } else {
+                            vec![Complex64::from(0.0)]
+                        };
 
-                            match cut.typ {
-                                pxu::CutType::UShortKidney(_) | pxu::CutType::ULongNegative(_) => {
-                                    egui::epaint::Shape::dashed_line_many(
-                                        &points.clone(),
-                                        Stroke::new(3.0, color),
-                                        4.0,
-                                        4.0,
-                                        &mut shapes,
-                                    );
+                        for period_shift in period_shifts.iter() {
+                            for points in cut.paths.iter() {
+                                let points = points
+                                    .iter()
+                                    .map(|z| {
+                                        let z = z + period_shift;
+                                        to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                match cut.typ {
+                                    pxu::CutType::UShortKidney(_)
+                                    | pxu::CutType::ULongNegative(_) => {
+                                        egui::epaint::Shape::dashed_line_many(
+                                            &points.clone(),
+                                            Stroke::new(3.0, color),
+                                            4.0,
+                                            4.0,
+                                            &mut shapes,
+                                        );
+                                    }
+                                    _ => {
+                                        shapes.push(egui::epaint::Shape::line(
+                                            points.clone(),
+                                            Stroke::new(3.0, color),
+                                        ));
+                                    }
                                 }
-                                _ => {
-                                    shapes.push(egui::epaint::Shape::line(
-                                        points.clone(),
-                                        Stroke::new(3.0, color),
-                                    ));
+
+                                if show_dots {
+                                    for center in points {
+                                        shapes.push(egui::epaint::Shape::Circle(
+                                            egui::epaint::CircleShape {
+                                                center,
+                                                radius: 2.5,
+                                                fill: Color32::RED,
+                                                stroke: Stroke::NONE,
+                                            },
+                                        ));
+                                    }
                                 }
                             }
 
-                            if show_dots {
-                                for center in points {
-                                    shapes.push(egui::epaint::Shape::Circle(
-                                        egui::epaint::CircleShape {
-                                            center,
-                                            radius: 2.5,
-                                            fill: Color32::RED,
-                                            stroke: Stroke::NONE,
-                                        },
-                                    ));
-                                }
+                            if let Some(ref z) = cut.branch_point {
+                                let z = z + period_shift;
+                                let center =
+                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift));
+                                branch_point_shapes.push(egui::epaint::Shape::Circle(
+                                    egui::epaint::CircleShape {
+                                        center,
+                                        radius: 4.0,
+                                        fill: color,
+                                        stroke: Stroke::NONE,
+                                    },
+                                ));
                             }
-                        }
-
-                        if let Some(ref z) = cut.branch_point {
-                            let center =
-                                to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift));
-                            branch_point_shapes.push(egui::epaint::Shape::Circle(
-                                egui::epaint::CircleShape {
-                                    center,
-                                    radius: 4.0,
-                                    fill: color,
-                                    stroke: Stroke::NONE,
-                                },
-                            ));
                         }
                     }
                 }
