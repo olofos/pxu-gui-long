@@ -137,6 +137,7 @@ enum GeneratorCommands {
         CutType,
         Option<Complex64>,
         Vec<CutVisibilityCondition>,
+        Complex64,
     ),
     SplitCut(i32, Component, CutType, SplitCutBranchPoint, SplitCutOrder),
 
@@ -162,6 +163,7 @@ struct BuildTimeCutData {
     period: Option<Complex64>,
     visibility: Vec<CutVisibilityCondition>,
     group_visibility: Vec<CutVisibilityCondition>,
+    pre_shift: Complex64,
 }
 
 struct ContourGeneratorRuntimeContext {
@@ -198,6 +200,7 @@ impl ContourGeneratorBuildTimeContext {
                 period: None,
                 visibility: vec![],
                 group_visibility: vec![],
+                pre_shift: Complex64::from(0.0),
             },
         }
     }
@@ -207,6 +210,7 @@ impl ContourGeneratorBuildTimeContext {
         self.cut_data.cut_type = None;
         self.cut_data.period = None;
         self.cut_data.visibility = self.cut_data.group_visibility.clone();
+        self.cut_data.pre_shift = Complex64::from(0.0);
     }
 }
 
@@ -627,7 +631,7 @@ impl ContourGenerator {
                 self.rctx.cut_data.branch_point = branchpoint;
             }
 
-            PushCut(p_range, component, cut_type, period, visibility) => {
+            PushCut(p_range, component, cut_type, period, visibility, pre_shift) => {
                 let Some(ref path) = self.rctx.cut_data.path else {
                     log::warn!("No path for cut");
                     return;
@@ -643,10 +647,12 @@ impl ContourGenerator {
                     _ => Complex64::from(0.0),
                 };
 
+                let paths = vec![path.iter().map(|z| z + pre_shift).collect()];
+
                 let cut = Cut::new(
                     component,
-                    vec![path.clone()],
-                    self.rctx.cut_data.branch_point,
+                    paths,
+                    self.rctx.cut_data.branch_point.map(|z| z + pre_shift),
                     cut_type,
                     p_range,
                     period,
@@ -1110,6 +1116,7 @@ impl ContourGenerator {
             cut_type,
             self.bctx.cut_data.period,
             self.bctx.cut_data.visibility.clone(),
+            self.bctx.cut_data.pre_shift,
         ));
         self.bctx.reset();
         self
@@ -1240,6 +1247,11 @@ impl ContourGenerator {
 
     fn period(&mut self, z: Complex64) -> &mut Self {
         self.bctx.cut_data.period = Some(z);
+        self
+    }
+
+    fn pre_shift(&mut self, z: Complex64) -> &mut Self {
+        self.bctx.cut_data.pre_shift = z;
         self
     }
 
