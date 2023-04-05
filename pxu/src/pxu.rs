@@ -139,7 +139,11 @@ enum GeneratorCommands {
         Vec<CutVisibilityCondition>,
         Complex64,
     ),
-    SplitCut(i32, Component, CutType, SplitCutBranchPoint, SplitCutOrder),
+    PopCut,
+    SwapCuts,
+    SplitCut(Component, CutType, SplitCutBranchPoint, SplitCutOrder),
+    LoadPathFromCut,
+    AddVisibilityCondition(CutVisibilityCondition),
 
     EStart(i32),
 
@@ -663,13 +667,15 @@ impl ContourGenerator {
                 self.cuts.push(cut.shift(shift));
             }
 
-            SplitCut(p_range, component, cut_typ, branch_point, order) => {
+            SplitCut(component, cut_typ, branch_point, order) => {
                 let Some(mut cut) = self.cuts.pop() else {return};
                 let Some(_) = self.cuts.pop() else {return};
                 let Some(ref path) = self.rctx.cut_data.path else { return };
 
                 let shift = match cut.component {
-                    Component::U => Complex64::new(0.0, (p_range * consts.k()) as f64 / consts.h),
+                    Component::U => {
+                        Complex64::new(0.0, (cut.p_range * consts.k()) as f64 / consts.h)
+                    }
                     _ => Complex64::from(0.0),
                 };
 
@@ -693,7 +699,7 @@ impl ContourGenerator {
                             paths: vec![new_path],
                             branch_point: None,
                             typ: cut.typ.clone(),
-                            p_range,
+                            p_range: cut.p_range,
                             component: cut.component,
                             period: None,
                             visibility: vec![],
@@ -703,6 +709,7 @@ impl ContourGenerator {
                             cut.branch_point = None;
                         }
                         for vis in cut.visibility.iter() {
+                            // let old_vis = vis;
                             let vis = match vis {
                                 CutVisibilityCondition::UpBranch(b) => {
                                     if component == Component::Xp {
@@ -742,10 +749,61 @@ impl ContourGenerator {
                     }
                 }
 
-                log::debug!("No intersection found");
+                log::warn!("No intersection found");
 
                 self.cuts.push(cut.conj());
                 self.cuts.push(cut);
+            }
+
+            PopCut => {
+                let Some(cut) = self.cuts.pop() else {return};
+                let Some(_) = self.cuts.pop() else {return};
+
+                let shift = match cut.component {
+                    Component::U => {
+                        Complex64::new(0.0, (cut.p_range * consts.k()) as f64 / consts.h)
+                    }
+                    _ => Complex64::from(0.0),
+                };
+
+                self.rctx.cut_data.path = Some(cut.paths[0].iter().map(|z| z - shift).collect());
+                self.rctx.cut_data.branch_point = cut.branch_point.map(|z| z - shift);
+            }
+
+            SwapCuts => {
+                if self.cuts.len() < 4 {
+                    return;
+                }
+                let len = self.cuts.len();
+                self.cuts.swap(len - 4, len - 2);
+                self.cuts.swap(len - 3, len - 1);
+            }
+
+            LoadPathFromCut => {
+                let Some(ref cut) = self.cuts.last() else {
+                    log::error!("No cut to load");
+                    return
+                };
+
+                let shift = match cut.component {
+                    Component::U => {
+                        Complex64::new(0.0, (cut.p_range * consts.k()) as f64 / consts.h)
+                    }
+                    _ => Complex64::from(0.0),
+                };
+
+                self.rctx.cut_data.path = Some(cut.paths[0].iter().map(|z| z - shift).collect());
+                self.rctx.cut_data.branch_point = cut.branch_point.map(|z| z - shift);
+            }
+
+            AddVisibilityCondition(condition) => {
+                if self.cuts.len() < 2 {
+                    return;
+                }
+
+                let len = self.cuts.len();
+                self.cuts[len - 2].visibility.push(condition.conj());
+                self.cuts[len - 1].visibility.push(condition);
             }
         }
     }
@@ -1124,14 +1182,12 @@ impl ContourGenerator {
 
     fn split_cut(
         &mut self,
-        p_range: i32,
         component: Component,
         cut_type: CutType,
         branch_point: SplitCutBranchPoint,
         order: SplitCutOrder,
     ) -> &mut Self {
         self.add(GeneratorCommands::SplitCut(
-            p_range,
             component,
             cut_type,
             branch_point,
@@ -1139,13 +1195,21 @@ impl ContourGenerator {
         ))
     }
 
+    fn pop_cut(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::PopCut)
+    }
+
+    fn swap_cuts(&mut self) -> &mut Self {
+        self.add(GeneratorCommands::SwapCuts)
+    }
+
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
         if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
             log::warn!("New cut created before previous cut was pushed");
         }
+        self.bctx.reset();
         self.bctx.cut_data.component = Some(component);
         self.bctx.cut_data.cut_type = Some(cut_type);
-        self.bctx.cut_data.visibility = self.bctx.cut_data.group_visibility.clone();
         self
     }
 
@@ -1253,6 +1317,10 @@ impl ContourGenerator {
     fn pre_shift(&mut self, z: Complex64) -> &mut Self {
         self.bctx.cut_data.pre_shift = z;
         self
+    }
+
+    fn add_condition(&mut self, condition: CutVisibilityCondition) -> &mut Self {
+        self.add(GeneratorCommands::AddVisibilityCondition(condition))
     }
 
     fn generate_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
@@ -2428,7 +2496,6 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(
-                    p_range,
                     Component::Xm,
                     CutType::UShortScallion(Component::Xp),
                     SplitCutBranchPoint::Old,
@@ -2466,7 +2533,6 @@ impl ContourGenerator {
                 .compute_cut_path_x(CutDirection::Positive);
 
             self.split_cut(
-                p_range,
                 Component::Xp,
                 CutType::UShortKidney(Component::Xp),
                 SplitCutBranchPoint::New,
@@ -2486,7 +2552,6 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(
-                    p_range,
                     Component::Xp,
                     CutType::UShortScallion(Component::Xp),
                     SplitCutBranchPoint::Old,
@@ -2525,7 +2590,6 @@ impl ContourGenerator {
                 Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
             )
             .split_cut(
-                p_range,
                 Component::Xm,
                 CutType::UShortScallion(Component::Xp),
                 SplitCutBranchPoint::Old,
@@ -2544,7 +2608,6 @@ impl ContourGenerator {
                     )),
                 )
                 .split_cut(
-                    p_range,
                     Component::Xp,
                     CutType::UShortKidney(Component::Xm),
                     SplitCutBranchPoint::New,
@@ -2594,7 +2657,6 @@ impl ContourGenerator {
                 Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
             )
             .split_cut(
-                p_range,
                 Component::Xp,
                 CutType::UShortScallion(Component::Xp),
                 SplitCutBranchPoint::Old,
@@ -2613,7 +2675,6 @@ impl ContourGenerator {
                     )),
                 )
                 .split_cut(
-                    p_range,
                     Component::Xm,
                     CutType::UShortKidney(Component::Xp),
                     SplitCutBranchPoint::New,
@@ -3202,7 +3263,6 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(
-                    p_range,
                     Component::Xm,
                     CutType::UShortScallion(Component::Xp),
                     SplitCutBranchPoint::Old,
@@ -3259,7 +3319,6 @@ impl ContourGenerator {
                 .compute_cut_path_x(CutDirection::Positive);
 
             self.split_cut(
-                p_range,
                 Component::Xp,
                 CutType::UShortKidney(Component::Xp),
                 SplitCutBranchPoint::New,
@@ -3280,7 +3339,6 @@ impl ContourGenerator {
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmNegative)
                 .compute_cut_path_x(CutDirection::Negative)
                 .split_cut(
-                    p_range,
                     Component::Xp,
                     CutType::UShortScallion(Component::Xp),
                     SplitCutBranchPoint::Old,
@@ -3325,6 +3383,7 @@ impl ContourGenerator {
                 // .log_branch(p_range)
                 .xp_inside()
                 .xm_between()
+                .period(2.0 * Complex64::i() * k / consts.h)
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -3339,9 +3398,8 @@ impl ContourGenerator {
                     )),
                 )
                 .split_cut(
-                    p_range,
                     Component::Xp,
-                    CutType::UShortKidney(Component::Xm),
+                    CutType::UShortKidney(Component::Xp),
                     SplitCutBranchPoint::New,
                     SplitCutOrder::OldFirst,
                 );
@@ -3354,34 +3412,18 @@ impl ContourGenerator {
                 Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
             )
             .split_cut(
-                p_range,
                 Component::Xm,
-                CutType::UShortScallion(Component::Xp),
+                CutType::UShortScallion(Component::Xm),
                 SplitCutBranchPoint::Old,
                 SplitCutOrder::NewFirst,
             );
         } else if p_range == -1 {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
-                .log_branch(p_range)
+                // .log_branch(p_range)
                 .xp_outside()
                 .xm_between()
                 .push_cut(p_range);
-
-            self.set_cut_path(
-                vec![
-                    Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                    Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
-                ],
-                Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
-            )
-            .split_cut(
-                p_range,
-                Component::Xp,
-                CutType::UShortScallion(Component::Xp),
-                SplitCutBranchPoint::Old,
-                SplitCutOrder::NewFirst,
-            );
 
             self.clear_cut()
                 .set_cut_path(
@@ -3395,12 +3437,58 @@ impl ContourGenerator {
                     )),
                 )
                 .split_cut(
-                    p_range,
                     Component::Xm,
                     CutType::UShortKidney(Component::Xp),
                     SplitCutBranchPoint::New,
                     SplitCutOrder::NewFirst,
                 );
+
+            self.pop_cut()
+                .create_cut(Component::U, CutType::DebugPath)
+                .xp_outside()
+                .xm_between()
+                .push_cut(p_range);
+
+            self.swap_cuts();
+
+            self.set_cut_path(
+                vec![
+                    Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+                    Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+                ],
+                Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            )
+            .split_cut(
+                Component::Xp,
+                CutType::UShortScallion(Component::Xp),
+                SplitCutBranchPoint::Old,
+                SplitCutOrder::OldFirst,
+            );
+            // self.pop_cut();
+            self.swap_cuts();
+
+            self.pop_cut();
+
+            self.create_cut(Component::U, CutType::DebugPath)
+                .log_branch(p_range)
+                .xp_outside()
+                .xm_inside()
+                .im_xm_negative()
+                .push_cut(p_range);
+
+            // self.add_condition(CutVisibilityCondition::LogBranch(p_range));
+            // self.add_condition(CutVisibilityCondition::ImXp(1));
+
+            // self.pop_cut();
+
+            // self.add(GeneratorCommands::LoadPathFromCut);
+            self.create_cut(Component::U, CutType::E)
+                .log_branch(p_range + 1)
+                .xp_outside()
+                .xm_inside()
+                .im_xm_positive()
+                .pre_shift(-1.0 * k * Complex64::i() / consts.h)
+                .push_cut(p_range + 1);
         } else if p_range > 0 {
             self.compute_cut_e_u();
             self.create_cut(Component::U, CutType::E)
@@ -3414,14 +3502,24 @@ impl ContourGenerator {
                 .xp_inside()
                 .xm_outside()
                 .im_xp_positive()
-                .push_cut(p_range - 2);
+                .pre_shift(-1.0 * k * Complex64::i() / consts.h)
+                .push_cut(p_range - 1);
         } else if p_range < -1 {
-            self.compute_cut_e_u()
-                .create_cut(Component::U, CutType::E)
+            self.compute_cut_e_u();
+            self.create_cut(Component::U, CutType::E)
                 .log_branch(p_range)
                 .xp_outside()
                 .xm_inside()
+                .im_xm_negative()
                 .push_cut(p_range);
+            self.compute_cut_e_u();
+            self.create_cut(Component::U, CutType::E)
+                .log_branch(p_range + 1)
+                .xp_outside()
+                .xm_inside()
+                .im_xm_positive()
+                .pre_shift(-1.0 * k * Complex64::i() / consts.h)
+                .push_cut(p_range + 1);
         }
     }
 }
@@ -3430,7 +3528,6 @@ impl ContourGenerator {
 pub enum CutType {
     E,
     DebugPath,
-
     Log(Component),
     ULongPositive(Component),
     ULongNegative(Component),
@@ -3453,7 +3550,7 @@ impl CutType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum CutVisibilityCondition {
     ImXp(i8),
     ImXm(i8),

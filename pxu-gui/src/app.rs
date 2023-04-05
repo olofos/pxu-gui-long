@@ -174,10 +174,9 @@ impl Plot {
 
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
-                        2.0 * (pxu.points[pxu.active_point].sheet_data.log_branch_p
-                            * pxu.points[pxu.active_point].consts.k())
-                            as f32
-                            / pxu.points[pxu.active_point].consts.h as f32
+                        2.0 * (pxu.active_point().sheet_data.log_branch_p
+                            * pxu.active_point().consts.k()) as f32
+                            / pxu.active_point().consts.h as f32
                     } else {
                         0.0
                     };
@@ -265,11 +264,82 @@ impl Plot {
                             _ => Color32::from_rgb(255, 128, 0),
                         };
 
-                        let period_shifts = if let Some(ref period) = cut.period {
+                        let is_periodic = cut.component == pxu::Component::U
+                            && u_cut_type == UCutType::Short
+                            && (pxu.active_point().sheet_data.u_branch
+                                == (
+                                    ::pxu::kinematics::UBranch::Between,
+                                    ::pxu::kinematics::UBranch::Between,
+                                )
+                                || (matches!(
+                                    pxu.active_point().sheet_data.u_branch,
+                                    (::pxu::kinematics::UBranch::Between, _)
+                                ) && matches!(
+                                    cut.typ,
+                                    pxu::CutType::UShortScallion(pxu::Component::Xp)
+                                        | pxu::CutType::UShortKidney(pxu::Component::Xp)
+                                        | pxu::CutType::Log(pxu::Component::Xp)
+                                        | pxu::CutType::ULongPositive(pxu::Component::Xp)
+                                ))
+                                || (matches!(
+                                    pxu.active_point().sheet_data.u_branch,
+                                    (_, ::pxu::kinematics::UBranch::Between)
+                                ) && matches!(
+                                    cut.typ,
+                                    pxu::CutType::UShortScallion(pxu::Component::Xm)
+                                        | pxu::CutType::UShortKidney(pxu::Component::Xm)
+                                        | pxu::CutType::Log(pxu::Component::Xm)
+                                        | pxu::CutType::ULongPositive(pxu::Component::Xm)
+                                )));
+
+                        let period_shifts = if is_periodic {
+                            let period =
+                                2.0 * Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
                             (-5..=5).map(|n| period * n as f64).collect()
                         } else {
                             vec![Complex64::from(0.0)]
                         };
+
+                        // let shift = if cut.component == pxu::Component::U
+                        //     && cut.typ == pxu::CutType::E
+                        //     && u_cut_type == UCutType::Short
+                        // {
+                        //     match pxu.active_point().sheet_data.u_branch {
+                        //         (
+                        //             ::pxu::kinematics::UBranch::Between,
+                        //             ::pxu::kinematics::UBranch::Outside,
+                        //         ) => {
+                        //             -2.0 * ((pxu.active_point().sheet_data.log_branch_m
+                        //                 - cut.p_range)
+                        //                 * pxu.active_point().consts.k())
+                        //                 as f32
+                        //                 / pxu.active_point().consts.h as f32
+                        //         }
+                        //         (
+                        //             ::pxu::kinematics::UBranch::Between,
+                        //             ::pxu::kinematics::UBranch::Inside,
+                        //         ) => {
+                        //             // -2.0 * ((pxu.active_point().sheet_data.log_branch_p)
+                        //             //     * pxu.active_point().consts.k())
+                        //             //     as f32
+                        //             //     / pxu.active_point().consts.h as f32
+                        //             -2.0 * ((pxu.active_point().sheet_data.log_branch_p)
+                        //                 * pxu.active_point().consts.k())
+                        //                 as f32
+                        //                 / pxu.active_point().consts.h as f32
+                        //         }
+                        //         (
+                        //             ::pxu::kinematics::UBranch::Inside,
+                        //             ::pxu::kinematics::UBranch::Between,
+                        //         ) => {
+                        //             2.0 * ((1 + cut.p_range) * pxu.active_point().consts.k()) as f32
+                        //                 / pxu.active_point().consts.h as f32
+                        //         }
+                        //         _ => shift,
+                        //     }
+                        // } else {
+                        //     shift
+                        // };
 
                         for period_shift in period_shifts.iter() {
                             for points in cut.paths.iter() {
