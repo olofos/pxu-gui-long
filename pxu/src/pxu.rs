@@ -142,8 +142,6 @@ enum GeneratorCommands {
     PopCut,
     SwapCuts,
     SplitCut(Component, CutType, SplitCutBranchPoint, SplitCutOrder),
-    LoadPathFromCut,
-    AddVisibilityCondition(CutVisibilityCondition),
 
     EStart(i32),
 
@@ -778,33 +776,6 @@ impl ContourGenerator {
                 self.cuts.swap(len - 4, len - 2);
                 self.cuts.swap(len - 3, len - 1);
             }
-
-            LoadPathFromCut => {
-                let Some(ref cut) = self.cuts.last() else {
-                    log::error!("No cut to load");
-                    return
-                };
-
-                let shift = match cut.component {
-                    Component::U => {
-                        Complex64::new(0.0, (cut.p_range * consts.k()) as f64 / consts.h)
-                    }
-                    _ => Complex64::from(0.0),
-                };
-
-                self.rctx.cut_data.path = Some(cut.paths[0].iter().map(|z| z - shift).collect());
-                self.rctx.cut_data.branch_point = cut.branch_point.map(|z| z - shift);
-            }
-
-            AddVisibilityCondition(condition) => {
-                if self.cuts.len() < 2 {
-                    return;
-                }
-
-                let len = self.cuts.len();
-                self.cuts[len - 2].visibility.push(condition.conj());
-                self.cuts[len - 1].visibility.push(condition);
-            }
         }
     }
 
@@ -1317,10 +1288,6 @@ impl ContourGenerator {
     fn pre_shift(&mut self, z: Complex64) -> &mut Self {
         self.bctx.cut_data.pre_shift = z;
         self
-    }
-
-    fn add_condition(&mut self, condition: CutVisibilityCondition) -> &mut Self {
-        self.add(GeneratorCommands::AddVisibilityCondition(condition))
     }
 
     fn generate_cuts(&mut self, p_range: i32, consts: CouplingConstants) {
@@ -3380,7 +3347,6 @@ impl ContourGenerator {
         if p_range == 0 {
             self.compute_cut_e_u()
                 .create_cut(Component::U, CutType::E)
-                // .log_branch(p_range)
                 .xp_inside()
                 .xm_between()
                 .period(2.0 * Complex64::i() * k / consts.h)
@@ -3401,8 +3367,32 @@ impl ContourGenerator {
                     Component::Xp,
                     CutType::UShortKidney(Component::Xp),
                     SplitCutBranchPoint::New,
-                    SplitCutOrder::OldFirst,
+                    SplitCutOrder::NewFirst,
                 );
+
+            self.pop_cut();
+
+            for p_range in 0..=P_RANGE_MAX {
+                self.create_cut(Component::U, CutType::E)
+                    .log_branch(p_range)
+                    .xp_inside()
+                    .xm_between()
+                    .im_xp_negative()
+                    .pre_shift(-p_range as f64 * k * Complex64::i() / consts.h)
+                    .push_cut(p_range);
+                self.swap_cuts();
+            }
+
+            for p_range in P_RANGE_MIN..=0 {
+                self.create_cut(Component::U, CutType::E)
+                    .log_branch(p_range)
+                    .xp_inside()
+                    .xm_between()
+                    .im_xp_positive()
+                    .pre_shift(-(2 + p_range) as f64 * k * Complex64::i() / consts.h)
+                    .push_cut(p_range);
+                self.swap_cuts();
+            }
 
             self.set_cut_path(
                 vec![
@@ -3415,80 +3405,91 @@ impl ContourGenerator {
                 Component::Xm,
                 CutType::UShortScallion(Component::Xm),
                 SplitCutBranchPoint::Old,
-                SplitCutOrder::NewFirst,
-            );
-        } else if p_range == -1 {
-            self.compute_cut_e_u()
-                .create_cut(Component::U, CutType::E)
-                // .log_branch(p_range)
-                .xp_outside()
-                .xm_between()
-                .push_cut(p_range);
-
-            self.clear_cut()
-                .set_cut_path(
-                    vec![
-                        Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                        Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-                    ],
-                    Some(Complex64::new(
-                        -us,
-                        -(1.0 + (p_range + 1) as f64 * k) / consts.h,
-                    )),
-                )
-                .split_cut(
-                    Component::Xm,
-                    CutType::UShortKidney(Component::Xp),
-                    SplitCutBranchPoint::New,
-                    SplitCutOrder::NewFirst,
-                );
-
-            self.pop_cut()
-                .create_cut(Component::U, CutType::DebugPath)
-                .xp_outside()
-                .xm_between()
-                .push_cut(p_range);
-
-            self.swap_cuts();
-
-            self.set_cut_path(
-                vec![
-                    Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
-                    Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
-                ],
-                Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
-            )
-            .split_cut(
-                Component::Xp,
-                CutType::UShortScallion(Component::Xp),
-                SplitCutBranchPoint::Old,
                 SplitCutOrder::OldFirst,
             );
-            // self.pop_cut();
-            self.swap_cuts();
 
             self.pop_cut();
 
-            self.create_cut(Component::U, CutType::DebugPath)
-                .log_branch(p_range)
-                .xp_outside()
-                .xm_inside()
-                .im_xm_negative()
-                .push_cut(p_range);
+            for p_range in P_RANGE_MIN..=P_RANGE_MAX {
+                self.create_cut(Component::U, CutType::DebugPath)
+                    .log_branch(p_range)
+                    .xp_between()
+                    .xm_outside()
+                    .pre_shift(p_range as f64 * k * Complex64::i() / consts.h)
+                    .push_cut(p_range);
+            }
+        } else if p_range == -1 {
+            // self.compute_cut_e_u()
+            //     .create_cut(Component::U, CutType::E)
+            //     // .log_branch(p_range)
+            //     .xp_outside()
+            //     .xm_between()
+            //     .push_cut(p_range);
 
-            // self.add_condition(CutVisibilityCondition::LogBranch(p_range));
-            // self.add_condition(CutVisibilityCondition::ImXp(1));
+            // self.clear_cut()
+            //     .set_cut_path(
+            //         vec![
+            //             Complex64::new(INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+            //             Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
+            //         ],
+            //         Some(Complex64::new(
+            //             -us,
+            //             -(1.0 + (p_range + 1) as f64 * k) / consts.h,
+            //         )),
+            //     )
+            //     .split_cut(
+            //         Component::Xm,
+            //         CutType::UShortKidney(Component::Xp),
+            //         SplitCutBranchPoint::New,
+            //         SplitCutOrder::NewFirst,
+            //     );
+
+            // self.pop_cut()
+            //     .create_cut(Component::U, CutType::DebugPath)
+            //     .xp_outside()
+            //     .xm_between()
+            //     .push_cut(p_range);
+
+            // self.swap_cuts();
+
+            // self.set_cut_path(
+            //     vec![
+            //         Complex64::new(-INFINITY, -(1.0 + p_range as f64 * k) / consts.h),
+            //         Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h),
+            //     ],
+            //     Some(Complex64::new(us, -(1.0 + p_range as f64 * k) / consts.h)),
+            // )
+            // .split_cut(
+            //     Component::Xp,
+            //     CutType::UShortScallion(Component::Xp),
+            //     SplitCutBranchPoint::Old,
+            //     SplitCutOrder::OldFirst,
+            // );
+            // // self.pop_cut();
+            // self.swap_cuts();
 
             // self.pop_cut();
 
-            // self.add(GeneratorCommands::LoadPathFromCut);
-            self.create_cut(Component::U, CutType::E)
-                .log_branch(p_range + 1)
-                .xp_outside()
-                .xm_inside()
-                .im_xm_positive()
-                .pre_shift(-1.0 * k * Complex64::i() / consts.h)
-                .push_cut(p_range + 1);
+            // self.create_cut(Component::U, CutType::DebugPath)
+            //     .log_branch(p_range)
+            //     .xp_outside()
+            //     .xm_inside()
+            //     .im_xm_negative()
+            //     .push_cut(p_range);
+
+            // // self.add_condition(CutVisibilityCondition::LogBranch(p_range));
+            // // self.add_condition(CutVisibilityCondition::ImXp(1));
+
+            // // self.pop_cut();
+
+            // // self.add(GeneratorCommands::LoadPathFromCut);
+            // self.create_cut(Component::U, CutType::E)
+            //     .log_branch(p_range + 1)
+            //     .xp_outside()
+            //     .xm_inside()
+            //     .im_xm_positive()
+            //     .pre_shift(-1.0 * k * Complex64::i() / consts.h)
+            //     .push_cut(p_range + 1);
         } else if p_range > 0 {
             self.compute_cut_e_u();
             self.create_cut(Component::U, CutType::E)
