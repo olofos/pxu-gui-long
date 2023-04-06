@@ -355,7 +355,6 @@ impl ContourGenerator {
                 self.execute(command);
             } else {
                 self.cuts.sort_unstable_by_key(|cut| match cut.typ {
-                    CutType::DebugPath => 0,
                     CutType::Log(_) => 3,
                     CutType::ULongNegative(_) => 4,
                     CutType::ULongPositive(_) => 4,
@@ -368,6 +367,7 @@ impl ContourGenerator {
                             1
                         }
                     }
+                    CutType::DebugPath => 10,
                 });
                 self.loaded = true;
             }
