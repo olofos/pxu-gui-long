@@ -2956,7 +2956,6 @@ impl ContourGenerator {
                 .push_cut(p_range);
             if p_range <= 0 {
                 self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
-                    // self.create_cut(Component::Xm, CutType::DebugPath)
                     .log_branch(p_range)
                     .xp_outside()
                     .push_cut(p_range);
@@ -3314,7 +3313,7 @@ impl ContourGenerator {
             );
 
             self.pop_cut();
-            self.create_cut(Component::Xm, CutType::DebugPath)
+            self.create_cut(Component::Xm, CutType::E)
                 .xp_between()
                 .push_cut(p_range);
         }
