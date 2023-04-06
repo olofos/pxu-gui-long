@@ -135,7 +135,7 @@ enum GeneratorCommands {
         i32,
         Component,
         CutType,
-        Option<Complex64>,
+        bool,
         Vec<CutVisibilityCondition>,
         Complex64,
     ),
@@ -162,7 +162,7 @@ struct RuntimeCutData {
 struct BuildTimeCutData {
     component: Option<Component>,
     cut_type: Option<CutType>,
-    period: Option<Complex64>,
+    periodic: bool,
     visibility: Vec<CutVisibilityCondition>,
     group_visibility: Vec<CutVisibilityCondition>,
     pre_shift: Complex64,
@@ -199,7 +199,7 @@ impl ContourGeneratorBuildTimeContext {
             cut_data: BuildTimeCutData {
                 component: None,
                 cut_type: None,
-                period: None,
+                periodic: false,
                 visibility: vec![],
                 group_visibility: vec![],
                 pre_shift: Complex64::from(0.0),
@@ -210,7 +210,7 @@ impl ContourGeneratorBuildTimeContext {
     fn reset(&mut self) {
         self.cut_data.component = None;
         self.cut_data.cut_type = None;
-        self.cut_data.period = None;
+        self.cut_data.periodic = false;
         self.cut_data.visibility = self.cut_data.group_visibility.clone();
         self.cut_data.pre_shift = Complex64::from(0.0);
     }
@@ -423,7 +423,8 @@ impl ContourGenerator {
         self.cuts.iter().filter(move |c| {
             c.component == component
                 && c.is_visible(&pt, u_cut_type)
-                && c.intersection(pt.get(component), new_value).is_some()
+                && c.intersection(pt.get(component), new_value, self.consts.unwrap())
+                    .is_some()
         })
     }
 
@@ -633,7 +634,7 @@ impl ContourGenerator {
                 self.rctx.cut_data.branch_point = branchpoint;
             }
 
-            PushCut(p_range, component, cut_type, period, visibility, pre_shift) => {
+            PushCut(p_range, component, cut_type, periodic, visibility, pre_shift) => {
                 let Some(ref path) = self.rctx.cut_data.path else {
                     log::warn!("No path for cut");
                     return;
@@ -657,7 +658,7 @@ impl ContourGenerator {
                     self.rctx.cut_data.branch_point.map(|z| z + pre_shift),
                     cut_type,
                     p_range,
-                    period,
+                    periodic,
                     visibility,
                 );
 
@@ -688,7 +689,7 @@ impl ContourGenerator {
                     })
                     .tuple_windows::<(_, _)>()
                 {
-                    if let Some((i, j, x)) = cut.intersection(p1, p2) {
+                    if let Some((i, j, x)) = cut.intersection(p1, p2, consts) {
                         let mut new_path = vec![x];
                         new_path.extend(cut.paths[i].split_off(j + 1));
                         cut.paths[i].push(x);
@@ -699,7 +700,7 @@ impl ContourGenerator {
                             typ: cut.typ.clone(),
                             p_range: cut.p_range,
                             component: cut.component,
-                            period: None,
+                            periodic: false,
                             visibility: vec![],
                         };
                         if branch_point == SplitCutBranchPoint::New && cut.branch_point.is_some() {
@@ -1143,7 +1144,7 @@ impl ContourGenerator {
             p_range,
             component,
             cut_type,
-            self.bctx.cut_data.period,
+            self.bctx.cut_data.periodic,
             self.bctx.cut_data.visibility.clone(),
             self.bctx.cut_data.pre_shift,
         ));
@@ -1280,8 +1281,8 @@ impl ContourGenerator {
         self
     }
 
-    fn period(&mut self, z: Complex64) -> &mut Self {
-        self.bctx.cut_data.period = Some(z);
+    fn periodic(&mut self) -> &mut Self {
+        self.bctx.cut_data.periodic = true;
         self
     }
 
@@ -2789,7 +2790,7 @@ impl ContourGenerator {
             if p_range == 0 {
                 self.create_cut(Component::U, CutType::Log(Component::Xp))
                     .xp_between()
-                    .period(2.0 * Complex64::i() * k / consts.h)
+                    .periodic()
                     .push_cut(p_range);
             }
 
@@ -2884,7 +2885,7 @@ impl ContourGenerator {
             if p_range == 0 {
                 self.create_cut(Component::U, CutType::ULongPositive(Component::Xp))
                     .xp_between()
-                    .period(2.0 * Complex64::i() * k / consts.h)
+                    .periodic()
                     .push_cut(p_range);
             }
 
@@ -2992,7 +2993,7 @@ impl ContourGenerator {
             if p_range == 0 {
                 self.create_cut(Component::U, CutType::UShortScallion(Component::Xp))
                     .xp_between()
-                    .period(2.0 * Complex64::i() * k / consts.h)
+                    .periodic()
                     .push_cut(p_range);
             }
 
@@ -3120,7 +3121,7 @@ impl ContourGenerator {
             if p_range == 0 {
                 self.create_cut(Component::U, CutType::UShortKidney(Component::Xp))
                     .xp_between()
-                    .period(2.0 * Complex64::i() * k / consts.h)
+                    .periodic()
                     .push_cut(p_range);
             }
 
@@ -3346,10 +3347,10 @@ impl ContourGenerator {
 
         if p_range == 0 {
             self.compute_cut_e_u()
-                .create_cut(Component::U, CutType::E)
+                .create_cut(Component::U, CutType::DebugPath)
                 .xp_inside()
                 .xm_between()
-                .period(2.0 * Complex64::i() * k / consts.h)
+                .periodic()
                 .push_cut(p_range);
 
             self.clear_cut()
@@ -3405,8 +3406,17 @@ impl ContourGenerator {
                 Component::Xm,
                 CutType::UShortScallion(Component::Xm),
                 SplitCutBranchPoint::Old,
-                SplitCutOrder::OldFirst,
+                SplitCutOrder::NewFirst,
             );
+
+            self.pop_cut();
+
+            self.create_cut(Component::U, CutType::E)
+                .xp_between()
+                .xm_between()
+                .periodic()
+                .push_cut(p_range);
+            self.swap_cuts();
 
             self.pop_cut();
 
@@ -3664,7 +3674,7 @@ pub struct Cut {
     pub branch_point: Option<Complex64>,
     pub typ: CutType,
     pub p_range: i32,
-    pub period: Option<Complex64>,
+    pub periodic: bool,
     visibility: Vec<CutVisibilityCondition>,
 }
 
@@ -3675,7 +3685,7 @@ impl Cut {
         branch_point: Option<Complex64>,
         typ: CutType,
         p_range: i32,
-        period: Option<Complex64>,
+        periodic: bool,
         visibility: Vec<CutVisibilityCondition>,
     ) -> Self {
         Self {
@@ -3684,7 +3694,7 @@ impl Cut {
             branch_point,
             typ,
             p_range,
-            period,
+            periodic,
             visibility,
         }
     }
@@ -3704,7 +3714,7 @@ impl Cut {
             branch_point,
             typ: self.typ.conj(),
             visibility,
-            period: self.period,
+            periodic: self.periodic,
             p_range: self.p_range,
         }
     }
@@ -3723,7 +3733,7 @@ impl Cut {
             branch_point,
             typ: self.typ.conj(),
             visibility,
-            period: self.period,
+            periodic: self.periodic,
             p_range: self.p_range,
         }
     }
@@ -3741,8 +3751,14 @@ impl Cut {
         self
     }
 
-    pub fn intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, usize, Complex64)> {
-        if let Some(period) = self.period {
+    pub fn intersection(
+        &self,
+        p1: Complex64,
+        p2: Complex64,
+        consts: CouplingConstants,
+    ) -> Option<(usize, usize, Complex64)> {
+        if self.periodic {
+            let period = 2.0 * Complex64::i() * consts.k() as f64 / consts.h;
             (-5..=5).find_map(|n| {
                 let shift = n as f64 * period;
                 self.find_intersection(p1 + shift, p2 + shift)

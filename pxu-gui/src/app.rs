@@ -264,90 +264,23 @@ impl Plot {
                             _ => Color32::from_rgb(255, 128, 0),
                         };
 
-                        let is_periodic = cut.component == pxu::Component::U
-                            && u_cut_type == UCutType::Short
-                            && (pxu.active_point().sheet_data.u_branch
-                                == (
-                                    ::pxu::kinematics::UBranch::Between,
-                                    ::pxu::kinematics::UBranch::Between,
-                                )
-                                || (matches!(
-                                    pxu.active_point().sheet_data.u_branch,
-                                    (::pxu::kinematics::UBranch::Between, _)
-                                ) && matches!(
-                                    cut.typ,
-                                    pxu::CutType::UShortScallion(pxu::Component::Xp)
-                                        | pxu::CutType::UShortKidney(pxu::Component::Xp)
-                                        | pxu::CutType::Log(pxu::Component::Xp)
-                                        | pxu::CutType::ULongPositive(pxu::Component::Xp)
-                                ))
-                                || (matches!(
-                                    pxu.active_point().sheet_data.u_branch,
-                                    (_, ::pxu::kinematics::UBranch::Between)
-                                ) && matches!(
-                                    cut.typ,
-                                    pxu::CutType::UShortScallion(pxu::Component::Xm)
-                                        | pxu::CutType::UShortKidney(pxu::Component::Xm)
-                                        | pxu::CutType::Log(pxu::Component::Xm)
-                                        | pxu::CutType::ULongPositive(pxu::Component::Xm)
-                                )));
-
-                        let period_shifts = if is_periodic {
-                            let period =
-                                2.0 * Complex64::i() * pxu.consts.k() as f64 / pxu.consts.h;
-                            (-5..=5).map(|n| period * n as f64).collect()
+                        let period_shifts = if cut.periodic {
+                            let period = 2.0 * pxu.consts.k() as f64 / pxu.consts.h;
+                            (-5..=5).map(|n| period as f32 * n as f32).collect()
                         } else {
-                            vec![Complex64::from(0.0)]
+                            vec![0.0]
                         };
-
-                        // let shift = if cut.component == pxu::Component::U
-                        //     && cut.typ == pxu::CutType::E
-                        //     && u_cut_type == UCutType::Short
-                        // {
-                        //     match pxu.active_point().sheet_data.u_branch {
-                        //         (
-                        //             ::pxu::kinematics::UBranch::Between,
-                        //             ::pxu::kinematics::UBranch::Outside,
-                        //         ) => {
-                        //             -2.0 * ((pxu.active_point().sheet_data.log_branch_m
-                        //                 - cut.p_range)
-                        //                 * pxu.active_point().consts.k())
-                        //                 as f32
-                        //                 / pxu.active_point().consts.h as f32
-                        //         }
-                        //         (
-                        //             ::pxu::kinematics::UBranch::Between,
-                        //             ::pxu::kinematics::UBranch::Inside,
-                        //         ) => {
-                        //             // -2.0 * ((pxu.active_point().sheet_data.log_branch_p)
-                        //             //     * pxu.active_point().consts.k())
-                        //             //     as f32
-                        //             //     / pxu.active_point().consts.h as f32
-                        //             -2.0 * ((pxu.active_point().sheet_data.log_branch_p)
-                        //                 * pxu.active_point().consts.k())
-                        //                 as f32
-                        //                 / pxu.active_point().consts.h as f32
-                        //         }
-                        //         (
-                        //             ::pxu::kinematics::UBranch::Inside,
-                        //             ::pxu::kinematics::UBranch::Between,
-                        //         ) => {
-                        //             2.0 * ((1 + cut.p_range) * pxu.active_point().consts.k()) as f32
-                        //                 / pxu.active_point().consts.h as f32
-                        //         }
-                        //         _ => shift,
-                        //     }
-                        // } else {
-                        //     shift
-                        // };
 
                         for period_shift in period_shifts.iter() {
                             for points in cut.paths.iter() {
                                 let points = points
                                     .iter()
                                     .map(|z| {
-                                        let z = z + period_shift;
-                                        to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift))
+                                        to_screen
+                                            * egui::pos2(
+                                                z.re as f32,
+                                                -(z.im as f32 - shift + period_shift),
+                                            )
                                     })
                                     .collect::<Vec<_>>();
 
@@ -385,9 +318,11 @@ impl Plot {
                             }
 
                             if let Some(ref z) = cut.branch_point {
-                                let z = z + period_shift;
-                                let center =
-                                    to_screen * egui::pos2(z.re as f32, -(z.im as f32 - shift));
+                                let center = to_screen
+                                    * egui::pos2(
+                                        z.re as f32,
+                                        -(z.im as f32 - shift + period_shift),
+                                    );
                                 branch_point_shapes.push(egui::epaint::Shape::Circle(
                                     egui::epaint::CircleShape {
                                         center,
