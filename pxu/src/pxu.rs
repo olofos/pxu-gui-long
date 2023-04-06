@@ -3236,12 +3236,11 @@ impl ContourGenerator {
                     SplitCutBranchPoint::Old,
                     SplitCutOrder::NewFirst,
                 );
-        }
-        if p_range == -1 {
-            // self.create_cut(Component::Xp, CutType::E)
-            //     .log_branch(p_range)
-            //     // .xm_between()
-            //     .push_cut(p_range);
+
+            self.pop_cut();
+            self.create_cut(Component::Xp, CutType::E)
+                .xm_between()
+                .push_cut(p_range);
         }
         if p_range < -1 {
             self.create_cut(Component::Xp, CutType::E)
@@ -3290,13 +3289,13 @@ impl ContourGenerator {
                 Component::Xp,
                 CutType::UShortKidney(Component::Xp),
                 SplitCutBranchPoint::New,
-                SplitCutOrder::NewFirst,
+                SplitCutOrder::OldFirst,
             );
 
-            // self.create_cut(Component::Xm, CutType::UShortKidney(Component::Xp))
-            //     .log_branch(p_range)
-            //     .xp_between()
-            //     .push_cut(p_range);
+            self.pop_cut();
+            self.create_cut(Component::Xm, CutType::DebugPath)
+                .xp_between()
+                .push_cut(p_range);
         }
         if p_range == -1 {
             self.create_cut(Component::Xm, CutType::E)
@@ -3310,8 +3309,13 @@ impl ContourGenerator {
                     Component::Xp,
                     CutType::UShortScallion(Component::Xp),
                     SplitCutBranchPoint::Old,
-                    SplitCutOrder::NewFirst,
+                    SplitCutOrder::OldFirst,
                 );
+
+            self.pop_cut();
+            self.create_cut(Component::Xm, CutType::E)
+                .xp_between()
+                .push_cut(p_range);
 
             // self.create_cut(Component::Xm, CutType::UShortScallion(Component::Xp))
             //     .log_branch(p_range)
