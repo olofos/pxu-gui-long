@@ -31,7 +31,6 @@ pub struct TemplateApp {
     xm_plot: Plot,
     #[serde(skip)]
     u_plot: Plot,
-    show_dots: bool,
     show_cuts: bool,
     #[serde(skip)]
     u_cut_type: UCutType,
@@ -54,7 +53,6 @@ impl Plot {
         ui: &mut Ui,
         desired_size: Vec2,
         contour_generator: &mut pxu::ContourGenerator,
-        show_dots: bool,
         show_cuts: bool,
         u_cut_type: UCutType,
         pxu: &mut pxu::State,
@@ -157,17 +155,6 @@ impl Plot {
                         points.clone(),
                         Stroke::new(0.75, Color32::GRAY),
                     ));
-
-                    if show_dots {
-                        for center in points {
-                            shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
-                                center,
-                                radius: 1.5,
-                                fill: Color32::RED,
-                                stroke: Stroke::NONE,
-                            }));
-                        }
-                    }
                 }
 
                 let mut branch_point_shapes = vec![];
@@ -299,19 +286,6 @@ impl Plot {
                                         shapes.push(egui::epaint::Shape::line(
                                             points.clone(),
                                             Stroke::new(3.0, color),
-                                        ));
-                                    }
-                                }
-
-                                if show_dots {
-                                    for center in points {
-                                        shapes.push(egui::epaint::Shape::Circle(
-                                            egui::epaint::CircleShape {
-                                                center,
-                                                radius: 2.5,
-                                                fill: Color32::RED,
-                                                stroke: Stroke::NONE,
-                                            },
                                         ));
                                     }
                                 }
@@ -468,7 +442,6 @@ impl Default for TemplateApp {
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
-            show_dots: false,
             show_cuts: true,
             u_cut_type: Default::default(),
             #[cfg(debug_assertions)]
@@ -548,7 +521,6 @@ impl eframe::App for TemplateApp {
             );
 
             #[cfg(debug_assertions)]
-            ui.add(egui::Checkbox::new(&mut self.show_dots, "Show dots"));
             ui.add(egui::Checkbox::new(&mut self.show_cuts, "Show cuts"));
 
             ui.horizontal(|ui| {
@@ -679,7 +651,6 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.contour_generator,
-                    self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -689,7 +660,6 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.contour_generator,
-                    self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -700,7 +670,6 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.contour_generator,
-                    self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -710,7 +679,6 @@ impl eframe::App for TemplateApp {
                     ui,
                     available_size * vec2(0.49, 0.49),
                     &mut self.contour_generator,
-                    self.show_dots,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
