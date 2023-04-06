@@ -240,6 +240,7 @@ pub struct ContourGenerator {
     bctx: ContourGeneratorBuildTimeContext,
 
     num_commands: usize,
+    loaded: bool,
 }
 
 impl Default for ContourGenerator {
@@ -254,6 +255,7 @@ impl Default for ContourGenerator {
             rctx: ContourGeneratorRuntimeContext::new(),
             bctx: ContourGeneratorBuildTimeContext::new(),
             num_commands: 0,
+            loaded: false,
         }
     }
 }
@@ -348,11 +350,29 @@ impl ContourGenerator {
             log::debug!("Generated {} commands", self.num_commands,)
         }
 
-        if let Some(command) = self.commands.pop_front() {
-            self.execute(command);
+        if !self.loaded {
+            if let Some(command) = self.commands.pop_front() {
+                self.execute(command);
+            } else {
+                self.cuts.sort_unstable_by_key(|cut| match cut.typ {
+                    CutType::DebugPath => 0,
+                    CutType::Log(_) => 3,
+                    CutType::ULongNegative(_) => 4,
+                    CutType::ULongPositive(_) => 4,
+                    CutType::UShortScallion(_) => 5,
+                    CutType::UShortKidney(_) => 5,
+                    CutType::E => {
+                        if cut.component == Component::P {
+                            6
+                        } else {
+                            1
+                        }
+                    }
+                });
+                self.loaded = true;
+            }
         }
-
-        self.commands.is_empty()
+        self.loaded
     }
 
     fn clear(&mut self) {
@@ -361,6 +381,7 @@ impl ContourGenerator {
         self.grid_x.clear();
         self.grid_u.clear();
         self.cuts.clear();
+        self.loaded = false;
 
         self.grid_p = vec![GridLine {
             path: vec![
