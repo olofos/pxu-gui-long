@@ -177,35 +177,32 @@ impl Asymptote {
     }
 }
 
-trait Refiner<T>
-where
-    T: Clone,
-{
-    fn mid_point(t1: &T, t2: &T) -> T;
-    fn cmp(t1: &T, t2: &T) -> Option<std::cmp::Ordering>;
+trait Refiner {
+    fn mid_point(&self, other: &Self) -> Self;
+    fn cmp(&self, other: &Self) -> Option<std::cmp::Ordering>;
 }
 
-impl Refiner<(f64, Complex64)> for (f64, Complex64) {
-    fn mid_point(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> (f64, Complex64) {
-        ((t1.0 + t2.0) / 2.0, (t1.1 + t2.1) / 2.0)
+impl Refiner for (f64, Complex64) {
+    fn mid_point(&self, other: &(f64, Complex64)) -> (f64, Complex64) {
+        ((self.0 + other.0) / 2.0, (self.1 + other.1) / 2.0)
     }
 
-    fn cmp(t1: &(f64, Complex64), t2: &(f64, Complex64)) -> Option<std::cmp::Ordering> {
-        t1.0.partial_cmp(&t2.0)
+    fn cmp(&self, other: &(f64, Complex64)) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }
 
-impl Refiner<f64> for f64 {
-    fn mid_point(t1: &f64, t2: &f64) -> f64 {
-        (t1 + t2) / 2.0
+impl Refiner for f64 {
+    fn mid_point(&self, other: &f64) -> f64 {
+        (self + other) / 2.0
     }
 
-    fn cmp(t1: &f64, t2: &f64) -> Option<std::cmp::Ordering> {
-        t1.partial_cmp(t2)
+    fn cmp(&self, other: &f64) -> Option<std::cmp::Ordering> {
+        self.partial_cmp(other)
     }
 }
 
-fn refine<T: Refiner<T> + Clone>(
+fn refine<T: Refiner + Clone>(
     points: impl Into<Vec<(T, Complex64)>>,
     eval: impl Fn(T, Complex64) -> Option<Complex64>,
 ) -> Vec<Complex64> {
