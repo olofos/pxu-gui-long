@@ -595,6 +595,7 @@ impl eframe::App for TemplateApp {
 
         if old_consts != new_consts {
             self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
+            self.contours.clear();
         }
 
         {

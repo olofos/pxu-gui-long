@@ -318,9 +318,10 @@ impl Contours {
         self.loaded
     }
 
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         log::debug!("Clearing grid and cuts");
         self.commands.clear();
+        self.num_commands = 0;
         self.grid_x.clear();
         self.grid_u.clear();
         self.cuts.clear();
