@@ -4,6 +4,7 @@
 mod app;
 #[cfg(debug_assertions)]
 mod frame_history;
+mod plot;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
