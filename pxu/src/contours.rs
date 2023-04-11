@@ -207,7 +207,6 @@ pub struct GridLine {
 pub struct Contours {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommand>,
-    pub consts: Option<CouplingConstants>,
     grid_p: Vec<GridLine>,
     grid_x: Vec<GridLine>,
     grid_u: Vec<GridLine>,
@@ -289,7 +288,6 @@ impl Contours {
     pub fn update(&mut self, p_range: i32, consts: CouplingConstants) -> bool {
         if self.num_commands == 0 {
             self.clear();
-            self.consts = Some(consts);
             self.commands = ContourCommandGenerator::generate_commands(p_range, consts);
             self.num_commands = self.commands.len();
             log::debug!("Generated {} commands", self.num_commands,)

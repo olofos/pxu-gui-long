@@ -457,7 +457,11 @@ impl Node for PInterpolatorMut {
     }
 }
 
-fn fig_xpl_preimage(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
+fn fig_xpl_preimage(
+    contours: Arc<Contours>,
+    cache: Arc<cache::Cache>,
+    consts: CouplingConstants,
+) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-preimage",
         Bounds::new(-2.6..2.6, -0.7..0.7),
@@ -467,10 +471,6 @@ fn fig_xpl_preimage(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result
         },
         pxu::Component::P,
     )?;
-
-    let Some(consts) = contours.consts else {
-        return Err(error("No consts set"));
-    };
 
     let state = State::new(1, consts);
 
@@ -580,7 +580,11 @@ fn fig_xpl_preimage(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result
     figure.finish(cache)
 }
 
-fn fig_xpl_cover(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
+fn fig_xpl_cover(
+    contours: Arc<Contours>,
+    cache: Arc<cache::Cache>,
+    _consts: CouplingConstants,
+) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-cover",
         Bounds::new(-6.0..6.0, -0.2..4.0),
@@ -603,6 +607,7 @@ fn fig_xpl_cover(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<Fi
 fn fig_p_plane_long_cuts_regions(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
+    consts: CouplingConstants,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p_plane_long_cuts_regions",
@@ -613,10 +618,6 @@ fn fig_p_plane_long_cuts_regions(
         },
         pxu::Component::P,
     )?;
-
-    let Some(consts) = contours.consts else {
-        return Err(error("No consts set"));
-    };
 
     let state = pxu::State::new(1, consts);
 
@@ -691,6 +692,7 @@ fn fig_p_plane_long_cuts_regions(
 fn fig_p_plane_short_cuts(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
+    consts: CouplingConstants,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-short-cuts",
@@ -701,10 +703,6 @@ fn fig_p_plane_short_cuts(
         },
         pxu::Component::P,
     )?;
-
-    let Some(consts) = contours.consts else {
-        return Err(error("No consts set"));
-    };
 
     let state = pxu::State::new(1, consts);
 
@@ -729,7 +727,11 @@ fn fig_p_plane_short_cuts(
     figure.finish(cache)
 }
 
-fn fig_xp_cuts_1(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
+fn fig_xp_cuts_1(
+    contours: Arc<Contours>,
+    cache: Arc<cache::Cache>,
+    consts: CouplingConstants,
+) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-cuts-1",
         Bounds::new(-4.0..4.0, -6.0..6.0),
@@ -749,9 +751,6 @@ fn fig_xp_cuts_1(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<Fi
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
 
-    let Some(consts) = contours.consts else {
-        return Err(error("No consts set"));
-    };
     let mut state = pxu::State::new(1, consts);
     state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
 
@@ -822,7 +821,7 @@ fn main() -> std::io::Result<()> {
         pb.set_style(spinner_style.clone());
         handles.push(thread::spawn(move || {
             pb.set_message("Generating tex file");
-            let figure = f(contours_ref, cache_ref)?;
+            let figure = f(contours_ref, cache_ref, consts)?;
             pb.set_message(format!("Compiling {}.tex", figure.name));
             let result = figure.wait(&pb);
             pb.finish_and_clear();
