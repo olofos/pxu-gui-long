@@ -30,7 +30,7 @@ impl State {
         for _ in 0..max_steps {
             let du = u0 - pt.u.re;
             let u = pt.u.re + du.abs().min(step_size).copysign(du);
-            pt.update(Component::U, Complex64::new(u, pt.u.im), &[]);
+            pt.update(Component::U, Complex64::new(u, pt.u.im), &[], consts);
             if (u0 - pt.u.re).abs() < 0.01 {
                 break;
             }
@@ -50,7 +50,7 @@ impl State {
             let xm = pt.xm;
             let steps = 4;
             for _ in 1..=steps {
-                pt.update(Component::Xp, xm, &[]);
+                pt.update(Component::Xp, xm, &[], consts);
             }
             points.push(pt);
         }
@@ -77,34 +77,52 @@ impl State {
         u_cut_type: UCutType,
     ) {
         let crossed_cuts = contours
-            .get_crossed_cuts(&self.points[active_point], component, new_value, u_cut_type)
+            .get_crossed_cuts(
+                &self.points[active_point],
+                component,
+                new_value,
+                self.consts,
+                u_cut_type,
+            )
             .collect::<Vec<_>>();
 
         self.active_point = active_point;
-        self.points[self.active_point].update(component, new_value, &crossed_cuts);
+        self.points[self.active_point].update(component, new_value, &crossed_cuts, self.consts);
 
         for i in (self.active_point + 1)..self.points.len() {
             let new_value = if self.points[i - 1].sheet_data.e_branch > 0 {
-                xm(self.points[i - 1].p, 1.0, self.points[i - 1].consts)
+                xm(self.points[i - 1].p, 1.0, self.consts)
             } else {
-                xm_crossed(self.points[i - 1].p, 1.0, self.points[i - 1].consts)
+                xm_crossed(self.points[i - 1].p, 1.0, self.consts)
             };
             let crossed_cuts = contours
-                .get_crossed_cuts(&self.points[i], Component::Xp, new_value, u_cut_type)
+                .get_crossed_cuts(
+                    &self.points[i],
+                    Component::Xp,
+                    new_value,
+                    self.consts,
+                    u_cut_type,
+                )
                 .collect::<Vec<_>>();
-            self.points[i].update(Component::Xp, new_value, &crossed_cuts);
+            self.points[i].update(Component::Xp, new_value, &crossed_cuts, self.consts);
         }
 
         for i in (0..self.active_point).rev() {
             let new_value = if self.points[i + 1].sheet_data.e_branch > 0 {
-                xp(self.points[i + 1].p, 1.0, self.points[i + 1].consts)
+                xp(self.points[i + 1].p, 1.0, self.consts)
             } else {
-                xp_crossed(self.points[i + 1].p, 1.0, self.points[i + 1].consts)
+                xp_crossed(self.points[i + 1].p, 1.0, self.consts)
             };
             let crossed_cuts = contours
-                .get_crossed_cuts(&self.points[i], Component::Xm, new_value, u_cut_type)
+                .get_crossed_cuts(
+                    &self.points[i],
+                    Component::Xm,
+                    new_value,
+                    self.consts,
+                    u_cut_type,
+                )
                 .collect::<Vec<_>>();
-            self.points[i].update(Component::Xm, new_value, &crossed_cuts);
+            self.points[i].update(Component::Xm, new_value, &crossed_cuts, self.consts);
         }
     }
 }

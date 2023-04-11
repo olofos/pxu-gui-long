@@ -3,6 +3,7 @@ use num::complex::Complex64;
 use pxu::{
     interpolation::{InterpolationPoint, PInterpolatorMut},
     kinematics::CouplingConstants,
+    State,
 };
 use pxu::{Contours, GridLine, GridLineComponent};
 use std::fs::File;
@@ -68,7 +69,7 @@ struct FigureWriter {
     component: pxu::Component,
 }
 
-const LUALATEX: &str = "lualatex.exe";
+const LUALATEX: &str = "lualatex";
 const FIGURE_PATH: &str = "./figures";
 const TEX_EXT: &str = "tex";
 const SUMMARY_NAME: &str = "all-figures";
@@ -471,22 +472,19 @@ fn fig_xpl_preimage(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result
         return Err(error("No consts set"));
     };
 
-    let pt = &pxu::Point::new(0.5, consts);
+    let state = State::new(1, consts);
 
-    for contour in contours.get_grid(pxu::Component::P).iter()
-    // .take(100)
-    {
+    for contour in contours.get_grid(pxu::Component::P).iter() {
         figure.add_grid_line(contour, &[])?;
     }
 
     for cut in contours
-        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
+        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[])?;
     }
 
-    let consts = pt.consts;
     let k = consts.k() as f64;
 
     for p_range in -3..=2 {
@@ -620,7 +618,7 @@ fn fig_p_plane_long_cuts_regions(
         return Err(error("No consts set"));
     };
 
-    let pt = &pxu::Point::new(0.5, consts);
+    let state = pxu::State::new(1, consts);
 
     let color_physical = "blue!10";
     let color_mirror_p = "red!10";
@@ -643,7 +641,7 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in contours.get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long) {
+    for cut in contours.get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long) {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
             | pxu::CutType::ULongNegative(pxu::Component::Xp) => color_mirror_p,
@@ -676,7 +674,7 @@ fn fig_p_plane_long_cuts_regions(
     }
 
     for cut in contours
-        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
+        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -708,7 +706,7 @@ fn fig_p_plane_short_cuts(
         return Err(error("No consts set"));
     };
 
-    let pt = &pxu::Point::new(0.5, consts);
+    let state = pxu::State::new(1, consts);
 
     for contour in contours.get_grid(pxu::Component::P).iter()
     // .take(100)
@@ -717,7 +715,7 @@ fn fig_p_plane_short_cuts(
     }
 
     for cut in contours
-        .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::SemiShort)
+        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::SemiShort)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -754,11 +752,11 @@ fn fig_xp_cuts_1(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<Fi
     let Some(consts) = contours.consts else {
         return Err(error("No consts set"));
     };
-    let mut pt = pxu::Point::new(1.5, consts);
-    pt.sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
+    let mut state = pxu::State::new(1, consts);
+    state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
 
     for cut in contours
-        .get_visible_cuts(&pt, pxu::Component::Xp, pxu::UCutType::SemiShort)
+        .get_visible_cuts(&state, pxu::Component::Xp, pxu::UCutType::SemiShort)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -786,8 +784,6 @@ fn main() -> std::io::Result<()> {
     let cache = cache::Cache::load(FIGURE_PATH)?;
 
     let consts = CouplingConstants::new(2.0, 5);
-    // let contours = pxu::ContourGenerator::generate_all(consts);
-    let pt = pxu::Point::new(0.5, consts);
 
     let mut contours = pxu::Contours::new();
 
@@ -797,7 +793,7 @@ fn main() -> std::io::Result<()> {
     loop {
         pb.set_length(contours.progress().1 as u64);
         pb.set_position(contours.progress().0 as u64);
-        if contours.update(&pt) {
+        if contours.update(0, consts) {
             pb.finish_and_clear();
             break;
         }

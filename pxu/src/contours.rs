@@ -3,8 +3,7 @@ use std::collections::VecDeque;
 use crate::cut::{Cut, CutType, CutVisibilityCondition};
 use crate::interpolation::{EPInterpolator, InterpolationPoint, PInterpolatorMut, XInterpolator};
 use crate::kinematics::{xp, CouplingConstants, UBranch};
-use crate::nr;
-use crate::point::Point;
+use crate::{nr, Point, State};
 use itertools::Itertools;
 use num::complex::Complex64;
 
@@ -209,7 +208,6 @@ pub struct Contours {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommand>,
     pub consts: Option<CouplingConstants>,
-
     grid_p: Vec<GridLine>,
     grid_x: Vec<GridLine>,
     grid_u: Vec<GridLine>,
@@ -288,31 +286,18 @@ impl Contours {
         Self::default()
     }
 
-    pub fn generate_all(consts: CouplingConstants) -> Self {
-        let pt = Point::new(0.5, consts);
-        let mut generator = Self::new();
-        while !generator.update(&pt) {}
-        generator
-    }
-
-    pub fn update(&mut self, pt: &Point) -> bool {
-        if let Some(consts) = self.consts {
-            if consts != pt.consts {
-                self.consts = None;
-            }
-        }
-
-        if self.consts.is_none() {
+    pub fn update(&mut self, p_range: i32, consts: CouplingConstants) -> bool {
+        if self.num_commands == 0 {
             self.clear();
-            self.consts = Some(pt.consts);
-            self.commands = ContourCommandGenerator::generate_commands(pt);
+            self.consts = Some(consts);
+            self.commands = ContourCommandGenerator::generate_commands(p_range, consts);
             self.num_commands = self.commands.len();
             log::debug!("Generated {} commands", self.num_commands,)
         }
 
         if !self.loaded {
             if let Some(command) = self.commands.pop_front() {
-                self.execute(command);
+                self.execute(command, consts);
             } else {
                 self.cuts.sort_unstable_by_key(|cut| match cut.typ {
                     CutType::Log(_) => 2,
@@ -369,13 +354,13 @@ impl Contours {
     }
     pub fn get_visible_cuts(
         &self,
-        pt: &Point,
+        state: &State,
         component: Component,
         u_cut_type: UCutType,
     ) -> impl Iterator<Item = &Cut> {
-        let mut pt = pt.clone();
-        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
-            / pt.consts.h;
+        let mut pt = state.active_point().clone();
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * state.consts.k()) as f64 * Complex64::i()
+            / state.consts.h;
 
         self.cuts
             .iter()
@@ -387,16 +372,15 @@ impl Contours {
         pt: &Point,
         component: Component,
         new_value: Complex64,
+        consts: CouplingConstants,
         u_cut_type: UCutType,
     ) -> impl Iterator<Item = &Cut> {
         let mut pt = pt.clone();
-        pt.u += 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
-            / pt.consts.h;
+        pt.u += 2.0 * (pt.sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
 
         let new_value = if component == Component::U {
             new_value
-                + 2.0 * (pt.sheet_data.log_branch_p * pt.consts.k()) as f64 * Complex64::i()
-                    / pt.consts.h
+                + 2.0 * (pt.sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h
         } else {
             new_value
         };
@@ -404,18 +388,13 @@ impl Contours {
         self.cuts.iter().filter(move |c| {
             c.component == component
                 && c.is_visible(&pt, u_cut_type)
-                && c.intersection(pt.get(component), new_value, self.consts.unwrap())
+                && c.intersection(pt.get(component), new_value, consts)
                     .is_some()
         })
     }
 
-    fn execute(&mut self, command: GeneratorCommand) {
+    fn execute(&mut self, command: GeneratorCommand, consts: CouplingConstants) {
         use GeneratorCommand::*;
-
-        let Some(consts) = self.consts else {
-            log::warn!("Executing commands when consts is not set!");
-            return;
-        };
 
         match command {
             AddGridLineU { y } => {
@@ -772,9 +751,9 @@ impl Contours {
 }
 
 impl ContourCommandGenerator {
-    fn generate_commands(pt: &Point) -> VecDeque<GeneratorCommand> {
+    fn generate_commands(p_range: i32, consts: CouplingConstants) -> VecDeque<GeneratorCommand> {
         let bctx = Self::new();
-        bctx.do_generate_commands(pt)
+        bctx.do_generate_commands(p_range, consts)
     }
 
     fn new() -> Self {
@@ -854,11 +833,12 @@ impl ContourCommandGenerator {
         self.add(GeneratorCommand::AddGridLineP)
     }
 
-    fn do_generate_commands(mut self, pt: &Point) -> VecDeque<GeneratorCommand> {
-        let consts = pt.consts;
+    fn do_generate_commands(
+        mut self,
+        p_range: i32,
+        consts: CouplingConstants,
+    ) -> VecDeque<GeneratorCommand> {
         self.generate_u_grid(consts);
-
-        let p_range = pt.p.re.floor() as i32;
 
         let max = P_RANGE_MAX - P_RANGE_MIN;
 

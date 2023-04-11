@@ -13,7 +13,6 @@ pub struct Point {
     pub xp: Complex64,
     pub xm: Complex64,
     pub u: Complex64,
-    pub consts: CouplingConstants,
     pub sheet_data: SheetData,
 }
 
@@ -45,44 +44,29 @@ impl Point {
             xp,
             xm,
             u,
-            consts,
             sheet_data,
         }
     }
 
-    pub fn set_coupling_constants(&mut self, consts: CouplingConstants) {
-        self.consts = consts;
-        self.set(self.p);
-    }
-
-    fn set(&mut self, p: Complex64) {
-        self.p = p;
-        if self.sheet_data.e_branch > 0 {
-            self.xp = xp(p, 1.0, self.consts);
-            self.xm = xm(p, 1.0, self.consts);
-
-            self.u = u(p, self.consts, &self.sheet_data);
-        } else {
-            self.xp = xp_crossed(p, 1.0, self.consts);
-            self.xm = xm_crossed(p, 1.0, self.consts);
-            self.u = u_crossed(p, self.consts, &self.sheet_data);
-        };
-    }
-
-    fn try_set(&mut self, p: Option<Complex64>, sheet_data: &SheetData) -> bool {
+    fn try_set(
+        &mut self,
+        p: Option<Complex64>,
+        sheet_data: &SheetData,
+        consts: CouplingConstants,
+    ) -> bool {
         let Some(p) = p else {return false};
         let new_xp: Complex64;
         let new_xm: Complex64;
         let new_u: Complex64;
 
         if sheet_data.e_branch > 0 {
-            new_xp = xp(p, 1.0, self.consts);
-            new_xm = xm(p, 1.0, self.consts);
-            new_u = u(p, self.consts, sheet_data);
+            new_xp = xp(p, 1.0, consts);
+            new_xm = xm(p, 1.0, consts);
+            new_u = u(p, consts, sheet_data);
         } else {
-            new_xp = xp_crossed(p, 1.0, self.consts);
-            new_xm = xm_crossed(p, 1.0, self.consts);
-            new_u = u_crossed(p, self.consts, sheet_data);
+            new_xp = xp_crossed(p, 1.0, consts);
+            new_xm = xm_crossed(p, 1.0, consts);
+            new_u = u_crossed(p, consts, sheet_data);
         }
 
         if (self.p - p).re.abs() > 0.125 || (self.p - p).im.abs() > 0.25 {
@@ -94,30 +78,30 @@ impl Point {
             return false;
         }
 
-        if (self.xp - new_xp).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
+        if (self.xp - new_xp).norm_sqr() > 16.0 / (consts.h * consts.h) {
             log::debug!(
                 "xp jump too large: {} ({}) {} ({})",
                 (self.xp - new_xp).norm_sqr(),
-                (self.xp - new_xp).norm_sqr() * (self.consts.h * self.consts.h),
+                (self.xp - new_xp).norm_sqr() * (consts.h * consts.h),
                 self.xp.norm_sqr(),
-                self.xp.norm_sqr() * (self.consts.h * self.consts.h)
+                self.xp.norm_sqr() * (consts.h * consts.h)
             );
             // return false;
         }
 
-        if (self.xm - new_xm).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
+        if (self.xm - new_xm).norm_sqr() > 16.0 / (consts.h * consts.h) {
             log::debug!(
                 "xm jump too large: {} ({}) {} ({})",
                 (self.xm - new_xm).norm_sqr(),
-                (self.xm - new_xm).norm_sqr() * (self.consts.h * self.consts.h),
+                (self.xm - new_xm).norm_sqr() * (consts.h * consts.h),
                 self.xm.norm_sqr(),
-                self.xm.norm_sqr() * (self.consts.h * self.consts.h)
+                self.xm.norm_sqr() * (consts.h * consts.h)
             );
 
             // return false;
         }
 
-        if (self.u - new_u).norm_sqr() > 16.0 / (self.consts.h * self.consts.h) {
+        if (self.u - new_u).norm_sqr() > 16.0 / (consts.h * consts.h) {
             log::debug!("u jump too large");
             // return false;
         }
@@ -136,19 +120,20 @@ impl Point {
         new_xp: Complex64,
         sheet_data: &SheetData,
         guess: Complex64,
+        consts: CouplingConstants,
     ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| xp(p, 1.0, self.consts) - new_xp,
-                |p| dxp_dp(p, 1.0, self.consts),
+                |p| xp(p, 1.0, consts) - new_xp,
+                |p| dxp_dp(p, 1.0, consts),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| xp_crossed(p, 1.0, self.consts) - new_xp,
-                |p| dxp_crossed_dp(p, 1.0, self.consts),
+                |p| xp_crossed(p, 1.0, consts) - new_xp,
+                |p| dxp_crossed_dp(p, 1.0, consts),
                 guess,
                 1.0e-6,
                 50,
@@ -161,19 +146,20 @@ impl Point {
         new_xm: Complex64,
         sheet_data: &SheetData,
         guess: Complex64,
+        consts: CouplingConstants,
     ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| xm(p, 1.0, self.consts) - new_xm,
-                |p| dxm_dp(p, 1.0, self.consts),
+                |p| xm(p, 1.0, consts) - new_xm,
+                |p| dxm_dp(p, 1.0, consts),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| xm_crossed(p, 1.0, self.consts) - new_xm,
-                |p| dxm_crossed_dp(p, 1.0, self.consts),
+                |p| xm_crossed(p, 1.0, consts) - new_xm,
+                |p| dxm_crossed_dp(p, 1.0, consts),
                 guess,
                 1.0e-6,
                 50,
@@ -186,19 +172,20 @@ impl Point {
         new_u: Complex64,
         sheet_data: &SheetData,
         guess: Complex64,
+        consts: CouplingConstants,
     ) -> Option<Complex64> {
         if sheet_data.e_branch > 0 {
             nr::find_root(
-                |p| u(p, self.consts, sheet_data) - new_u,
-                |p| du_dp(p, self.consts, sheet_data),
+                |p| u(p, consts, sheet_data) - new_u,
+                |p| du_dp(p, consts, sheet_data),
                 guess,
                 1.0e-6,
                 50,
             )
         } else {
             nr::find_root(
-                |p| u_crossed(p, self.consts, sheet_data) - new_u,
-                |p| du_crossed_dp(p, self.consts, sheet_data),
+                |p| u_crossed(p, consts, sheet_data) - new_u,
+                |p| du_crossed_dp(p, consts, sheet_data),
                 guess,
                 1.0e-6,
                 50,
@@ -215,7 +202,13 @@ impl Point {
         }
     }
 
-    pub fn update(&mut self, component: Component, new_value: Complex64, crossed_cuts: &[&Cut]) {
+    pub fn update(
+        &mut self,
+        component: Component,
+        new_value: Complex64,
+        crossed_cuts: &[&Cut],
+        consts: CouplingConstants,
+    ) {
         let mut new_sheet_data = self.sheet_data.clone();
         for cut in crossed_cuts {
             match cut.typ {
@@ -276,12 +269,12 @@ impl Point {
         {
             let p = match component {
                 Component::P => Some(new_value),
-                Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess),
-                Component::Xm => self.shift_xm(new_value, &new_sheet_data, guess),
-                Component::U => self.shift_u(new_value, &new_sheet_data, guess),
+                Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess, consts),
+                Component::Xm => self.shift_xm(new_value, &new_sheet_data, guess, consts),
+                Component::U => self.shift_u(new_value, &new_sheet_data, guess, consts),
             };
 
-            if self.try_set(p, &new_sheet_data) {
+            if self.try_set(p, &new_sheet_data, consts) {
                 return;
             }
         }
@@ -295,9 +288,8 @@ impl Point {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
                 if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
-                    || self.consts.k() > 0
-                        && (sd1.log_branch_p - sd1.log_branch_m)
-                            != (sd2.log_branch_p - sd2.log_branch_m)
+                    && (sd1.log_branch_p - sd1.log_branch_m)
+                        != (sd2.log_branch_p - sd2.log_branch_m)
                 {
                     false
                 } else if u_cut_type == UCutType::Long {

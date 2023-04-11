@@ -149,15 +149,14 @@ impl Plot {
 
                 if show_cuts {
                     let shift = if self.component == pxu::Component::U {
-                        2.0 * (pxu.active_point().sheet_data.log_branch_p
-                            * pxu.active_point().consts.k()) as f32
-                            / pxu.active_point().consts.h as f32
+                        2.0 * (pxu.active_point().sheet_data.log_branch_p * pxu.consts.k()) as f32
+                            / pxu.consts.h as f32
                     } else {
                         0.0
                     };
 
                     let visible_cuts = contours
-                        .get_visible_cuts(&pxu.points[pxu.active_point], self.component, u_cut_type)
+                        .get_visible_cuts(&pxu, self.component, u_cut_type)
                         .collect::<Vec<_>>();
 
                     let long_cuts = u_cut_type == UCutType::Long;
@@ -513,10 +512,10 @@ impl eframe::App for TemplateApp {
                     .pxu
                     .points
                     .iter()
-                    .map(|pxu| {
-                        let xp = pxu.xp;
-                        let xm = pxu.xm;
-                        -Complex64::i() * pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
+                    .map(|pt| {
+                        let xp = pt.xp;
+                        let xm = pt.xm;
+                        -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
                     })
                     .sum::<Complex64>();
                 ui.label(format!(
@@ -605,7 +604,7 @@ impl eframe::App for TemplateApp {
             {
                 if self
                     .contours
-                    .update(&self.pxu.points[self.pxu.active_point])
+                    .update(self.pxu.active_point().p.re.floor() as i32, self.pxu.consts)
                 {
                     break;
                 }
