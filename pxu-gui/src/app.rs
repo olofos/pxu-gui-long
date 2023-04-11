@@ -17,10 +17,6 @@ pub struct TemplateApp {
     #[serde(skip)]
     pxu: pxu::State,
     #[serde(skip)]
-    z: num::complex::Complex64,
-    #[serde(skip)]
-    branch: i32,
-    #[serde(skip)]
     contours: pxu::Contours,
     #[serde(skip)]
     p_plot: Plot,
@@ -391,10 +387,7 @@ impl Default for TemplateApp {
 
         Self {
             consts,
-            // pxu: vec![pxu::Point::new(p0, consts), pxu::Point::new(p_conj, consts)],
             pxu: state,
-            z: num::complex::Complex::new(0.0, 0.5),
-            branch: 1,
             contours: pxu::Contours::new(),
             p_plot: Plot {
                 component: pxu::Component::P,
