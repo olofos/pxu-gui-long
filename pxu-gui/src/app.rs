@@ -13,8 +13,6 @@ use pxu::UCutType;
 
 pub struct TemplateApp {
     #[serde(skip)]
-    consts: CouplingConstants,
-    #[serde(skip)]
     pxu: pxu::State,
     #[serde(skip)]
     contours: pxu::Contours,
@@ -386,7 +384,6 @@ impl Default for TemplateApp {
         );
 
         Self {
-            consts,
             pxu: state,
             contours: pxu::Contours::new(),
             p_plot: Plot {
@@ -464,19 +461,20 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        let old_consts = self.consts;
+        let old_consts = self.pxu.consts;
+        let mut new_consts = self.pxu.consts;
 
         egui::SidePanel::right("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
 
             ui.add(
-                egui::Slider::new(&mut self.consts.h, 0.1..=10.0)
+                egui::Slider::new(&mut new_consts.h, 0.1..=10.0)
                     .text("h")
                     .logarithmic(true),
             );
 
             ui.add(
-                egui::Slider::from_get_set(0.0..=10.0, |v| self.consts.get_set_k(v))
+                egui::Slider::from_get_set(0.0..=10.0, |v| new_consts.get_set_k(v))
                     .integer()
                     .text("k"),
             );
@@ -596,8 +594,8 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        if old_consts != self.consts {
-            self.pxu = pxu::State::new(self.pxu.points.len(), self.consts);
+        if old_consts != new_consts {
+            self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
         }
 
         {
