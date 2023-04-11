@@ -288,7 +288,7 @@ impl Point {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
                 if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
-                    && (sd1.log_branch_p - sd1.log_branch_m)
+                    || (sd1.log_branch_p - sd1.log_branch_m)
                         != (sd2.log_branch_p - sd2.log_branch_m)
                 {
                     false
