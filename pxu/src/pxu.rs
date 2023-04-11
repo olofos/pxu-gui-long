@@ -179,34 +179,14 @@ impl ContourGeneratorRuntimeContext {
     }
 }
 
-struct ContourGeneratorBuildTimeContext {
+struct ContourGeneratorBuilder {
     component: Option<Component>,
     cut_type: Option<CutType>,
     periodic: bool,
     visibility: Vec<CutVisibilityCondition>,
     group_visibility: Vec<CutVisibilityCondition>,
     pre_shift: Complex64,
-}
-
-impl ContourGeneratorBuildTimeContext {
-    fn new() -> Self {
-        Self {
-            component: None,
-            cut_type: None,
-            periodic: false,
-            visibility: vec![],
-            group_visibility: vec![],
-            pre_shift: Complex64::from(0.0),
-        }
-    }
-
-    fn reset(&mut self) {
-        self.component = None;
-        self.cut_type = None;
-        self.periodic = false;
-        self.visibility = self.group_visibility.clone();
-        self.pre_shift = Complex64::from(0.0);
-    }
+    commands: VecDeque<GeneratorCommands>,
 }
 
 pub enum GridLineComponent {
@@ -230,7 +210,6 @@ pub struct Contours {
     grid_u: Vec<GridLine>,
 
     rctx: ContourGeneratorRuntimeContext,
-    bctx: ContourGeneratorBuildTimeContext,
 
     num_commands: usize,
     loaded: bool,
@@ -246,7 +225,6 @@ impl Default for Contours {
             grid_x: vec![],
             grid_u: vec![],
             rctx: ContourGeneratorRuntimeContext::new(),
-            bctx: ContourGeneratorBuildTimeContext::new(),
             num_commands: 0,
             loaded: false,
         }
@@ -338,7 +316,7 @@ impl Contours {
         if self.consts.is_none() {
             self.clear();
             self.consts = Some(pt.consts);
-            self.generate_commands(pt);
+            self.commands = ContourGeneratorBuilder::generate_commands(pt);
             self.num_commands = self.commands.len();
             log::debug!("Generated {} commands", self.num_commands,)
         }
@@ -793,6 +771,33 @@ impl Contours {
             }
         }
     }
+}
+
+impl ContourGeneratorBuilder {
+    fn generate_commands(pt: &Point) -> VecDeque<GeneratorCommands> {
+        let bctx = Self::new();
+        bctx.do_generate_commands(pt)
+    }
+
+    fn new() -> Self {
+        Self {
+            component: None,
+            cut_type: None,
+            periodic: false,
+            visibility: vec![],
+            group_visibility: vec![],
+            pre_shift: Complex64::from(0.0),
+            commands: VecDeque::new(),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.component = None;
+        self.cut_type = None;
+        self.periodic = false;
+        self.visibility = self.group_visibility.clone();
+        self.pre_shift = Complex64::from(0.0);
+    }
 
     fn add(&mut self, command: GeneratorCommands) -> &mut Self {
         self.commands.push_back(command);
@@ -851,7 +856,7 @@ impl Contours {
         self.add(GeneratorCommands::AddGridLineP)
     }
 
-    fn generate_commands(&mut self, pt: &Point) {
+    fn do_generate_commands(mut self, pt: &Point) -> VecDeque<GeneratorCommands> {
         let consts = pt.consts;
         self.generate_u_grid(consts);
 
@@ -892,6 +897,8 @@ impl Contours {
                 self.generate_p_grid(p_range + i, consts);
             }
         }
+
+        self.commands
     }
 
     fn generate_u_grid(&mut self, consts: CouplingConstants) {
@@ -1103,8 +1110,8 @@ impl Contours {
     }
 
     fn begin_group(&mut self, group_visibility: &[CutVisibilityCondition]) -> &mut Self {
-        self.bctx.group_visibility = Vec::from(group_visibility);
-        self.bctx.reset();
+        self.group_visibility = Vec::from(group_visibility);
+        self.reset();
         self
     }
 
@@ -1144,25 +1151,25 @@ impl Contours {
     }
 
     fn push_cut(&mut self, p_range: i32) -> &mut Self {
-        let Some(component) = std::mem::replace(&mut self.bctx.component, None) else {
+        let Some(component) = std::mem::replace(&mut self.component, None) else {
             log::warn!("Can't push cut without component");
-            self.bctx.reset();
+            self.reset();
             return self;
         };
-        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_type, None) else {
+        let Some(cut_type) = std::mem::replace(&mut self.cut_type, None) else {
             log::warn!("Can't push cut without type");
-            self.bctx.reset();
+            self.reset();
             return self;
         };
         self.add(GeneratorCommands::PushCut(
             p_range,
             component,
             cut_type,
-            self.bctx.periodic,
-            self.bctx.visibility.clone(),
-            self.bctx.pre_shift,
+            self.periodic,
+            self.visibility.clone(),
+            self.pre_shift,
         ));
-        self.bctx.reset();
+        self.reset();
         self
     }
 
@@ -1190,98 +1197,90 @@ impl Contours {
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
-        if self.bctx.component.is_some() || self.bctx.cut_type.is_some() {
+        if self.component.is_some() || self.cut_type.is_some() {
             log::warn!("New cut created before previous cut was pushed");
         }
-        self.bctx.reset();
-        self.bctx.component = Some(component);
-        self.bctx.cut_type = Some(cut_type);
+        self.reset();
+        self.component = Some(component);
+        self.cut_type = Some(cut_type);
         self
     }
 
     fn log_branch(&mut self, p_range: i32) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::LogBranch(p_range));
         self
     }
 
     fn im_xm_negative(&mut self) -> &mut Self {
-        self.bctx.visibility.push(CutVisibilityCondition::ImXm(-1));
+        self.visibility.push(CutVisibilityCondition::ImXm(-1));
         self
     }
 
     fn im_xm_positive(&mut self) -> &mut Self {
-        self.bctx.visibility.push(CutVisibilityCondition::ImXm(1));
+        self.visibility.push(CutVisibilityCondition::ImXm(1));
         self
     }
 
     fn im_xp_positive(&mut self) -> &mut Self {
-        self.bctx.visibility.push(CutVisibilityCondition::ImXp(1));
+        self.visibility.push(CutVisibilityCondition::ImXp(1));
         self
     }
 
     fn im_xp_negative(&mut self) -> &mut Self {
-        self.bctx.visibility.push(CutVisibilityCondition::ImXp(-1));
+        self.visibility.push(CutVisibilityCondition::ImXp(-1));
         self
     }
 
     fn xp_outside(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Outside));
         self
     }
 
     fn xp_between(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Between));
         self
     }
 
     fn xp_inside(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Inside));
         self
     }
 
     fn xm_outside(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Outside));
         self
     }
 
     fn xm_between(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Between));
         self
     }
 
     fn xm_inside(&mut self) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Inside));
         self
     }
 
     fn e_branch(&mut self, branch: i32) -> &mut Self {
-        self.bctx
-            .visibility
+        self.visibility
             .push(CutVisibilityCondition::EBranch(branch));
         self
     }
 
     fn periodic(&mut self) -> &mut Self {
-        self.bctx.periodic = true;
+        self.periodic = true;
         self
     }
 
     fn pre_shift(&mut self, z: Complex64) -> &mut Self {
-        self.bctx.pre_shift = z;
+        self.pre_shift = z;
         self
     }
 
