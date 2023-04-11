@@ -1,10 +1,10 @@
+use crate::contours::{Component, UCutType};
 use crate::cut::{Cut, CutType};
 use crate::kinematics::{
     du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, u_crossed, xm,
     xm_crossed, xp, xp_crossed, CouplingConstants, SheetData, UBranch,
 };
 use crate::nr;
-use crate::pxu::{Component, UCutType};
 use num::complex::Complex64;
 
 #[derive(Debug, Clone)]

@@ -1,7 +1,7 @@
+use crate::contours::{Component, Contours, UCutType};
 use crate::interpolation::PInterpolatorMut;
 use crate::kinematics::{xm, xm_crossed, xp, xp_crossed, CouplingConstants};
 use crate::point::Point;
-use crate::pxu::{Component, Contours, UCutType};
 use num::complex::Complex64;
 
 #[derive(Debug, Clone)]

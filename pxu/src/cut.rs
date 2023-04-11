@@ -1,7 +1,7 @@
 use crate::kinematics::{CouplingConstants, UBranch};
 pub use crate::point::Point;
 
-use crate::pxu::{Component, UCutType};
+use crate::contours::{Component, UCutType};
 use itertools::Itertools;
 
 use num::complex::Complex64;
