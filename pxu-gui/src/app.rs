@@ -4,9 +4,8 @@ use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
 use num::complex::Complex64;
 
-use ::pxu::kinematics::CouplingConstants;
-use ::pxu::pxu;
-use ::pxu::pxu::UCutType;
+use pxu::kinematics::CouplingConstants;
+use pxu::UCutType;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]

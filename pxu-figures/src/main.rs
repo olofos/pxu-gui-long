@@ -1,11 +1,10 @@
-use ::pxu::pxu::{Contours, GridLine, GridLineComponent};
-use ::pxu::{
-    interpolation::{InterpolationPoint, PInterpolatorMut},
-    kinematics::CouplingConstants,
-    pxu,
-};
 use itertools::Itertools;
 use num::complex::Complex64;
+use pxu::{
+    interpolation::{InterpolationPoint, PInterpolatorMut},
+    kinematics::CouplingConstants,
+};
+use pxu::{Contours, GridLine, GridLineComponent};
 use std::fs::File;
 use std::io::{prelude::*, BufWriter, Result};
 use std::ops::Range;
