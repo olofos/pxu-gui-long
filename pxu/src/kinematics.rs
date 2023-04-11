@@ -8,7 +8,7 @@ pub struct CouplingConstants {
 }
 
 impl CouplingConstants {
-    pub fn new(h: f64, k: u32) -> Self {
+    pub fn new(h: f64, k: i32) -> Self {
         Self {
             h,
             kslash_: k as f64 / TAU,
