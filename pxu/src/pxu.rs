@@ -169,30 +169,18 @@ enum GeneratorCommand {
     PGotoRe(f64),
 }
 
+#[derive(Default)]
 struct RuntimeCutData {
     branch_point: Option<Complex64>,
     path: Option<Vec<Complex64>>,
 }
 
+#[derive(Default)]
 struct ContourGeneratorRuntimeContext {
     p_int: Option<PInterpolatorMut>,
     e_int: Option<EPInterpolator>,
     branch_point_data: Option<BranchPointData>,
     cut_data: RuntimeCutData,
-}
-
-impl ContourGeneratorRuntimeContext {
-    fn new() -> Self {
-        Self {
-            p_int: None,
-            e_int: None,
-            branch_point_data: None,
-            cut_data: RuntimeCutData {
-                branch_point: None,
-                path: None,
-            },
-        }
-    }
 }
 
 struct ContourCommandGenerator {
@@ -216,6 +204,7 @@ pub struct GridLine {
     pub component: GridLineComponent,
 }
 
+#[derive(Default)]
 pub struct Contours {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommand>,
@@ -229,22 +218,6 @@ pub struct Contours {
 
     num_commands: usize,
     loaded: bool,
-}
-
-impl Default for Contours {
-    fn default() -> Self {
-        Self {
-            cuts: vec![],
-            commands: VecDeque::new(),
-            consts: None,
-            grid_p: vec![],
-            grid_x: vec![],
-            grid_u: vec![],
-            rctx: ContourGeneratorRuntimeContext::new(),
-            num_commands: 0,
-            loaded: false,
-        }
-    }
 }
 
 fn branch_point_mass(p_start: f64, k: f64, branch_point_type: BranchPointType) -> f64 {
@@ -726,7 +699,6 @@ impl Contours {
                             cut.branch_point = None;
                         }
                         for vis in cut.visibility.iter() {
-                            // let old_vis = vis;
                             let vis = match vis {
                                 CutVisibilityCondition::UpBranch(b) => {
                                     if component == Component::Xp {
@@ -2016,38 +1988,6 @@ impl ContourCommandGenerator {
                 .xp_between()
                 .push_cut(p_range);
 
-            // self.clear_cut()
-            //     .set_cut_path(
-            //         vec![
-            //             Complex64::new(-INFINITY, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-            //             Complex64::new(-us, -(1.0 + (p_range + 1) as f64 * k) / consts.h),
-            //         ],
-            //         Some(Complex64::new(
-            //             -us,
-            //             -(1.0 + (p_range + 1) as f64 * k) / consts.h,
-            //         )),
-            //     )
-            //     .create_cut(Component::U, CutType::Log(Component::Xp))
-            //     .log_branch(p_range)
-            //     .xp_between()
-            //     .push_cut(p_range);
-
-            // self.clear_cut()
-            //     .set_cut_path(
-            //         vec![
-            //             Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-            //             Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-            //         ],
-            //         Some(Complex64::new(
-            //             -us,
-            //             -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-            //         )),
-            //     )
-            //     .create_cut(Component::U, CutType::Log(Component::Xp))
-            //     .log_branch(p_range)
-            //     .xp_between()
-            //     .push_cut(p_range);
-
             // Real negative line
             let p0 = p_start + 7.0 / 8.0;
             self.clear_cut()
@@ -2780,22 +2720,6 @@ impl ContourCommandGenerator {
                 .im_xp_negative()
                 .im_xm_positive()
                 .push_cut(p_range);
-
-            {
-                // self.clear_cut().set_cut_path(
-                //     vec![
-                //         Complex64::new(-INFINITY, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                //         Complex64::new(-us, -(1.0 + (p_range - 1) as f64 * k) / consts.h),
-                //     ],
-                //     Some(Complex64::new(
-                //         -us,
-                //         -(1.0 + (p_range - 1) as f64 * k) / consts.h,
-                //     )),
-                // );
-                // self.create_cut(Component::U, CutType::Log(Component::Xp))
-                //     .xp_between()
-                //     .push_cut(p_range);
-            }
 
             self.clear_cut().set_cut_path(
                 vec![
