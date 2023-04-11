@@ -21,7 +21,7 @@ fn main() {
                 ..egui::Style::default()
             };
             cc.egui_ctx.set_style(style);
-            Box::new(app::TemplateApp::new(cc))
+            Box::new(app::PxuGuiApp::new(cc))
         }),
     );
 }
@@ -43,7 +43,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
-            Box::new(|cc| Box::new(app::TemplateApp::new(cc))),
+            Box::new(|cc| Box::new(app::PxuGuiApp::new(cc))),
         )
         .await
         .expect("failed to start eframe");
