@@ -15,16 +15,18 @@ impl State {
     pub fn new(m: usize, consts: CouplingConstants) -> Self {
         let mut points = vec![];
 
-        let mut p_int = PInterpolatorMut::xp(0.05, consts);
-        p_int.goto_m(m as f64).goto_p(0.1);
+        let mut p_int = PInterpolatorMut::xp(0.025, consts);
+        p_int
+            .goto_m(m as f64)
+            .goto_p(0.025 + 0.022 * (m - 1) as f64);
         let mut pt = Point::new(p_int.p(), consts);
 
         let s = consts.s();
         let us = s + 1.0 / s - (s - 1.0 / s) * s.ln();
 
         let u0 = us + 3.0;
-        let step_size = 0.25;
-        let max_steps = 2 * ((u0 - pt.u.re).abs() / 0.25) as usize;
+        let step_size = 1.0 / 4.0;
+        let max_steps = 2 * ((u0 - pt.u.re).abs() / step_size) as usize;
         for _ in 0..max_steps {
             let du = u0 - pt.u.re;
             let u = pt.u.re + du.abs().min(step_size).copysign(du);
@@ -33,19 +35,22 @@ impl State {
                 break;
             }
         }
-        log::info!("{} {max_steps}", u0 - pt.u.re);
+        if (u0 - pt.u.re).abs() >= 0.01 {
+            log::warn!(
+                "Could not find u (h={} k={} du={})",
+                consts.h,
+                consts.k(),
+                u0 - pt.u.re
+            );
+        }
         points.push(pt);
 
         for i in 1..m {
             let mut pt = points[i - 1].clone();
-            let u = pt.u;
+            let xm = pt.xm;
             let steps = 4;
-            for n in 1..=steps {
-                pt.update(
-                    Component::U,
-                    u - 2.0 * Complex64::i() / consts.h * (n as f64 / steps as f64),
-                    &[],
-                );
+            for _ in 1..=steps {
+                pt.update(Component::Xp, xm, &[]);
             }
             points.push(pt);
         }
