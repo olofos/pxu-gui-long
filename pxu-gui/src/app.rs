@@ -22,7 +22,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     branch: i32,
     #[serde(skip)]
-    contour_generator: pxu::ContourGenerator,
+    contour_generator: pxu::Contours,
     #[serde(skip)]
     p_plot: Plot,
     #[serde(skip)]
@@ -52,7 +52,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         desired_size: Vec2,
-        contour_generator: &mut pxu::ContourGenerator,
+        contour_generator: &mut pxu::Contours,
         show_cuts: bool,
         u_cut_type: UCutType,
         pxu: &mut pxu::State,
@@ -396,7 +396,7 @@ impl Default for TemplateApp {
             pxu: state,
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
-            contour_generator: pxu::ContourGenerator::new(),
+            contour_generator: pxu::Contours::new(),
             p_plot: Plot {
                 component: pxu::Component::P,
                 height: 0.75,

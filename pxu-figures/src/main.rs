@@ -1,4 +1,4 @@
-use ::pxu::pxu::{ContourGenerator, GridLine, GridLineComponent};
+use ::pxu::pxu::{Contours, GridLine, GridLineComponent};
 use ::pxu::{
     interpolation::{InterpolationPoint, PInterpolatorMut},
     kinematics::CouplingConstants,
@@ -458,7 +458,7 @@ impl Node for PInterpolatorMut {
 }
 
 fn fig_xpl_preimage(
-    contour_generator: Arc<ContourGenerator>,
+    contour_generator: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -587,7 +587,7 @@ fn fig_xpl_preimage(
 }
 
 fn fig_xpl_cover(
-    contour_generator: Arc<ContourGenerator>,
+    contour_generator: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -614,7 +614,7 @@ fn fig_xpl_cover(
 }
 
 fn fig_p_plane_long_cuts_regions(
-    contour_generator: Arc<ContourGenerator>,
+    contour_generator: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -702,7 +702,7 @@ fn fig_p_plane_long_cuts_regions(
 }
 
 fn fig_p_plane_short_cuts(
-    contour_generator: Arc<ContourGenerator>,
+    contour_generator: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -743,7 +743,7 @@ fn fig_p_plane_short_cuts(
 }
 
 fn fig_xp_cuts_1(
-    contour_generator: Arc<ContourGenerator>,
+    contour_generator: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -803,7 +803,7 @@ fn main() -> std::io::Result<()> {
     // let contour_generator = pxu::ContourGenerator::generate_all(consts);
     let pt = pxu::Point::new(0.5, consts);
 
-    let mut contour_generator = pxu::ContourGenerator::new();
+    let mut contour_generator = pxu::Contours::new();
 
     println!("[1/3] Generating contours");
     let pb = ProgressBar::new(1);

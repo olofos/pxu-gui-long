@@ -227,7 +227,7 @@ pub struct GridLine {
     pub component: GridLineComponent,
 }
 
-pub struct ContourGenerator {
+pub struct Contours {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommands>,
     pub consts: Option<CouplingConstants>,
@@ -243,7 +243,7 @@ pub struct ContourGenerator {
     loaded: bool,
 }
 
-impl Default for ContourGenerator {
+impl Default for Contours {
     fn default() -> Self {
         Self {
             cuts: vec![],
@@ -323,7 +323,7 @@ pub fn compute_branch_point(
     }
 }
 
-impl ContourGenerator {
+impl Contours {
     pub fn new() -> Self {
         Self::default()
     }
@@ -3996,7 +3996,7 @@ impl State {
         active_point: usize,
         component: Component,
         new_value: Complex64,
-        contour_generator: &ContourGenerator,
+        contour_generator: &Contours,
         u_cut_type: UCutType,
     ) {
         let crossed_cuts = contour_generator
