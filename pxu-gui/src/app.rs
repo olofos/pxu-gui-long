@@ -1,5 +1,4 @@
 use egui::{vec2, Pos2};
-use num::complex::Complex64;
 use pxu::kinematics::CouplingConstants;
 use pxu::UCutType;
 
@@ -159,24 +158,8 @@ impl eframe::App for PxuGuiApp {
             ui.separator();
 
             {
-                let p = self.pxu.points.iter().map(|pxu| pxu.p).sum::<Complex64>();
-                ui.label(format!("Momentum: {:.2}", p));
-
-                let en = self
-                    .pxu
-                    .points
-                    .iter()
-                    .map(|pt| {
-                        let xp = pt.xp;
-                        let xm = pt.xm;
-                        -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
-                    })
-                    .sum::<Complex64>();
-                ui.label(format!(
-                    "Energy: {:.2} / {:.2}",
-                    en,
-                    ::pxu::kinematics::en(p, self.pxu.points.len() as f64, self.pxu.consts)
-                ));
+                ui.label(format!("Momentum: {:.3}", self.pxu.p()));
+                ui.label(format!("Energy: {:.3}", self.pxu.en()));
             }
 
             ui.separator();
@@ -184,14 +167,11 @@ impl eframe::App for PxuGuiApp {
             {
                 ui.label("Active excitation:");
 
-                ui.label(format!("Momentum: {:.2}", self.pxu.active_point().p));
-
-                let xp = self.pxu.active_point().xp;
-                let xm = self.pxu.active_point().xm;
+                ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
 
                 ui.label(format!(
-                    "Energy: {:.2}",
-                    -Complex64::i() * self.pxu.consts.h / 2.0 * (xp - 1.0 / xp - xm + 1.0 / xm)
+                    "Energy: {:.3}",
+                    self.pxu.active_point().en(self.pxu.consts)
                 ));
 
                 ui.add_space(10.0);

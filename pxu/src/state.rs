@@ -125,4 +125,15 @@ impl State {
             self.points[i].update(Component::Xm, new_value, &crossed_cuts, self.consts);
         }
     }
+
+    pub fn p(&self) -> Complex64 {
+        self.points.iter().map(|pxu| pxu.p).sum::<Complex64>()
+    }
+
+    pub fn en(&self) -> Complex64 {
+        self.points
+            .iter()
+            .map(|pt| pt.en(self.consts))
+            .sum::<Complex64>()
+    }
 }

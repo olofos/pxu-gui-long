@@ -319,4 +319,8 @@ impl Point {
             }
         }
     }
+
+    pub fn en(&self, consts: CouplingConstants) -> Complex64 {
+        -Complex64::i() * consts.h / 2.0 * (self.xp - 1.0 / self.xp - self.xm + 1.0 / self.xm)
+    }
 }
