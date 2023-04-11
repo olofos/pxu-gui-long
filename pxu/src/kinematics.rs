@@ -1,7 +1,7 @@
 use num::complex::Complex64;
 use std::f64::consts::{PI, TAU};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CouplingConstants {
     pub h: f64,
     kslash_: f64,
@@ -35,7 +35,7 @@ impl CouplingConstants {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum UBranch {
     Outside,
     Between,
@@ -53,7 +53,7 @@ impl std::fmt::Display for UBranch {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SheetData {
     pub log_branch_p: i32,
     pub log_branch_m: i32,

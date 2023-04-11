@@ -13,7 +13,7 @@ const P_RANGE_MAX: i32 = 3;
 
 const INFINITY: f64 = 100.0;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Component {
     P,
     Xp,
@@ -64,7 +64,7 @@ impl UBranch {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum UCutType {
     Long,
     SemiShort,

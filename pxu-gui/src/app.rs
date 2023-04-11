@@ -12,26 +12,21 @@ use pxu::UCutType;
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 
 pub struct TemplateApp {
-    #[serde(skip)]
     pxu: pxu::State,
+    show_cuts: bool,
+    u_cut_type: UCutType,
     #[serde(skip)]
     contours: pxu::Contours,
-    #[serde(skip)]
     p_plot: Plot,
-    #[serde(skip)]
     xp_plot: Plot,
-    #[serde(skip)]
     xm_plot: Plot,
-    #[serde(skip)]
     u_plot: Plot,
-    show_cuts: bool,
-    #[serde(skip)]
-    u_cut_type: UCutType,
     #[serde(skip)]
     #[cfg(debug_assertions)]
     frame_history: crate::frame_history::FrameHistory,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
 struct Plot {
     component: pxu::Component,
     height: f32,
@@ -501,6 +496,11 @@ impl eframe::App for TemplateApp {
 
             if ui.add(egui::Button::new("Reset")).clicked() {
                 *self = Self::default();
+            }
+
+            if ui.add(egui::Button::new("Test")).clicked() {
+                let s = serde_json::to_string(&self).unwrap();
+                log::info!("json: {s}");
             }
 
             ui.separator();

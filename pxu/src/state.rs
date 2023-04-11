@@ -4,7 +4,7 @@ use crate::kinematics::{xm, xm_crossed, xp, xp_crossed, CouplingConstants};
 use crate::point::Point;
 use num::complex::Complex64;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct State {
     pub points: Vec<Point>,
     pub consts: CouplingConstants,
