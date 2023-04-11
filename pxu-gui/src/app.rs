@@ -21,7 +21,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     branch: i32,
     #[serde(skip)]
-    contour_generator: pxu::Contours,
+    contours: pxu::Contours,
     #[serde(skip)]
     p_plot: Plot,
     #[serde(skip)]
@@ -51,7 +51,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         desired_size: Vec2,
-        contour_generator: &mut pxu::Contours,
+        contours: &mut pxu::Contours,
         show_cuts: bool,
         u_cut_type: UCutType,
         pxu: &mut pxu::State,
@@ -137,11 +137,11 @@ impl Plot {
                             to_screen.inverse() * (center + point_response.drag_delta());
                         let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                        pxu.update(j, self.component, new_value, contour_generator, u_cut_type);
+                        pxu.update(j, self.component, new_value, contours, u_cut_type);
                     }
                 }
 
-                let grid_contours = contour_generator.get_grid(self.component);
+                let grid_contours = contours.get_grid(self.component);
 
                 for grid_line in grid_contours {
                     let points = grid_line
@@ -167,7 +167,7 @@ impl Plot {
                         0.0
                     };
 
-                    let visible_cuts = contour_generator
+                    let visible_cuts = contours
                         .get_visible_cuts(&pxu.points[pxu.active_point], self.component, u_cut_type)
                         .collect::<Vec<_>>();
 
@@ -395,7 +395,7 @@ impl Default for TemplateApp {
             pxu: state,
             z: num::complex::Complex::new(0.0, 0.5),
             branch: 1,
-            contour_generator: pxu::Contours::new(),
+            contours: pxu::Contours::new(),
             p_plot: Plot {
                 component: pxu::Component::P,
                 height: 0.75,
@@ -583,7 +583,7 @@ impl eframe::App for TemplateApp {
 
                     self.frame_history.ui(ui);
 
-                    let (current, total) = self.contour_generator.progress();
+                    let (current, total) = self.contours.progress();
                     ui.add(egui::ProgressBar::new(current as f32 / total as f32).show_percentage());
                 }
             }
@@ -613,7 +613,7 @@ impl eframe::App for TemplateApp {
                 < (1000.0 / 20.0f64).floor() as i64
             {
                 if self
-                    .contour_generator
+                    .contours
                     .update(&self.pxu.points[self.pxu.active_point])
                 {
                     break;
@@ -628,7 +628,7 @@ impl eframe::App for TemplateApp {
                 self.p_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.contour_generator,
+                    &mut self.contours,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -637,7 +637,7 @@ impl eframe::App for TemplateApp {
                 self.u_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.contour_generator,
+                    &mut self.contours,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -647,7 +647,7 @@ impl eframe::App for TemplateApp {
                 self.xp_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.contour_generator,
+                    &mut self.contours,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,
@@ -656,7 +656,7 @@ impl eframe::App for TemplateApp {
                 self.xm_plot.draw(
                     ui,
                     available_size * vec2(0.49, 0.49),
-                    &mut self.contour_generator,
+                    &mut self.contours,
                     self.show_cuts,
                     self.u_cut_type,
                     &mut self.pxu,

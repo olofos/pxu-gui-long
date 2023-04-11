@@ -68,10 +68,10 @@ impl State {
         active_point: usize,
         component: Component,
         new_value: Complex64,
-        contour_generator: &Contours,
+        contours: &Contours,
         u_cut_type: UCutType,
     ) {
-        let crossed_cuts = contour_generator
+        let crossed_cuts = contours
             .get_crossed_cuts(&self.points[active_point], component, new_value, u_cut_type)
             .collect::<Vec<_>>();
 
@@ -84,7 +84,7 @@ impl State {
             } else {
                 xm_crossed(self.points[i - 1].p, 1.0, self.points[i - 1].consts)
             };
-            let crossed_cuts = contour_generator
+            let crossed_cuts = contours
                 .get_crossed_cuts(&self.points[i], Component::Xp, new_value, u_cut_type)
                 .collect::<Vec<_>>();
             self.points[i].update(Component::Xp, new_value, &crossed_cuts);
@@ -96,7 +96,7 @@ impl State {
             } else {
                 xp_crossed(self.points[i + 1].p, 1.0, self.points[i + 1].consts)
             };
-            let crossed_cuts = contour_generator
+            let crossed_cuts = contours
                 .get_crossed_cuts(&self.points[i], Component::Xm, new_value, u_cut_type)
                 .collect::<Vec<_>>();
             self.points[i].update(Component::Xm, new_value, &crossed_cuts);

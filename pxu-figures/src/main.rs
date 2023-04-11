@@ -456,10 +456,7 @@ impl Node for PInterpolatorMut {
     }
 }
 
-fn fig_xpl_preimage(
-    contour_generator: Arc<Contours>,
-    cache: Arc<cache::Cache>,
-) -> Result<FigureCompiler> {
+fn fig_xpl_preimage(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-preimage",
         Bounds::new(-2.6..2.6, -0.7..0.7),
@@ -470,19 +467,19 @@ fn fig_xpl_preimage(
         pxu::Component::P,
     )?;
 
-    let Some(consts) = contour_generator.consts else {
+    let Some(consts) = contours.consts else {
         return Err(error("No consts set"));
     };
 
     let pt = &pxu::Point::new(0.5, consts);
 
-    for contour in contour_generator.get_grid(pxu::Component::P).iter()
+    for contour in contours.get_grid(pxu::Component::P).iter()
     // .take(100)
     {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contour_generator
+    for cut in contours
         .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
@@ -585,10 +582,7 @@ fn fig_xpl_preimage(
     figure.finish(cache)
 }
 
-fn fig_xpl_cover(
-    contour_generator: Arc<Contours>,
-    cache: Arc<cache::Cache>,
-) -> Result<FigureCompiler> {
+fn fig_xpl_cover(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-cover",
         Bounds::new(-6.0..6.0, -0.2..4.0),
@@ -600,20 +594,16 @@ fn fig_xpl_cover(
     )?;
 
     figure.add_axis()?;
-    for contour in contour_generator
-        .get_grid(pxu::Component::Xp)
-        .iter()
-        .filter(
-            |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=6.0).contains(&m)),
-        )
-    {
+    for contour in contours.get_grid(pxu::Component::Xp).iter().filter(
+        |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=6.0).contains(&m)),
+    ) {
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
     figure.finish(cache)
 }
 
 fn fig_p_plane_long_cuts_regions(
-    contour_generator: Arc<Contours>,
+    contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -626,7 +616,7 @@ fn fig_p_plane_long_cuts_regions(
         pxu::Component::P,
     )?;
 
-    let Some(consts) = contour_generator.consts else {
+    let Some(consts) = contours.consts else {
         return Err(error("No consts set"));
     };
 
@@ -653,7 +643,7 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in contour_generator.get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long) {
+    for cut in contours.get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long) {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
             | pxu::CutType::ULongNegative(pxu::Component::Xp) => color_mirror_p,
@@ -681,11 +671,11 @@ fn fig_p_plane_long_cuts_regions(
         }
     }
 
-    for contour in contour_generator.get_grid(pxu::Component::P).iter() {
+    for contour in contours.get_grid(pxu::Component::P).iter() {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contour_generator
+    for cut in contours
         .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::Long)
         .filter(|cut| {
             matches!(
@@ -701,7 +691,7 @@ fn fig_p_plane_long_cuts_regions(
 }
 
 fn fig_p_plane_short_cuts(
-    contour_generator: Arc<Contours>,
+    contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -714,19 +704,19 @@ fn fig_p_plane_short_cuts(
         pxu::Component::P,
     )?;
 
-    let Some(consts) = contour_generator.consts else {
+    let Some(consts) = contours.consts else {
         return Err(error("No consts set"));
     };
 
     let pt = &pxu::Point::new(0.5, consts);
 
-    for contour in contour_generator.get_grid(pxu::Component::P).iter()
+    for contour in contours.get_grid(pxu::Component::P).iter()
     // .take(100)
     {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contour_generator
+    for cut in contours
         .get_visible_cuts(pt, pxu::Component::P, pxu::UCutType::SemiShort)
         .filter(|cut| {
             matches!(
@@ -741,10 +731,7 @@ fn fig_p_plane_short_cuts(
     figure.finish(cache)
 }
 
-fn fig_xp_cuts_1(
-    contour_generator: Arc<Contours>,
-    cache: Arc<cache::Cache>,
-) -> Result<FigureCompiler> {
+fn fig_xp_cuts_1(contours: Arc<Contours>, cache: Arc<cache::Cache>) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-cuts-1",
         Bounds::new(-4.0..4.0, -6.0..6.0),
@@ -756,7 +743,7 @@ fn fig_xp_cuts_1(
     )?;
 
     figure.add_axis()?;
-    for contour in contour_generator
+    for contour in contours
         .get_grid(pxu::Component::Xp)
         .iter()
         .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
@@ -764,13 +751,13 @@ fn fig_xp_cuts_1(
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
 
-    let Some(consts) = contour_generator.consts else {
+    let Some(consts) = contours.consts else {
         return Err(error("No consts set"));
     };
     let mut pt = pxu::Point::new(1.5, consts);
     pt.sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
 
-    for cut in contour_generator
+    for cut in contours
         .get_visible_cuts(&pt, pxu::Component::Xp, pxu::UCutType::SemiShort)
         .filter(|cut| {
             matches!(
@@ -799,18 +786,18 @@ fn main() -> std::io::Result<()> {
     let cache = cache::Cache::load(FIGURE_PATH)?;
 
     let consts = CouplingConstants::new(2.0, 5);
-    // let contour_generator = pxu::ContourGenerator::generate_all(consts);
+    // let contours = pxu::ContourGenerator::generate_all(consts);
     let pt = pxu::Point::new(0.5, consts);
 
-    let mut contour_generator = pxu::Contours::new();
+    let mut contours = pxu::Contours::new();
 
     println!("[1/3] Generating contours");
     let pb = ProgressBar::new(1);
     pb.set_style(spinner_style.clone());
     loop {
-        pb.set_length(contour_generator.progress().1 as u64);
-        pb.set_position(contour_generator.progress().0 as u64);
-        if contour_generator.update(&pt) {
+        pb.set_length(contours.progress().1 as u64);
+        pb.set_position(contours.progress().0 as u64);
+        if contours.update(&pt) {
             pb.finish_and_clear();
             break;
         }
@@ -824,7 +811,7 @@ fn main() -> std::io::Result<()> {
         fig_xp_cuts_1,
     ];
 
-    let contour_generator_ref = Arc::new(contour_generator);
+    let contours_ref = Arc::new(contours);
     let cache_ref = Arc::new(cache);
 
     let mut handles = vec![];
@@ -833,13 +820,13 @@ fn main() -> std::io::Result<()> {
     let mb = MultiProgress::new();
 
     for f in fig_functions {
-        let contour_generator_ref = contour_generator_ref.clone();
+        let contours_ref = contours_ref.clone();
         let cache_ref = cache_ref.clone();
         let pb = mb.add(ProgressBar::new_spinner());
         pb.set_style(spinner_style.clone());
         handles.push(thread::spawn(move || {
             pb.set_message("Generating tex file");
-            let figure = f(contour_generator_ref, cache_ref)?;
+            let figure = f(contours_ref, cache_ref)?;
             pb.set_message(format!("Compiling {}.tex", figure.name));
             let result = figure.wait(&pb);
             pb.finish_and_clear();
