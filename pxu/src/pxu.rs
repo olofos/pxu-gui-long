@@ -115,36 +115,52 @@ enum SplitCutOrder {
 }
 
 #[derive(Debug)]
-enum GeneratorCommands {
-    AddGridLineU(f64),
-    AddGridLineX(f64),
+enum GeneratorCommand {
+    AddGridLineU {
+        y: f64,
+    },
+    AddGridLineX {
+        m: f64,
+    },
     AddGridLineP,
 
-    ComputeBranchPoint(i32, BranchPointType),
+    ComputeBranchPoint {
+        p_range: i32,
+        branch_point_type: BranchPointType,
+    },
     ClearCut,
     ComputeCutX(CutDirection),
     ComputeCutXFull(XCut),
-    ComputeCutP(bool),
+    ComputeCutP {
+        reverse: bool,
+    },
     ComputeCutEP,
     ComputeCutEXp,
     ComputeCutEXm,
     ComputeCutEU,
-    SetCutPath(Vec<Complex64>, Option<Complex64>),
-    PushCut(
-        i32,
-        Component,
-        CutType,
-        bool,
-        Vec<CutVisibilityCondition>,
-        Complex64,
-    ),
+    SetCutPath {
+        path: Vec<Complex64>,
+        branch_point: Option<Complex64>,
+    },
+    PushCut {
+        p_range: i32,
+        component: Component,
+        cut_type: CutType,
+        periodic: bool,
+        visibility: Vec<CutVisibilityCondition>,
+        pre_shift: Complex64,
+    },
     PopCut,
     SwapCuts,
     SplitCut(Component, CutType, SplitCutBranchPoint, SplitCutOrder),
 
-    EStart(i32),
+    EStart {
+        p_range: i32,
+    },
 
-    PStartXp(f64),
+    PStartXp {
+        p: f64,
+    },
     PGotoXp(f64, f64),
     PGotoXm(f64, f64),
     PGotoP(f64),
@@ -179,14 +195,14 @@ impl ContourGeneratorRuntimeContext {
     }
 }
 
-struct ContourGeneratorBuilder {
+struct ContourCommandGenerator {
     component: Option<Component>,
     cut_type: Option<CutType>,
     periodic: bool,
     visibility: Vec<CutVisibilityCondition>,
     group_visibility: Vec<CutVisibilityCondition>,
     pre_shift: Complex64,
-    commands: VecDeque<GeneratorCommands>,
+    commands: VecDeque<GeneratorCommand>,
 }
 
 pub enum GridLineComponent {
@@ -202,7 +218,7 @@ pub struct GridLine {
 
 pub struct Contours {
     cuts: Vec<Cut>,
-    commands: VecDeque<GeneratorCommands>,
+    commands: VecDeque<GeneratorCommand>,
     pub consts: Option<CouplingConstants>,
 
     grid_p: Vec<GridLine>,
@@ -316,7 +332,7 @@ impl Contours {
         if self.consts.is_none() {
             self.clear();
             self.consts = Some(pt.consts);
-            self.commands = ContourGeneratorBuilder::generate_commands(pt);
+            self.commands = ContourCommandGenerator::generate_commands(pt);
             self.num_commands = self.commands.len();
             log::debug!("Generated {} commands", self.num_commands,)
         }
@@ -420,8 +436,8 @@ impl Contours {
         })
     }
 
-    fn execute(&mut self, command: GeneratorCommands) {
-        use GeneratorCommands::*;
+    fn execute(&mut self, command: GeneratorCommand) {
+        use GeneratorCommand::*;
 
         let Some(consts) = self.consts else {
             log::warn!("Executing commands when consts is not set!");
@@ -429,14 +445,14 @@ impl Contours {
         };
 
         match command {
-            AddGridLineU(y) => {
+            AddGridLineU { y } => {
                 self.grid_u.push(GridLine {
                     path: vec![Complex64::new(-INFINITY, y), Complex64::new(INFINITY, y)],
                     component: GridLineComponent::Real,
                 });
             }
 
-            AddGridLineX(m) => {
+            AddGridLineX { m } => {
                 let path = XInterpolator::generate_xp_full(0, m, consts);
                 self.grid_x.push(GridLine {
                     path: path.iter().map(|x| x.conj()).collect(),
@@ -448,11 +464,11 @@ impl Contours {
                 });
             }
 
-            EStart(p_range) => {
+            EStart { p_range } => {
                 self.rctx.e_int = Some(EPInterpolator::new(p_range, consts));
             }
 
-            PStartXp(p) => {
+            PStartXp { p } => {
                 self.rctx.p_int = Some(PInterpolatorMut::xp(p, consts));
             }
 
@@ -516,7 +532,7 @@ impl Contours {
                 self.rctx.cut_data.branch_point = None;
             }
 
-            ComputeCutP(reverse) => {
+            ComputeCutP { reverse } => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 let new_path = if reverse {
                     p_int.contour().into_iter().rev().collect()
@@ -531,7 +547,10 @@ impl Contours {
                 }
             }
 
-            ComputeBranchPoint(p_range, branch_point_type) => {
+            ComputeBranchPoint {
+                p_range,
+                branch_point_type,
+            } => {
                 self.rctx.branch_point_data =
                     compute_branch_point(p_range, branch_point_type, consts);
             }
@@ -621,12 +640,19 @@ impl Contours {
                 self.rctx.cut_data.branch_point = branch_point;
             }
 
-            SetCutPath(path, branchpoint) => {
+            SetCutPath { path, branch_point } => {
                 self.rctx.cut_data.path = Some(path);
-                self.rctx.cut_data.branch_point = branchpoint;
+                self.rctx.cut_data.branch_point = branch_point;
             }
 
-            PushCut(p_range, component, cut_type, periodic, visibility, pre_shift) => {
+            PushCut {
+                p_range,
+                component,
+                cut_type,
+                periodic,
+                visibility,
+                pre_shift,
+            } => {
                 let Some(ref path) = self.rctx.cut_data.path else {
                     log::warn!("No path for cut");
                     return;
@@ -773,8 +799,8 @@ impl Contours {
     }
 }
 
-impl ContourGeneratorBuilder {
-    fn generate_commands(pt: &Point) -> VecDeque<GeneratorCommands> {
+impl ContourCommandGenerator {
+    fn generate_commands(pt: &Point) -> VecDeque<GeneratorCommand> {
         let bctx = Self::new();
         bctx.do_generate_commands(pt)
     }
@@ -799,64 +825,64 @@ impl ContourGeneratorBuilder {
         self.pre_shift = Complex64::from(0.0);
     }
 
-    fn add(&mut self, command: GeneratorCommands) -> &mut Self {
+    fn add(&mut self, command: GeneratorCommand) -> &mut Self {
         self.commands.push_back(command);
         self
     }
 
     fn e_start(&mut self, p_range: i32) -> &mut Self {
-        self.add(GeneratorCommands::EStart(p_range))
+        self.add(GeneratorCommand::EStart { p_range })
     }
 
     fn compute_cut_e_p(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutEP)
+        self.add(GeneratorCommand::ComputeCutEP)
     }
 
     fn compute_cut_e_xp(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutEXp)
+        self.add(GeneratorCommand::ComputeCutEXp)
     }
 
     fn compute_cut_e_xm(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutEXm)
+        self.add(GeneratorCommand::ComputeCutEXm)
     }
 
     fn compute_cut_e_u(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutEU)
+        self.add(GeneratorCommand::ComputeCutEU)
     }
 
     fn p_start_xp(&mut self, p: f64) -> &mut Self {
-        self.add(GeneratorCommands::PStartXp(p))
+        self.add(GeneratorCommand::PStartXp { p })
     }
 
     fn goto_xp(&mut self, p: f64, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoXp(p, m))
+        self.add(GeneratorCommand::PGotoXp(p, m))
     }
 
     fn goto_xm(&mut self, p: f64, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoXm(p, m))
+        self.add(GeneratorCommand::PGotoXm(p, m))
     }
 
     fn goto_re(&mut self, re: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoRe(re))
+        self.add(GeneratorCommand::PGotoRe(re))
     }
 
     fn goto_im(&mut self, im: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoIm(im))
+        self.add(GeneratorCommand::PGotoIm(im))
     }
 
     fn goto_p(&mut self, p: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoP(p))
+        self.add(GeneratorCommand::PGotoP(p))
     }
 
     fn goto_m(&mut self, m: f64) -> &mut Self {
-        self.add(GeneratorCommands::PGotoM(m))
+        self.add(GeneratorCommand::PGotoM(m))
     }
 
     fn p_grid_line(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::AddGridLineP)
+        self.add(GeneratorCommand::AddGridLineP)
     }
 
-    fn do_generate_commands(mut self, pt: &Point) -> VecDeque<GeneratorCommands> {
+    fn do_generate_commands(mut self, pt: &Point) -> VecDeque<GeneratorCommand> {
         let consts = pt.consts;
         self.generate_u_grid(consts);
 
@@ -902,18 +928,23 @@ impl ContourGeneratorBuilder {
     }
 
     fn generate_u_grid(&mut self, consts: CouplingConstants) {
-        self.add(GeneratorCommands::AddGridLineU(0.0));
+        self.add(GeneratorCommand::AddGridLineU { y: 0.0 });
 
         for y in 1..=100 {
-            self.add(GeneratorCommands::AddGridLineU(y as f64 / consts.h));
-            self.add(GeneratorCommands::AddGridLineU(-y as f64 / consts.h));
+            self.add(GeneratorCommand::AddGridLineU {
+                y: y as f64 / consts.h,
+            });
+            self.add(GeneratorCommand::AddGridLineU {
+                y: -y as f64 / consts.h,
+            });
         }
     }
 
     fn generate_x_grid(&mut self, p_range: i32, _consts: CouplingConstants) {
         if p_range == 0 {
             for m in -50..50 {
-                self.add(GeneratorCommands::AddGridLineX(m as f64));
+                let m = m as f64;
+                self.add(GeneratorCommand::AddGridLineX { m });
             }
         }
     }
@@ -1116,7 +1147,7 @@ impl ContourGeneratorBuilder {
     }
 
     fn clear_cut(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ClearCut)
+        self.add(GeneratorCommand::ClearCut)
     }
 
     fn compute_branch_point(
@@ -1124,30 +1155,30 @@ impl ContourGeneratorBuilder {
         p_range: i32,
         branch_point_type: BranchPointType,
     ) -> &mut Self {
-        self.add(GeneratorCommands::ComputeBranchPoint(
+        self.add(GeneratorCommand::ComputeBranchPoint {
             p_range,
             branch_point_type,
-        ))
+        })
     }
 
     fn compute_cut_path_x(&mut self, direction: CutDirection) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutX(direction))
+        self.add(GeneratorCommand::ComputeCutX(direction))
     }
 
     fn compute_cut_path_x_full(&mut self, xcut: XCut) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutXFull(xcut))
+        self.add(GeneratorCommand::ComputeCutXFull(xcut))
     }
 
     fn compute_cut_path_p(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutP(false))
+        self.add(GeneratorCommand::ComputeCutP { reverse: false })
     }
 
     fn compute_cut_path_p_rev(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::ComputeCutP(true))
+        self.add(GeneratorCommand::ComputeCutP { reverse: true })
     }
 
-    fn set_cut_path(&mut self, path: Vec<Complex64>, branchpoint: Option<Complex64>) -> &mut Self {
-        self.add(GeneratorCommands::SetCutPath(path, branchpoint))
+    fn set_cut_path(&mut self, path: Vec<Complex64>, branch_point: Option<Complex64>) -> &mut Self {
+        self.add(GeneratorCommand::SetCutPath { path, branch_point })
     }
 
     fn push_cut(&mut self, p_range: i32) -> &mut Self {
@@ -1161,14 +1192,14 @@ impl ContourGeneratorBuilder {
             self.reset();
             return self;
         };
-        self.add(GeneratorCommands::PushCut(
+        self.add(GeneratorCommand::PushCut {
             p_range,
             component,
             cut_type,
-            self.periodic,
-            self.visibility.clone(),
-            self.pre_shift,
-        ));
+            periodic: self.periodic,
+            visibility: self.visibility.clone(),
+            pre_shift: self.pre_shift,
+        });
         self.reset();
         self
     }
@@ -1180,7 +1211,7 @@ impl ContourGeneratorBuilder {
         branch_point: SplitCutBranchPoint,
         order: SplitCutOrder,
     ) -> &mut Self {
-        self.add(GeneratorCommands::SplitCut(
+        self.add(GeneratorCommand::SplitCut(
             component,
             cut_type,
             branch_point,
@@ -1189,11 +1220,11 @@ impl ContourGeneratorBuilder {
     }
 
     fn pop_cut(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::PopCut)
+        self.add(GeneratorCommand::PopCut)
     }
 
     fn swap_cuts(&mut self) -> &mut Self {
-        self.add(GeneratorCommands::SwapCuts)
+        self.add(GeneratorCommand::SwapCuts)
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
