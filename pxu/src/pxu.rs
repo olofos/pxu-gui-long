@@ -158,15 +158,6 @@ struct RuntimeCutData {
     path: Option<Vec<Complex64>>,
 }
 
-struct BuildTimeCutData {
-    component: Option<Component>,
-    cut_type: Option<CutType>,
-    periodic: bool,
-    visibility: Vec<CutVisibilityCondition>,
-    group_visibility: Vec<CutVisibilityCondition>,
-    pre_shift: Complex64,
-}
-
 struct ContourGeneratorRuntimeContext {
     p_int: Option<PInterpolatorMut>,
     e_int: Option<EPInterpolator>,
@@ -189,29 +180,32 @@ impl ContourGeneratorRuntimeContext {
 }
 
 struct ContourGeneratorBuildTimeContext {
-    cut_data: BuildTimeCutData,
+    component: Option<Component>,
+    cut_type: Option<CutType>,
+    periodic: bool,
+    visibility: Vec<CutVisibilityCondition>,
+    group_visibility: Vec<CutVisibilityCondition>,
+    pre_shift: Complex64,
 }
 
 impl ContourGeneratorBuildTimeContext {
     fn new() -> Self {
         Self {
-            cut_data: BuildTimeCutData {
-                component: None,
-                cut_type: None,
-                periodic: false,
-                visibility: vec![],
-                group_visibility: vec![],
-                pre_shift: Complex64::from(0.0),
-            },
+            component: None,
+            cut_type: None,
+            periodic: false,
+            visibility: vec![],
+            group_visibility: vec![],
+            pre_shift: Complex64::from(0.0),
         }
     }
 
     fn reset(&mut self) {
-        self.cut_data.component = None;
-        self.cut_data.cut_type = None;
-        self.cut_data.periodic = false;
-        self.cut_data.visibility = self.cut_data.group_visibility.clone();
-        self.cut_data.pre_shift = Complex64::from(0.0);
+        self.component = None;
+        self.cut_type = None;
+        self.periodic = false;
+        self.visibility = self.group_visibility.clone();
+        self.pre_shift = Complex64::from(0.0);
     }
 }
 
@@ -1109,7 +1103,7 @@ impl Contours {
     }
 
     fn begin_group(&mut self, group_visibility: &[CutVisibilityCondition]) -> &mut Self {
-        self.bctx.cut_data.group_visibility = Vec::from(group_visibility);
+        self.bctx.group_visibility = Vec::from(group_visibility);
         self.bctx.reset();
         self
     }
@@ -1150,12 +1144,12 @@ impl Contours {
     }
 
     fn push_cut(&mut self, p_range: i32) -> &mut Self {
-        let Some(component) = std::mem::replace(&mut self.bctx.cut_data.component, None) else {
+        let Some(component) = std::mem::replace(&mut self.bctx.component, None) else {
             log::warn!("Can't push cut without component");
             self.bctx.reset();
             return self;
         };
-        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_data.cut_type, None) else {
+        let Some(cut_type) = std::mem::replace(&mut self.bctx.cut_type, None) else {
             log::warn!("Can't push cut without type");
             self.bctx.reset();
             return self;
@@ -1164,9 +1158,9 @@ impl Contours {
             p_range,
             component,
             cut_type,
-            self.bctx.cut_data.periodic,
-            self.bctx.cut_data.visibility.clone(),
-            self.bctx.cut_data.pre_shift,
+            self.bctx.periodic,
+            self.bctx.visibility.clone(),
+            self.bctx.pre_shift,
         ));
         self.bctx.reset();
         self
@@ -1196,58 +1190,44 @@ impl Contours {
     }
 
     fn create_cut(&mut self, component: Component, cut_type: CutType) -> &mut Self {
-        if self.bctx.cut_data.component.is_some() || self.bctx.cut_data.cut_type.is_some() {
+        if self.bctx.component.is_some() || self.bctx.cut_type.is_some() {
             log::warn!("New cut created before previous cut was pushed");
         }
         self.bctx.reset();
-        self.bctx.cut_data.component = Some(component);
-        self.bctx.cut_data.cut_type = Some(cut_type);
+        self.bctx.component = Some(component);
+        self.bctx.cut_type = Some(cut_type);
         self
     }
 
     fn log_branch(&mut self, p_range: i32) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::LogBranch(p_range));
         self
     }
 
     fn im_xm_negative(&mut self) -> &mut Self {
-        self.bctx
-            .cut_data
-            .visibility
-            .push(CutVisibilityCondition::ImXm(-1));
+        self.bctx.visibility.push(CutVisibilityCondition::ImXm(-1));
         self
     }
 
     fn im_xm_positive(&mut self) -> &mut Self {
-        self.bctx
-            .cut_data
-            .visibility
-            .push(CutVisibilityCondition::ImXm(1));
+        self.bctx.visibility.push(CutVisibilityCondition::ImXm(1));
         self
     }
 
     fn im_xp_positive(&mut self) -> &mut Self {
-        self.bctx
-            .cut_data
-            .visibility
-            .push(CutVisibilityCondition::ImXp(1));
+        self.bctx.visibility.push(CutVisibilityCondition::ImXp(1));
         self
     }
 
     fn im_xp_negative(&mut self) -> &mut Self {
-        self.bctx
-            .cut_data
-            .visibility
-            .push(CutVisibilityCondition::ImXp(-1));
+        self.bctx.visibility.push(CutVisibilityCondition::ImXp(-1));
         self
     }
 
     fn xp_outside(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Outside));
         self
@@ -1255,7 +1235,6 @@ impl Contours {
 
     fn xp_between(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Between));
         self
@@ -1263,7 +1242,6 @@ impl Contours {
 
     fn xp_inside(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UpBranch(UBranch::Inside));
         self
@@ -1271,7 +1249,6 @@ impl Contours {
 
     fn xm_outside(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Outside));
         self
@@ -1279,7 +1256,6 @@ impl Contours {
 
     fn xm_between(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Between));
         self
@@ -1287,7 +1263,6 @@ impl Contours {
 
     fn xm_inside(&mut self) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::UmBranch(UBranch::Inside));
         self
@@ -1295,19 +1270,18 @@ impl Contours {
 
     fn e_branch(&mut self, branch: i32) -> &mut Self {
         self.bctx
-            .cut_data
             .visibility
             .push(CutVisibilityCondition::EBranch(branch));
         self
     }
 
     fn periodic(&mut self) -> &mut Self {
-        self.bctx.cut_data.periodic = true;
+        self.bctx.periodic = true;
         self
     }
 
     fn pre_shift(&mut self, z: Complex64) -> &mut Self {
-        self.bctx.cut_data.pre_shift = z;
+        self.bctx.pre_shift = z;
         self
     }
 
