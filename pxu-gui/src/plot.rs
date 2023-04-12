@@ -2,6 +2,7 @@ use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
 use num::complex::Complex64;
 
+use pxu::kinematics::UBranch;
 use pxu::UCutType;
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -144,7 +145,11 @@ impl Plot {
                             pxu::CutType::E => Color32::BLACK,
 
                             pxu::CutType::Log(comp) => {
-                                if u_cut_type == UCutType::Short && comp != cut.component {
+                                if u_cut_type == UCutType::Short
+                                    && (comp != cut.component
+                                        || pxu.active_point().sheet_data.u_branch
+                                            == (UBranch::Between, UBranch::Between))
+                                {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
@@ -164,7 +169,12 @@ impl Plot {
                             }
 
                             pxu::CutType::ULongPositive(comp) => {
-                                if !long_cuts && comp != cut.component {
+                                if u_cut_type == UCutType::SemiShort
+                                    || u_cut_type == UCutType::Short
+                                        && (comp != cut.component
+                                            || pxu.active_point().sheet_data.u_branch
+                                                == (UBranch::Between, UBranch::Between))
+                                {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 0, 0)
