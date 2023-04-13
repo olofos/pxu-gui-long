@@ -59,6 +59,7 @@ pub struct SheetData {
     pub log_branch_m: i32,
     pub e_branch: i32,
     pub u_branch: (UBranch, UBranch),
+    pub im_x_sign: (i8, i8),
 }
 
 pub fn en(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {

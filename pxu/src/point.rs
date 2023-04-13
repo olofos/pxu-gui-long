@@ -34,6 +34,7 @@ impl Point {
             log_branch_m,
             e_branch: 1,
             u_branch,
+            im_x_sign: (1, 1),
         };
 
         let xp = xp(p, 1.0, consts);
@@ -252,6 +253,12 @@ impl Point {
                     } else {
                         new_sheet_data.log_branch_m -= 1;
                     }
+                }
+                CutType::ULongPositive(Component::Xp) => {
+                    new_sheet_data.im_x_sign.0 = -new_sheet_data.im_x_sign.0;
+                }
+                CutType::ULongPositive(Component::Xm) => {
+                    new_sheet_data.im_x_sign.1 = -new_sheet_data.im_x_sign.1;
                 }
                 _ => {}
             }
