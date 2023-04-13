@@ -307,6 +307,19 @@ impl Plot {
                     }));
                 }
 
+                for path in pxu.paths.iter() {
+                    let points = path
+                        .iter()
+                        .map(|pt| pt.get(self.component))
+                        .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
+                        .collect::<Vec<_>>();
+
+                    shapes.push(egui::epaint::Shape::line(
+                        points,
+                        Stroke::new(3.0, Color32::GRAY),
+                    ));
+                }
+
                 {
                     let f = ui.fonts();
 

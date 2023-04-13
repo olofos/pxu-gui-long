@@ -9,6 +9,7 @@ pub struct State {
     pub points: Vec<Point>,
     pub consts: CouplingConstants,
     pub active_point: usize,
+    pub paths: Vec<Vec<Point>>,
 }
 
 impl State {
@@ -57,10 +58,13 @@ impl State {
 
         let active_point = points.len() / 2;
 
+        let paths = points.iter().map(|_| vec![]).collect();
+
         Self {
             points,
             consts,
             active_point,
+            paths,
         }
     }
 

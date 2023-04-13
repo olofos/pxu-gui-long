@@ -1,13 +1,129 @@
 use egui::{vec2, Pos2};
+use itertools::Itertools;
 use pxu::kinematics::CouplingConstants;
 use pxu::UCutType;
 
 use crate::plot::Plot;
 
+#[derive(Debug)]
+struct AnimPathSegment {
+    t_start: f64,
+    t_end: f64,
+    p_start: num::complex::Complex64,
+    p_end: num::complex::Complex64,
+}
+
+struct AnimData {
+    playing: bool,
+    segment: usize,
+    prev_frame: chrono::DateTime<chrono::Utc>,
+    path: Vec<AnimPathSegment>,
+    p: num::complex::Complex64,
+    active_point: usize,
+    speed: f64,
+    t: f64,
+}
+
+impl Default for AnimData {
+    fn default() -> Self {
+        Self {
+            playing: Default::default(),
+            segment: Default::default(),
+            prev_frame: Default::default(),
+            path: Default::default(),
+            p: Default::default(),
+            active_point: Default::default(),
+            speed: 10.0,
+            t: Default::default(),
+        }
+    }
+}
+
+impl AnimData {
+    fn next(&mut self) -> Option<(usize, num::complex::Complex64)> {
+        if !self.playing {
+            return None;
+        }
+        let t1 = chrono::Utc::now();
+        self.t += (t1 - self.prev_frame).num_nanoseconds().unwrap() as f64 / 1000_000_000.0
+            * self.speed
+            / 100.0;
+        self.prev_frame = t1;
+
+        while self.path[self.segment].t_end < self.t {
+            self.segment += 1;
+            if self.segment >= self.path.len() {
+                self.playing = false;
+                return Some((self.active_point, self.path.last().unwrap().p_end));
+            }
+        }
+
+        let seg = &self.path[self.segment];
+
+        let dt = self.t - seg.t_start;
+        let dp = (seg.p_end - seg.p_start) / (seg.p_end - seg.p_start).norm();
+        Some((self.active_point, seg.p_start + dt * dp))
+    }
+
+    pub fn start(&mut self, paths: &Vec<Vec<pxu::Point>>) -> Vec<pxu::Point> {
+        self.active_point = paths
+            .iter()
+            .map(|path| {
+                path.iter()
+                    .map(|pt| pt.p)
+                    .tuple_windows::<(_, _)>()
+                    .map(|(p1, p2)| (p2 - p1).norm())
+                    .sum::<f64>()
+            })
+            .enumerate()
+            .max_by(|(_, x), (_, y)| x.partial_cmp(y).unwrap())
+            .map(|(n, _)| n)
+            .unwrap();
+
+        let p = paths[self.active_point][0].p;
+        self.p = p;
+        self.path = vec![];
+
+        let ps = paths[self.active_point]
+            .iter()
+            .map(|pt| pt.p)
+            .collect::<Vec<_>>();
+        let mut t = 0.0;
+        for i in 0..ps.len() - 1 {
+            let p_start = ps[i];
+            let p_end = ps[i + 1];
+            let dp = p_end - p_start;
+            let dt = dp.norm();
+
+            let t_start = t;
+            let t_end = t + dt;
+
+            self.path.push(AnimPathSegment {
+                p_start,
+                p_end,
+                t_start,
+                t_end,
+            });
+
+            t += dt;
+        }
+
+        self.segment = 0;
+        self.playing = true;
+        self.prev_frame = chrono::Utc::now();
+        self.t = 0.0;
+
+        if self.speed == 0.0 {
+            self.speed = 10.0;
+        }
+
+        paths.iter().map(|path| path[0].clone()).collect()
+    }
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-
 pub struct PxuGuiApp {
     pxu: pxu::State,
     show_cuts: bool,
@@ -21,6 +137,8 @@ pub struct PxuGuiApp {
     #[serde(skip)]
     #[cfg(debug_assertions)]
     frame_history: crate::frame_history::FrameHistory,
+    #[serde(skip)]
+    anim_data: AnimData,
 }
 
 impl Default for PxuGuiApp {
@@ -37,7 +155,7 @@ impl Default for PxuGuiApp {
                 component: pxu::Component::P,
                 height: 0.75,
                 width_factor: 1.5,
-                origin: Pos2::new(1.5, 0.0),
+                origin: Pos2::new(0.5, 0.0),
             },
             xp_plot: Plot {
                 component: pxu::Component::Xp,
@@ -61,6 +179,7 @@ impl Default for PxuGuiApp {
             u_cut_type: Default::default(),
             #[cfg(debug_assertions)]
             frame_history: Default::default(),
+            anim_data: AnimData::default(),
         }
     }
 }
@@ -129,6 +248,7 @@ impl eframe::App for PxuGuiApp {
                 egui::Slider::from_get_set(1.0..=8.0, |n| {
                     if let Some(n) = n {
                         self.pxu = pxu::State::new(n as usize, self.pxu.consts);
+                        self.anim_data.playing = false;
                     }
                     self.pxu.points.len() as f64
                 })
@@ -153,6 +273,24 @@ impl eframe::App for PxuGuiApp {
             if ui.add(egui::Button::new("Test")).clicked() {
                 let s = serde_json::to_string(&self).unwrap();
                 log::info!("json: {s}");
+            }
+
+            {
+                let enabled = !self.anim_data.playing
+                    && !self.pxu.paths.is_empty()
+                    && self.pxu.paths[0].len() > 1;
+                if ui.add_enabled(enabled, egui::Button::new("Play")).clicked() {
+                    self.pxu.points = self.anim_data.start(&self.pxu.paths);
+                }
+
+                if ui
+                    .add_enabled(self.anim_data.playing, egui::Button::new("Stop"))
+                    .clicked()
+                {
+                    self.anim_data.playing = false;
+                }
+
+                ui.add(egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0).text("Speed"));
             }
 
             ui.separator();
@@ -197,6 +335,21 @@ impl eframe::App for PxuGuiApp {
                     self.pxu.active_point().sheet_data.u_branch.0,
                     self.pxu.active_point().sheet_data.u_branch.1
                 ));
+
+                {
+                    let xp = self.pxu.active_point().xp;
+                    let xm = xp.conj();
+                    let h = self.pxu.consts.h;
+                    let k = self.pxu.consts.k() as f64;
+                    let p = xp.arg() / std::f64::consts::PI;
+                    let m = h / 2.0
+                        * (xp + 1.0 / xp
+                            - xm
+                            - 1.0 / xm
+                            - 2.0 * num::complex::Complex64::i() * (k * p) / h)
+                            .im;
+                    ui.label(format!("p = {p:.3} m = {m:.3}"));
+                }
             }
 
             #[cfg(debug_assertions)]
@@ -230,6 +383,7 @@ impl eframe::App for PxuGuiApp {
         if old_consts != new_consts {
             self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
             self.contours.clear();
+            self.anim_data.playing = false;
         }
 
         {
@@ -244,6 +398,21 @@ impl eframe::App for PxuGuiApp {
                     break;
                 }
                 ctx.request_repaint();
+            }
+        }
+
+        if self.anim_data.playing {
+            if let Some((active_point, p)) = self.anim_data.next() {
+                self.pxu.update(
+                    active_point,
+                    pxu::Component::P,
+                    p,
+                    &self.contours,
+                    self.u_cut_type,
+                );
+                ctx.request_repaint();
+            } else {
+                self.anim_data.playing = false;
             }
         }
 
@@ -288,5 +457,11 @@ impl eframe::App for PxuGuiApp {
                 );
             });
         });
+
+        if ctx.input().key_pressed(egui::Key::Space) {
+            for (i, pt) in self.pxu.points.iter().enumerate() {
+                self.pxu.paths[i].push(pt.clone());
+            }
+        }
     }
 }
