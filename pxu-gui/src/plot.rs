@@ -105,6 +105,7 @@ impl Plot {
                             to_screen.inverse() * (center + point_response.drag_delta());
                         let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
+                        pxu.set_active_point(j);
                         pxu.update(j, self.component, new_value, contours, u_cut_type);
                     }
                 }

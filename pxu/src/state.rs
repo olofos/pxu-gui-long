@@ -68,6 +68,12 @@ impl State {
         &self.points[self.active_point]
     }
 
+    pub fn set_active_point(&mut self, active_point: usize) {
+        if active_point <= self.points.len() {
+            self.active_point = active_point;
+        }
+    }
+
     pub fn update(
         &mut self,
         active_point: usize,
@@ -86,10 +92,9 @@ impl State {
             )
             .collect::<Vec<_>>();
 
-        self.active_point = active_point;
-        self.points[self.active_point].update(component, new_value, &crossed_cuts, self.consts);
+        self.points[active_point].update(component, new_value, &crossed_cuts, self.consts);
 
-        for i in (self.active_point + 1)..self.points.len() {
+        for i in (active_point + 1)..self.points.len() {
             let new_value = if self.points[i - 1].sheet_data.e_branch > 0 {
                 xm(self.points[i - 1].p, 1.0, self.consts)
             } else {
@@ -107,7 +112,7 @@ impl State {
             self.points[i].update(Component::Xp, new_value, &crossed_cuts, self.consts);
         }
 
-        for i in (0..self.active_point).rev() {
+        for i in (0..active_point).rev() {
             let new_value = if self.points[i + 1].sheet_data.e_branch > 0 {
                 xp(self.points[i + 1].p, 1.0, self.consts)
             } else {
