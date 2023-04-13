@@ -136,7 +136,7 @@ impl Plot {
                     };
 
                     let visible_cuts = contours
-                        .get_visible_cuts(&pxu, self.component, u_cut_type)
+                        .get_visible_cuts(pxu, self.component, u_cut_type)
                         .collect::<Vec<_>>();
 
                     let long_cuts = u_cut_type == UCutType::Long;

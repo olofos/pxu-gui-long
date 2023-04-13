@@ -45,7 +45,7 @@ impl AnimData {
             return None;
         }
         let t1 = chrono::Utc::now();
-        self.t += (t1 - self.prev_frame).num_nanoseconds().unwrap() as f64 / 1000_000_000.0
+        self.t += (t1 - self.prev_frame).num_nanoseconds().unwrap() as f64 / 1_000_000_000.0
             * self.speed
             / 100.0;
         self.prev_frame = t1;
@@ -65,7 +65,7 @@ impl AnimData {
         Some((self.active_point, seg.p_start + dt * dp))
     }
 
-    pub fn start(&mut self, paths: &Vec<Vec<pxu::Point>>) -> Vec<pxu::Point> {
+    pub fn start(&mut self, paths: &[Vec<pxu::Point>]) -> Vec<pxu::Point> {
         self.active_point = paths
             .iter()
             .map(|path| {
