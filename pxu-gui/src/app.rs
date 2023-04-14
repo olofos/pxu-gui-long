@@ -250,73 +250,80 @@ impl PxuGuiApp {
         }
     }
 
-    fn draw_animation_controls(&mut self, ui: &mut egui::Ui) {
+    fn draw_animation_controls(&mut self, ui: &mut egui::Ui, visible: bool) {
         let enabled = !self.pxu.paths.is_empty() && self.pxu.paths[0].len() > 1;
 
-        ui.horizontal(|ui| {
-            if ui
-                .add_enabled(
-                    enabled && self.anim_data.is_paused(),
-                    egui::Button::new("⏮"),
-                )
-                .clicked()
-            {
-                self.pxu.points = self.anim_data.goto_start();
-            }
+        ui.scope(|ui| {
+            ui.set_visible(visible);
 
-            if self.anim_data.is_stopped() {
-                if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
-                    self.pxu.points = self.anim_data.start(&self.pxu.paths);
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(
+                        enabled && self.anim_data.is_paused(),
+                        egui::Button::new("⏮"),
+                    )
+                    .clicked()
+                {
+                    self.pxu.points = self.anim_data.goto_start();
                 }
-            } else if self.anim_data.is_paused() {
-                if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
-                    self.anim_data.unpause();
+
+                if self.anim_data.is_stopped() {
+                    if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                        self.pxu.points = self.anim_data.start(&self.pxu.paths);
+                    }
+                } else if self.anim_data.is_paused() {
+                    if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                        self.anim_data.unpause();
+                    }
+                } else if ui.add_enabled(enabled, egui::Button::new("⏸")).clicked() {
+                    self.anim_data.pause();
                 }
-            } else if ui.add_enabled(enabled, egui::Button::new("⏸")).clicked() {
-                self.anim_data.pause();
-            }
 
-            if ui
-                .add_enabled(!self.anim_data.is_stopped(), egui::Button::new("⏹"))
-                .clicked()
-            {
-                self.anim_data.stop();
-            }
-
-            if ui
-                .add_enabled(
-                    enabled && self.anim_data.is_paused(),
-                    egui::Button::new("⏭"),
-                )
-                .clicked()
-            {
-                self.pxu.points = self.anim_data.goto_end();
-            }
-        });
-
-        ui.add_enabled(enabled, egui::Button::new("→"));
-        ui.add_enabled(enabled, egui::Button::new("⇤"));
-        ui.add_enabled(enabled, egui::Button::new("↔"));
-
-        ui.add_enabled(
-            enabled && self.anim_data.total_len > 0.0 && self.anim_data.is_paused(),
-            egui::Slider::from_get_set(0.0..=1.0, |v| {
-                if let Some(v) = v {
-                    self.anim_data.t = v * self.anim_data.total_len;
+                if ui
+                    .add_enabled(!self.anim_data.is_stopped(), egui::Button::new("⏹"))
+                    .clicked()
+                {
+                    self.anim_data.stop();
                 }
-                self.anim_data.t / self.anim_data.total_len
-            })
-            .show_value(false),
-        );
 
-        ui.add(
-            egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0)
-                .text("Speed")
+                if ui
+                    .add_enabled(
+                        enabled && self.anim_data.is_paused(),
+                        egui::Button::new("⏭"),
+                    )
+                    .clicked()
+                {
+                    self.pxu.points = self.anim_data.goto_end();
+                }
+            });
+
+            ui.add_enabled(enabled, egui::Button::new("→"));
+            ui.add_enabled(enabled, egui::Button::new("⇤"));
+            ui.add_enabled(enabled, egui::Button::new("↔"));
+
+            ui.add_enabled(
+                enabled && self.anim_data.total_len > 0.0 && self.anim_data.is_paused(),
+                egui::Slider::from_get_set(0.0..=1.0, |v| {
+                    if let Some(v) = v {
+                        self.anim_data.t = v * self.anim_data.total_len;
+                    }
+                    self.anim_data.t / self.anim_data.total_len
+                })
                 .show_value(false),
-        );
+            );
+
+            ui.add(
+                egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0)
+                    .text("Speed")
+                    .show_value(false),
+            );
+        });
     }
 
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {
+        ui.separator();
         {
             ui.label(format!("Momentum: {:.3}", self.pxu.p()));
             ui.label(format!("Energy: {:.3}", self.pxu.en()));
@@ -390,18 +397,14 @@ impl PxuGuiApp {
                 *self = Self::default();
             }
 
-            ui.separator();
-
-            self.draw_animation_controls(ui);
-
-            ui.separator();
-
             self.draw_state_information(ui);
+            self.draw_animation_controls(ui, false);
 
             if self.settings.show_fps {
+                ui.add_space(10.0);
                 ui.separator();
                 {
-                    ui.label(format!("FPS: {}", self.frame_history.fps()));
+                    ui.label(format!("FPS: {:.1}", self.frame_history.fps()));
 
                     self.frame_history.ui(ui);
                 }
