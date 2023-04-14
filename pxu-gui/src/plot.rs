@@ -21,33 +21,18 @@ struct InteractionPointIndices {
 
 #[allow(clippy::too_many_arguments)]
 impl Plot {
-    fn interact(
-        &mut self,
-        ui: &mut Ui,
-        rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
-        ui_state: &mut UiState,
-    ) -> InteractionPointIndices {
-        let to_screen = self.to_screen(rect);
-
-        let response = ui.interact(
-            rect,
-            ui.id().with(format!("{:?}", self.component)),
-            egui::Sense::click_and_drag(),
-        );
+    fn interact_with_grid(&mut self, ui: &mut Ui, rect: Rect, response: &egui::Response) {
+        if response.dragged() {
+            let delta = response.drag_delta();
+            self.origin -= Vec2::new(
+                delta.x * (self.height / rect.height()) * (self.width_factor),
+                delta.y * (self.height / rect.height()),
+            );
+        }
 
         if ui.rect_contains_pointer(rect) {
             let zoom = ui.input().zoom_delta();
             self.zoom(zoom);
-
-            if response.dragged() {
-                let delta = response.drag_delta();
-                self.origin -= Vec2::new(
-                    delta.x * (self.height / rect.height()) * (self.width_factor),
-                    delta.y * (self.height / rect.height()),
-                );
-            }
 
             let scroll = ui.input().scroll_delta;
             self.origin -= Vec2::new(
@@ -59,6 +44,18 @@ impl Plot {
                 log::info!("{scroll:?}");
             }
         }
+    }
+
+    fn interact_with_points(
+        &mut self,
+        ui: &mut Ui,
+        rect: Rect,
+        contours: &pxu::Contours,
+        pxu: &mut pxu::State,
+        ui_state: &mut UiState,
+        response: &egui::Response,
+    ) -> InteractionPointIndices {
+        let to_screen = self.to_screen(rect);
 
         let mut hovered = None;
         let mut dragged = None;
@@ -89,6 +86,26 @@ impl Plot {
             }
         }
 
+        InteractionPointIndices { hovered, dragged }
+    }
+
+    fn interact(
+        &mut self,
+        ui: &mut Ui,
+        rect: Rect,
+        contours: &pxu::Contours,
+        pxu: &mut pxu::State,
+        ui_state: &mut UiState,
+    ) -> InteractionPointIndices {
+        let response = ui.interact(
+            rect,
+            ui.id().with(format!("{:?}", self.component)),
+            egui::Sense::click_and_drag(),
+        );
+
+        self.interact_with_grid(ui, rect, &response);
+        let points = self.interact_with_points(ui, rect, contours, pxu, ui_state, &response);
+
         if response.double_clicked() {
             ui_state.toggle_fullscreen(self.component)
         }
@@ -97,22 +114,12 @@ impl Plot {
         }
         response.context_menu(|ui| ui_state.menu(ui, Some(self.component)));
 
-        InteractionPointIndices { hovered, dragged }
+        points
     }
 
-    fn draw(
-        &mut self,
-        ui: &mut Ui,
-        rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
-        ui_state: &mut UiState,
-        points: InteractionPointIndices,
-    ) {
+    fn draw_grid(&self, rect: Rect, contours: &pxu::Contours, shapes: &mut Vec<egui::Shape>) {
         let to_screen = self.to_screen(rect);
         let origin = to_screen * egui::pos2(0.0, 0.0);
-
-        let mut shapes = vec![];
 
         if self.component != pxu::Component::P {
             shapes.extend([
@@ -147,6 +154,18 @@ impl Plot {
                 Stroke::new(0.75, Color32::GRAY),
             ));
         }
+    }
+
+    fn draw_cuts(
+        &self,
+        rect: Rect,
+        contours: &pxu::Contours,
+        pxu: &mut pxu::State,
+        ui_state: &mut UiState,
+        points: InteractionPointIndices,
+        shapes: &mut Vec<egui::Shape>,
+    ) {
+        let to_screen = self.to_screen(rect);
 
         let mut branch_point_shapes = vec![];
 
@@ -254,7 +273,7 @@ impl Plot {
                                     Stroke::new(3.0, color),
                                     4.0,
                                     4.0,
-                                    &mut shapes,
+                                    shapes,
                                 );
                             }
                             _ => {
@@ -281,6 +300,8 @@ impl Plot {
                 }
             }
         }
+
+        shapes.extend(branch_point_shapes);
 
         for (i, pt) in pxu.points.iter().enumerate() {
             let is_hovered = matches!(points.hovered, Some(n) if n == i);
@@ -323,6 +344,23 @@ impl Plot {
                 stroke,
             }));
         }
+    }
+
+    fn draw(
+        &self,
+        ui: &mut Ui,
+        rect: Rect,
+        contours: &pxu::Contours,
+        pxu: &mut pxu::State,
+        ui_state: &mut UiState,
+        points: InteractionPointIndices,
+    ) {
+        let to_screen = self.to_screen(rect);
+
+        let mut shapes = vec![];
+
+        self.draw_grid(rect, contours, &mut shapes);
+        self.draw_cuts(rect, contours, pxu, ui_state, points, &mut shapes);
 
         for path in pxu.paths.iter() {
             let points = path
@@ -370,7 +408,6 @@ impl Plot {
         }
 
         ui.painter().extend(shapes);
-        ui.painter().extend(branch_point_shapes);
     }
 
     fn to_screen(&self, rect: Rect) -> RectTransform {
