@@ -63,7 +63,7 @@ impl UiState {
             ui.close_menu();
         }
 
-        if component.is_some() {
+        if let Some(component) = component {
             if ui
                 .button(if self.fullscreen_component.is_none() {
                     "Fullscreen"
@@ -72,20 +72,18 @@ impl UiState {
                 })
                 .clicked()
             {
-                self.toggle_fullscreen(component.unwrap());
+                self.toggle_fullscreen(component);
                 ui.close_menu();
             }
-        } else {
-            if ui
-                .add_enabled(
-                    self.fullscreen_component.is_some(),
-                    egui::Button::new("Close fullscreen"),
-                )
-                .clicked()
-            {
-                self.close_fullscreen();
-                ui.close_menu();
-            }
+        } else if ui
+            .add_enabled(
+                self.fullscreen_component.is_some(),
+                egui::Button::new("Close fullscreen"),
+            )
+            .clicked()
+        {
+            self.close_fullscreen();
+            ui.close_menu();
         }
     }
 }
