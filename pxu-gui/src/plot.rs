@@ -1,7 +1,7 @@
-use egui::style::Margin;
 use egui::{vec2, Color32, Pos2, Rect, Stroke, Ui, Vec2};
 use num::complex::Complex64;
 
+use crate::ui_state::UiState;
 use pxu::kinematics::UBranch;
 use pxu::UCutType;
 
@@ -18,21 +18,21 @@ impl Plot {
     pub fn draw(
         &mut self,
         ui: &mut Ui,
-        desired_size: Vec2,
-        contours: &mut pxu::Contours,
-        show_cuts: bool,
-        u_cut_type: UCutType,
+        rect: Rect,
+        contours: &pxu::Contours,
         pxu: &mut pxu::State,
+        ui_state: &mut UiState,
     ) {
-        egui::Frame::canvas(ui.style())
-            .outer_margin(Margin::same(0.0))
-            .inner_margin(Margin::same(0.0))
-            .show(ui, |ui| {
-                let (response, painter) = ui.allocate_painter(desired_size, egui::Sense::drag());
+        let old_clip_rect = ui.clip_rect();
+        {
+            {
+                let response = ui.interact(
+                    rect,
+                    ui.id().with(format!("{:?}", self.component)),
+                    egui::Sense::click_and_drag(),
+                );
 
-                let rect = response.rect;
-
-                if response.hovered() {
+                if ui.rect_contains_pointer(rect) {
                     let zoom = ui.input().zoom_delta();
                     self.zoom(zoom);
 
@@ -64,13 +64,14 @@ impl Plot {
                 );
 
                 let to_screen = eframe::emath::RectTransform::from_to(visible_rect, rect);
-
                 ui.set_clip_rect(rect);
 
                 let origin = to_screen * egui::pos2(0.0, 0.0);
 
-                let mut shapes = if self.component != pxu::Component::P {
-                    vec![
+                let mut shapes = vec![];
+
+                if self.component != pxu::Component::P {
+                    shapes.extend([
                         egui::epaint::Shape::line(
                             vec![
                                 egui::pos2(rect.left(), origin.y),
@@ -85,10 +86,8 @@ impl Plot {
                             ],
                             Stroke::new(0.75, Color32::DARK_GRAY),
                         ),
-                    ]
-                } else {
-                    vec![]
-                };
+                    ]);
+                }
 
                 let mut hovered_point = None;
                 let mut dragged_point = None;
@@ -116,9 +115,52 @@ impl Plot {
                         let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
                         pxu.set_active_point(j);
-                        pxu.update(j, self.component, new_value, contours, u_cut_type);
+                        pxu.update(j, self.component, new_value, contours, ui_state.u_cut_type);
                     }
                 }
+
+                if response.double_clicked() {
+                    ui_state.toggle_fullscreen(self.component)
+                }
+                if ui.input().key_pressed(egui::Key::Escape) {
+                    ui_state.close_fullscreen();
+                }
+                response.context_menu(|ui| {
+                    ui.menu_button("Cut type", |ui| {
+                        if UCutType::all()
+                            .map(|typ| {
+                                ui.radio_value(&mut ui_state.u_cut_type, typ, typ.to_string())
+                            })
+                            .any(|r| r.clicked())
+                        {
+                            ui.close_menu();
+                        }
+                    });
+
+                    if ui
+                        .button(if ui_state.show_side_panel {
+                            "Hide side panel"
+                        } else {
+                            "Show side panel"
+                        })
+                        .clicked()
+                    {
+                        ui_state.show_side_panel = !ui_state.show_side_panel;
+                        ui.close_menu();
+                    }
+
+                    if ui
+                        .button(if ui_state.fullscreen_component.is_none() {
+                            "Fullscreen"
+                        } else {
+                            "Close fullscreen"
+                        })
+                        .clicked()
+                    {
+                        ui_state.toggle_fullscreen(self.component);
+                        ui.close_menu();
+                    }
+                });
 
                 let grid_contours = contours.get_grid(self.component);
 
@@ -137,7 +179,7 @@ impl Plot {
 
                 let mut branch_point_shapes = vec![];
 
-                if show_cuts {
+                if ui_state.show_cuts {
                     let shift = if self.component == pxu::Component::U {
                         2.0 * (pxu.active_point().sheet_data.log_branch_p * pxu.consts.k()) as f32
                             / pxu.consts.h as f32
@@ -146,10 +188,10 @@ impl Plot {
                     };
 
                     let visible_cuts = contours
-                        .get_visible_cuts(pxu, self.component, u_cut_type)
+                        .get_visible_cuts(pxu, self.component, ui_state.u_cut_type)
                         .collect::<Vec<_>>();
 
-                    let long_cuts = u_cut_type == UCutType::Long;
+                    let long_cuts = ui_state.u_cut_type == UCutType::Long;
 
                     for cut in visible_cuts {
                         let hide_log_cut = |comp| {
@@ -164,7 +206,7 @@ impl Plot {
                             pxu::CutType::E => Color32::BLACK,
 
                             pxu::CutType::Log(comp) => {
-                                if u_cut_type == UCutType::Short && hide_log_cut(comp) {
+                                if ui_state.u_cut_type == UCutType::Short && hide_log_cut(comp) {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
@@ -184,8 +226,8 @@ impl Plot {
                             }
 
                             pxu::CutType::ULongPositive(comp) => {
-                                if u_cut_type == UCutType::SemiShort
-                                    || u_cut_type == UCutType::Short && hide_log_cut(comp)
+                                if ui_state.u_cut_type == UCutType::SemiShort
+                                    || ui_state.u_cut_type == UCutType::Short && hide_log_cut(comp)
                                 {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
@@ -303,7 +345,7 @@ impl Plot {
                     } else if pxu.points[i].same_sheet(
                         pxu.active_point(),
                         self.component,
-                        u_cut_type,
+                        ui_state.u_cut_type,
                     ) {
                         Color32::BLACK
                     } else {
@@ -349,6 +391,7 @@ impl Plot {
                         egui::TextStyle::Monospace.resolve(ui.style()),
                         Color32::BLACK,
                     );
+
                     shapes.push(egui::epaint::Shape::rect_filled(
                         text_shape.visual_bounding_rect().expand(6.0),
                         egui::Rounding::none(),
@@ -362,9 +405,16 @@ impl Plot {
                     shapes.push(text_shape);
                 }
 
-                painter.extend(shapes);
-                painter.extend(branch_point_shapes);
-            });
+                ui.painter().extend(shapes);
+                ui.painter().extend(branch_point_shapes);
+            }
+        }
+        ui.set_clip_rect(old_clip_rect);
+        ui.painter().add(egui::epaint::Shape::rect_stroke(
+            rect,
+            egui::epaint::Rounding::same(4.0),
+            Stroke::new(1.0, Color32::DARK_GRAY),
+        ));
     }
 
     fn zoom(&mut self, zoom: f32) {

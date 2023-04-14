@@ -6,6 +6,7 @@ mod app;
 mod frame_history;
 mod gui_settings;
 mod plot;
+mod ui_state;
 
 use crate::gui_settings::GuiSettings;
 

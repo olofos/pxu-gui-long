@@ -71,6 +71,23 @@ pub enum UCutType {
     Short,
 }
 
+impl std::fmt::Display for UCutType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::Long => "Long",
+            Self::SemiShort => "Semi short",
+            Self::Short => "Short",
+        };
+        write!(f, "{name}")
+    }
+}
+
+impl UCutType {
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Long, Self::SemiShort, Self::Short].into_iter()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum BranchPointType {
