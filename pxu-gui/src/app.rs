@@ -1,126 +1,10 @@
 use egui::{vec2, Pos2};
-use itertools::Itertools;
 use pxu::kinematics::CouplingConstants;
 use pxu::UCutType;
 
+use crate::anim::Anim;
 use crate::gui_settings::GuiSettings;
 use crate::plot::Plot;
-
-#[derive(Debug)]
-struct AnimPathSegment {
-    t_start: f64,
-    t_end: f64,
-    p_start: num::complex::Complex64,
-    p_end: num::complex::Complex64,
-}
-
-struct AnimData {
-    playing: bool,
-    segment: usize,
-    prev_frame: chrono::DateTime<chrono::Utc>,
-    path: Vec<AnimPathSegment>,
-    p: num::complex::Complex64,
-    active_point: usize,
-    speed: f64,
-    t: f64,
-}
-
-impl Default for AnimData {
-    fn default() -> Self {
-        Self {
-            playing: Default::default(),
-            segment: Default::default(),
-            prev_frame: Default::default(),
-            path: Default::default(),
-            p: Default::default(),
-            active_point: Default::default(),
-            speed: 10.0,
-            t: Default::default(),
-        }
-    }
-}
-
-impl AnimData {
-    fn next(&mut self) -> Option<(usize, num::complex::Complex64)> {
-        if !self.playing {
-            return None;
-        }
-        let t1 = chrono::Utc::now();
-        self.t += (t1 - self.prev_frame).num_nanoseconds().unwrap() as f64 / 1_000_000_000.0
-            * self.speed
-            / 100.0;
-        self.prev_frame = t1;
-
-        while self.path[self.segment].t_end < self.t {
-            self.segment += 1;
-            if self.segment >= self.path.len() {
-                self.playing = false;
-                return Some((self.active_point, self.path.last().unwrap().p_end));
-            }
-        }
-
-        let seg = &self.path[self.segment];
-
-        let dt = self.t - seg.t_start;
-        let dp = (seg.p_end - seg.p_start) / (seg.p_end - seg.p_start).norm();
-        Some((self.active_point, seg.p_start + dt * dp))
-    }
-
-    pub fn start(&mut self, paths: &[Vec<pxu::Point>]) -> Vec<pxu::Point> {
-        self.active_point = paths
-            .iter()
-            .map(|path| {
-                path.iter()
-                    .map(|pt| pt.p)
-                    .tuple_windows::<(_, _)>()
-                    .map(|(p1, p2)| (p2 - p1).norm())
-                    .sum::<f64>()
-            })
-            .enumerate()
-            .max_by(|(_, x), (_, y)| x.partial_cmp(y).unwrap())
-            .map(|(n, _)| n)
-            .unwrap();
-
-        let p = paths[self.active_point][0].p;
-        self.p = p;
-        self.path = vec![];
-
-        let ps = paths[self.active_point]
-            .iter()
-            .map(|pt| pt.p)
-            .collect::<Vec<_>>();
-        let mut t = 0.0;
-        for i in 0..ps.len() - 1 {
-            let p_start = ps[i];
-            let p_end = ps[i + 1];
-            let dp = p_end - p_start;
-            let dt = dp.norm();
-
-            let t_start = t;
-            let t_end = t + dt;
-
-            self.path.push(AnimPathSegment {
-                p_start,
-                p_end,
-                t_start,
-                t_end,
-            });
-
-            t += dt;
-        }
-
-        self.segment = 0;
-        self.playing = true;
-        self.prev_frame = chrono::Utc::now();
-        self.t = 0.0;
-
-        if self.speed == 0.0 {
-            self.speed = 10.0;
-        }
-
-        paths.iter().map(|path| path[0].clone()).collect()
-    }
-}
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -136,9 +20,9 @@ pub struct PxuGuiApp {
     xm_plot: Plot,
     u_plot: Plot,
     #[serde(skip)]
-    #[cfg(debug_assertions)]
     frame_history: crate::frame_history::FrameHistory,
     #[serde(skip)]
+    anim_data: Anim,
     #[serde(skip)]
     settings: GuiSettings,
 }
@@ -179,8 +63,8 @@ impl Default for PxuGuiApp {
             },
             show_cuts: true,
             u_cut_type: Default::default(),
-            #[cfg(debug_assertions)]
             frame_history: Default::default(),
+            anim_data: Default::default(),
             settings: Default::default(),
         }
     }
@@ -188,7 +72,7 @@ impl Default for PxuGuiApp {
 
 impl PxuGuiApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, settings: GuiSettings) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -251,7 +135,7 @@ impl eframe::App for PxuGuiApp {
                 egui::Slider::from_get_set(1.0..=8.0, |n| {
                     if let Some(n) = n {
                         self.pxu = pxu::State::new(n as usize, self.pxu.consts);
-                        self.anim_data.playing = false;
+                        self.anim_data.stop();
                     }
                     self.pxu.points.len() as f64
                 })
@@ -279,21 +163,69 @@ impl eframe::App for PxuGuiApp {
             }
 
             {
-                let enabled = !self.anim_data.playing
-                    && !self.pxu.paths.is_empty()
-                    && self.pxu.paths[0].len() > 1;
-                if ui.add_enabled(enabled, egui::Button::new("Play")).clicked() {
-                    self.pxu.points = self.anim_data.start(&self.pxu.paths);
-                }
+                let enabled = !self.pxu.paths.is_empty() && self.pxu.paths[0].len() > 1;
 
-                if ui
-                    .add_enabled(self.anim_data.playing, egui::Button::new("Stop"))
-                    .clicked()
-                {
-                    self.anim_data.playing = false;
-                }
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(
+                            enabled && self.anim_data.is_paused(),
+                            egui::Button::new("⏮"),
+                        )
+                        .clicked()
+                    {
+                        self.pxu.points = self.anim_data.goto_start();
+                    }
 
-                ui.add(egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0).text("Speed"));
+                    if self.anim_data.is_stopped() {
+                        if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                            self.pxu.points = self.anim_data.start(&self.pxu.paths);
+                        }
+                    } else if self.anim_data.is_paused() {
+                        if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                            self.anim_data.unpause();
+                        }
+                    } else if ui.add_enabled(enabled, egui::Button::new("⏸")).clicked() {
+                        self.anim_data.pause();
+                    }
+
+                    if ui
+                        .add_enabled(!self.anim_data.is_stopped(), egui::Button::new("⏹"))
+                        .clicked()
+                    {
+                        self.anim_data.stop();
+                    }
+
+                    if ui
+                        .add_enabled(
+                            enabled && self.anim_data.is_paused(),
+                            egui::Button::new("⏭"),
+                        )
+                        .clicked()
+                    {
+                        self.pxu.points = self.anim_data.goto_end();
+                    }
+                });
+
+                ui.add_enabled(enabled, egui::Button::new("→"));
+                ui.add_enabled(enabled, egui::Button::new("⇤"));
+                ui.add_enabled(enabled, egui::Button::new("↔"));
+
+                ui.add_enabled(
+                    enabled && self.anim_data.total_len > 0.0 && self.anim_data.is_paused(),
+                    egui::Slider::from_get_set(0.0..=1.0, |v| {
+                        if let Some(v) = v {
+                            self.anim_data.t = v * self.anim_data.total_len;
+                        }
+                        self.anim_data.t / self.anim_data.total_len
+                    })
+                    .show_value(false),
+                );
+
+                ui.add(
+                    egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0)
+                        .text("Speed")
+                        .show_value(false),
+                );
             }
 
             ui.separator();
@@ -376,13 +308,23 @@ impl eframe::App for PxuGuiApp {
                     );
                     ui.label(".");
                 });
+
+                ui.add_space(10.0);
+                let (current, total) = self.contours.progress();
+                if total > 1 && current != total {
+                    let progress = current as f32 / total as f32;
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .text(format!("Generating contours   {:.0}%", 100.0 * progress)),
+                    );
+                }
             });
         });
 
         if old_consts != new_consts {
             self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
             self.contours.clear();
-            self.anim_data.playing = false;
+            self.anim_data.stop();
         }
 
         {
@@ -400,18 +342,16 @@ impl eframe::App for PxuGuiApp {
             }
         }
 
-        if self.anim_data.playing {
-            if let Some((active_point, p)) = self.anim_data.next() {
+        if !self.anim_data.is_stopped() {
+            if let Some(z) = self.anim_data.update() {
                 self.pxu.update(
-                    active_point,
-                    pxu::Component::P,
-                    p,
+                    self.anim_data.active_point,
+                    self.anim_data.component,
+                    z,
                     &self.contours,
                     self.u_cut_type,
                 );
                 ctx.request_repaint();
-            } else {
-                self.anim_data.playing = false;
             }
         }
 
