@@ -92,10 +92,10 @@ impl eframe::App for PxuGuiApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if self.settings.show_fps {
             self.frame_history
-                .on_new_frame(ctx.input().time, _frame.info().cpu_usage);
+                .on_new_frame(ctx.input().time, frame.info().cpu_usage);
         }
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
@@ -104,7 +104,7 @@ impl eframe::App for PxuGuiApp {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
-                        _frame.close();
+                        frame.close();
                     }
                 });
                 ui.menu_button("View", |ui| self.ui_state.menu(ui, None));
@@ -115,220 +115,8 @@ impl eframe::App for PxuGuiApp {
             self.ui_state.show_side_panel = !self.ui_state.show_side_panel;
         }
 
-        let old_consts = self.pxu.consts;
-        let mut new_consts = self.pxu.consts;
-
         if self.ui_state.show_side_panel {
-            egui::SidePanel::right("side_panel").show(ctx, |ui| {
-                ui.add(
-                    egui::Slider::new(&mut new_consts.h, 0.1..=10.0)
-                        .text("h")
-                        .logarithmic(true),
-                );
-
-                ui.add(
-                    egui::Slider::from_get_set(0.0..=10.0, |v| new_consts.get_set_k(v))
-                        .integer()
-                        .text("k"),
-                );
-                ui.add(
-                    egui::Slider::from_get_set(1.0..=8.0, |n| {
-                        if let Some(n) = n {
-                            self.pxu = pxu::State::new(n as usize, self.pxu.consts);
-                            self.anim_data.stop();
-                        }
-                        self.pxu.points.len() as f64
-                    })
-                    .integer()
-                    .text("M"),
-                );
-
-                #[cfg(debug_assertions)]
-                ui.add(egui::Checkbox::new(
-                    &mut self.ui_state.show_cuts,
-                    "Show cuts",
-                ));
-
-                ui.label("U cuts: ");
-                ui.horizontal(|ui| {
-                    for typ in UCutType::all() {
-                        ui.radio_value(&mut self.ui_state.u_cut_type, typ, format!("{typ}"));
-                    }
-                });
-
-                if ui.add(egui::Button::new("Reset")).clicked() {
-                    *self = Self::default();
-                }
-
-                if ui.add(egui::Button::new("Test")).clicked() {
-                    let s = serde_json::to_string(&self).unwrap();
-                    log::info!("json: {s}");
-                }
-
-                {
-                    let enabled = !self.pxu.paths.is_empty() && self.pxu.paths[0].len() > 1;
-
-                    ui.horizontal(|ui| {
-                        if ui
-                            .add_enabled(
-                                enabled && self.anim_data.is_paused(),
-                                egui::Button::new("⏮"),
-                            )
-                            .clicked()
-                        {
-                            self.pxu.points = self.anim_data.goto_start();
-                        }
-
-                        if self.anim_data.is_stopped() {
-                            if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
-                                self.pxu.points = self.anim_data.start(&self.pxu.paths);
-                            }
-                        } else if self.anim_data.is_paused() {
-                            if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
-                                self.anim_data.unpause();
-                            }
-                        } else if ui.add_enabled(enabled, egui::Button::new("⏸")).clicked() {
-                            self.anim_data.pause();
-                        }
-
-                        if ui
-                            .add_enabled(!self.anim_data.is_stopped(), egui::Button::new("⏹"))
-                            .clicked()
-                        {
-                            self.anim_data.stop();
-                        }
-
-                        if ui
-                            .add_enabled(
-                                enabled && self.anim_data.is_paused(),
-                                egui::Button::new("⏭"),
-                            )
-                            .clicked()
-                        {
-                            self.pxu.points = self.anim_data.goto_end();
-                        }
-                    });
-
-                    ui.add_enabled(enabled, egui::Button::new("→"));
-                    ui.add_enabled(enabled, egui::Button::new("⇤"));
-                    ui.add_enabled(enabled, egui::Button::new("↔"));
-
-                    ui.add_enabled(
-                        enabled && self.anim_data.total_len > 0.0 && self.anim_data.is_paused(),
-                        egui::Slider::from_get_set(0.0..=1.0, |v| {
-                            if let Some(v) = v {
-                                self.anim_data.t = v * self.anim_data.total_len;
-                            }
-                            self.anim_data.t / self.anim_data.total_len
-                        })
-                        .show_value(false),
-                    );
-
-                    ui.add(
-                        egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0)
-                            .text("Speed")
-                            .show_value(false),
-                    );
-                }
-
-                ui.separator();
-
-                {
-                    ui.label(format!("Momentum: {:.3}", self.pxu.p()));
-                    ui.label(format!("Energy: {:.3}", self.pxu.en()));
-                }
-
-                ui.separator();
-
-                {
-                    ui.label("Active excitation:");
-
-                    ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
-
-                    ui.label(format!(
-                        "Energy: {:.3}",
-                        self.pxu.active_point().en(self.pxu.consts)
-                    ));
-
-                    ui.add_space(10.0);
-                    ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
-                    ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
-                    ui.label(format!("u: {:.3}", self.pxu.active_point().u));
-
-                    ui.add_space(10.0);
-                    ui.label("Branch info:");
-
-                    ui.label(format!(
-                        "Log branches: {:+} {:+}",
-                        self.pxu.active_point().sheet_data.log_branch_p,
-                        self.pxu.active_point().sheet_data.log_branch_m
-                    ));
-
-                    ui.label(format!(
-                        "E branch: {:+} ",
-                        self.pxu.active_point().sheet_data.e_branch
-                    ));
-                    ui.label(format!(
-                        "U branch: ({:+},{:+}) ",
-                        self.pxu.active_point().sheet_data.u_branch.0,
-                        self.pxu.active_point().sheet_data.u_branch.1
-                    ));
-
-                    {
-                        let xp = self.pxu.active_point().xp;
-                        let xm = xp.conj();
-                        let h = self.pxu.consts.h;
-                        let k = self.pxu.consts.k() as f64;
-                        let p = xp.arg() / std::f64::consts::PI;
-                        let m = h / 2.0
-                            * (xp + 1.0 / xp
-                                - xm
-                                - 1.0 / xm
-                                - 2.0 * num::complex::Complex64::i() * (k * p) / h)
-                                .im;
-                        ui.label(format!("p = {p:.3} m = {m:.3}"));
-                    }
-                }
-
-                if self.settings.show_fps {
-                    ui.separator();
-                    {
-                        ui.label(format!("FPS: {}", self.frame_history.fps()));
-
-                        self.frame_history.ui(ui);
-                    }
-                }
-
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 0.0;
-                        ui.label("powered by ");
-                        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                        ui.label(" and ");
-                        ui.hyperlink_to(
-                            "eframe",
-                            "https://github.com/emilk/egui/tree/master/crates/eframe",
-                        );
-                        ui.label(".");
-                    });
-
-                    ui.add_space(10.0);
-                    let (current, total) = self.contours.progress();
-                    if total > 1 && current != total {
-                        let progress = current as f32 / total as f32;
-                        ui.add(
-                            egui::ProgressBar::new(progress)
-                                .text(format!("Generating contours   {:.0}%", 100.0 * progress)),
-                        );
-                    }
-                });
-            });
-        }
-
-        if old_consts != new_consts {
-            self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
-            self.contours.clear();
-            self.anim_data.stop();
+            self.draw_side_panel(ctx);
         }
 
         {
@@ -419,5 +207,224 @@ impl eframe::App for PxuGuiApp {
                 self.pxu.paths[i].push(pt.clone());
             }
         }
+    }
+}
+
+impl PxuGuiApp {
+    fn draw_coupling_controls(&mut self, ui: &mut egui::Ui) {
+        let old_consts = self.pxu.consts;
+        let mut new_consts = self.pxu.consts;
+
+        ui.add(
+            egui::Slider::new(&mut new_consts.h, 0.1..=10.0)
+                .text("h")
+                .logarithmic(true),
+        );
+
+        ui.add(
+            egui::Slider::from_get_set(0.0..=10.0, |v| new_consts.get_set_k(v))
+                .integer()
+                .text("k"),
+        );
+        ui.add(
+            egui::Slider::from_get_set(1.0..=8.0, |n| {
+                if let Some(n) = n {
+                    self.pxu = pxu::State::new(n as usize, self.pxu.consts);
+                    self.anim_data.stop();
+                }
+                self.pxu.points.len() as f64
+            })
+            .integer()
+            .text("M"),
+        );
+
+        if old_consts != new_consts {
+            self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
+            self.contours.clear();
+            self.anim_data.stop();
+        }
+    }
+
+    fn draw_animation_controls(&mut self, ui: &mut egui::Ui) {
+        let enabled = !self.pxu.paths.is_empty() && self.pxu.paths[0].len() > 1;
+
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(
+                    enabled && self.anim_data.is_paused(),
+                    egui::Button::new("⏮"),
+                )
+                .clicked()
+            {
+                self.pxu.points = self.anim_data.goto_start();
+            }
+
+            if self.anim_data.is_stopped() {
+                if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                    self.pxu.points = self.anim_data.start(&self.pxu.paths);
+                }
+            } else if self.anim_data.is_paused() {
+                if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
+                    self.anim_data.unpause();
+                }
+            } else if ui.add_enabled(enabled, egui::Button::new("⏸")).clicked() {
+                self.anim_data.pause();
+            }
+
+            if ui
+                .add_enabled(!self.anim_data.is_stopped(), egui::Button::new("⏹"))
+                .clicked()
+            {
+                self.anim_data.stop();
+            }
+
+            if ui
+                .add_enabled(
+                    enabled && self.anim_data.is_paused(),
+                    egui::Button::new("⏭"),
+                )
+                .clicked()
+            {
+                self.pxu.points = self.anim_data.goto_end();
+            }
+        });
+
+        ui.add_enabled(enabled, egui::Button::new("→"));
+        ui.add_enabled(enabled, egui::Button::new("⇤"));
+        ui.add_enabled(enabled, egui::Button::new("↔"));
+
+        ui.add_enabled(
+            enabled && self.anim_data.total_len > 0.0 && self.anim_data.is_paused(),
+            egui::Slider::from_get_set(0.0..=1.0, |v| {
+                if let Some(v) = v {
+                    self.anim_data.t = v * self.anim_data.total_len;
+                }
+                self.anim_data.t / self.anim_data.total_len
+            })
+            .show_value(false),
+        );
+
+        ui.add(
+            egui::Slider::new(&mut self.anim_data.speed, 1.0..=100.0)
+                .text("Speed")
+                .show_value(false),
+        );
+    }
+
+    fn draw_state_information(&mut self, ui: &mut egui::Ui) {
+        {
+            ui.label(format!("Momentum: {:.3}", self.pxu.p()));
+            ui.label(format!("Energy: {:.3}", self.pxu.en()));
+        }
+
+        ui.separator();
+
+        {
+            ui.label("Active excitation:");
+
+            ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
+
+            ui.label(format!(
+                "Energy: {:.3}",
+                self.pxu.active_point().en(self.pxu.consts)
+            ));
+
+            ui.add_space(10.0);
+            ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
+            ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
+            ui.label(format!("u: {:.3}", self.pxu.active_point().u));
+
+            ui.add_space(10.0);
+            ui.label("Branch info:");
+
+            ui.label(format!(
+                "Log branches: {:+} {:+}",
+                self.pxu.active_point().sheet_data.log_branch_p,
+                self.pxu.active_point().sheet_data.log_branch_m
+            ));
+
+            ui.label(format!(
+                "E branch: {:+} ",
+                self.pxu.active_point().sheet_data.e_branch
+            ));
+            ui.label(format!(
+                "U branch: ({:+},{:+}) ",
+                self.pxu.active_point().sheet_data.u_branch.0,
+                self.pxu.active_point().sheet_data.u_branch.1
+            ));
+
+            {
+                let xp = self.pxu.active_point().xp;
+                let xm = xp.conj();
+                let h = self.pxu.consts.h;
+                let k = self.pxu.consts.k() as f64;
+                let p = xp.arg() / std::f64::consts::PI;
+                let m = h / 2.0
+                    * (xp + 1.0 / xp
+                        - xm
+                        - 1.0 / xm
+                        - 2.0 * num::complex::Complex64::i() * (k * p) / h)
+                        .im;
+                ui.label(format!("p = {p:.3} m = {m:.3}"));
+            }
+        }
+    }
+
+    fn draw_side_panel(&mut self, ctx: &egui::Context) {
+        egui::SidePanel::right("side_panel").show(ctx, |ui| {
+            self.draw_coupling_controls(ui);
+
+            ui.label("U cuts: ");
+            ui.horizontal(|ui| {
+                for typ in UCutType::all() {
+                    ui.radio_value(&mut self.ui_state.u_cut_type, typ, format!("{typ}"));
+                }
+            });
+
+            if ui.add(egui::Button::new("Reset")).clicked() {
+                *self = Self::default();
+            }
+
+            ui.separator();
+
+            self.draw_animation_controls(ui);
+
+            ui.separator();
+
+            self.draw_state_information(ui);
+
+            if self.settings.show_fps {
+                ui.separator();
+                {
+                    ui.label(format!("FPS: {}", self.frame_history.fps()));
+
+                    self.frame_history.ui(ui);
+                }
+            }
+
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    ui.label("powered by ");
+                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+                    ui.label(" and ");
+                    ui.hyperlink_to(
+                        "eframe",
+                        "https://github.com/emilk/egui/tree/master/crates/eframe",
+                    );
+                    ui.label(".");
+                });
+
+                ui.add_space(10.0);
+                let (current, total) = self.contours.progress();
+                if total > 1 && current != total {
+                    let progress = current as f32 / total as f32;
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .text(format!("Generating contours   {:.0}%", 100.0 * progress)),
+                    );
+                }
+            });
+        });
     }
 }
