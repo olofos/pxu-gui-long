@@ -370,7 +370,7 @@ impl eframe::App for PxuGuiApp {
                     pxu::Component::U => &mut self.u_plot,
                 };
 
-                plot.draw(ui, rect, &self.contours, &mut self.pxu, &mut self.ui_state);
+                plot.show(ui, rect, &self.contours, &mut self.pxu, &mut self.ui_state);
             } else {
                 use egui::Rect;
                 const GAP: f32 = 8.0;
@@ -380,7 +380,7 @@ impl eframe::App for PxuGuiApp {
 
                 let top_left = rect.left_top();
 
-                self.p_plot.draw(
+                self.p_plot.show(
                     ui,
                     Rect::from_min_size(top_left, size),
                     &self.contours,
@@ -388,7 +388,7 @@ impl eframe::App for PxuGuiApp {
                     &mut self.ui_state,
                 );
 
-                self.u_plot.draw(
+                self.u_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, 0.0), size),
                     &self.contours,
@@ -396,7 +396,7 @@ impl eframe::App for PxuGuiApp {
                     &mut self.ui_state,
                 );
 
-                self.xp_plot.draw(
+                self.xp_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(0.0, h + GAP), size),
                     &self.contours,
@@ -404,7 +404,7 @@ impl eframe::App for PxuGuiApp {
                     &mut self.ui_state,
                 );
 
-                self.xm_plot.draw(
+                self.xm_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, h + GAP), size),
                     &self.contours,
