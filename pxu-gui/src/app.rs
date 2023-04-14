@@ -3,6 +3,7 @@ use itertools::Itertools;
 use pxu::kinematics::CouplingConstants;
 use pxu::UCutType;
 
+use crate::gui_settings::GuiSettings;
 use crate::plot::Plot;
 
 #[derive(Debug)]
@@ -138,7 +139,8 @@ pub struct PxuGuiApp {
     #[cfg(debug_assertions)]
     frame_history: crate::frame_history::FrameHistory,
     #[serde(skip)]
-    anim_data: AnimData,
+    #[serde(skip)]
+    settings: GuiSettings,
 }
 
 impl Default for PxuGuiApp {
@@ -179,7 +181,7 @@ impl Default for PxuGuiApp {
             u_cut_type: Default::default(),
             #[cfg(debug_assertions)]
             frame_history: Default::default(),
-            anim_data: AnimData::default(),
+            settings: Default::default(),
         }
     }
 }
@@ -193,7 +195,9 @@ impl PxuGuiApp {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            app.settings = settings;
+            return app;
         }
 
         Default::default()
@@ -209,8 +213,7 @@ impl eframe::App for PxuGuiApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        #[cfg(debug_assertions)]
-        {
+        if self.settings.show_fps {
             self.frame_history
                 .on_new_frame(ctx.input().time, _frame.info().cpu_usage);
         }
@@ -352,16 +355,12 @@ impl eframe::App for PxuGuiApp {
                 }
             }
 
-            #[cfg(debug_assertions)]
-            {
+            if self.settings.show_fps {
                 ui.separator();
                 {
                     ui.label(format!("FPS: {}", self.frame_history.fps()));
 
                     self.frame_history.ui(ui);
-
-                    let (current, total) = self.contours.progress();
-                    ui.add(egui::ProgressBar::new(current as f32 / total as f32).show_percentage());
                 }
             }
 

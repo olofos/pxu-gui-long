@@ -1,10 +1,13 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod anim;
 mod app;
-#[cfg(debug_assertions)]
 mod frame_history;
+mod gui_settings;
 mod plot;
+
+use crate::gui_settings::GuiSettings;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -12,6 +15,7 @@ fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
+    let settings = GuiSettings { show_fps: true };
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "pxu gui",
@@ -22,12 +26,23 @@ fn main() {
                 ..egui::Style::default()
             };
             cc.egui_ctx.set_style(style);
-            Box::new(app::PxuGuiApp::new(cc))
+            Box::new(app::PxuGuiApp::new(cc, settings))
         }),
     );
 }
 
 // when compiling to web using trunk.
+#[cfg(target_arch = "wasm32")]
+fn get_url() -> Option<url::Url> {
+    let location: String = web_sys::window()?
+        .document()?
+        .location()?
+        .to_string()
+        .into();
+
+    url::Url::parse(&location).ok()
+}
+
 #[cfg(target_arch = "wasm32")]
 fn main() {
     // Make sure panics are logged using `console.error`.
@@ -35,8 +50,9 @@ fn main() {
 
     // Redirect tracing to console.log and friends:
     tracing_wasm::set_as_global_default();
-
     wasm_logger::init(wasm_logger::Config::default());
+
+    let settings = GuiSettings::from(get_url());
 
     let web_options = eframe::WebOptions::default();
 
@@ -44,7 +60,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
-            Box::new(|cc| Box::new(app::PxuGuiApp::new(cc))),
+            Box::new(|cc| Box::new(app::PxuGuiApp::new(cc, settings))),
         )
         .await
         .expect("failed to start eframe");
