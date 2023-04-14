@@ -115,6 +115,11 @@ impl eframe::App for PxuGuiApp {
             self.ui_state.show_side_panel = !self.ui_state.show_side_panel;
         }
 
+        if ctx.input().key_pressed(egui::Key::Escape) {
+            self.ui_state.close_fullscreen();
+            self.ui_state.show_side_panel = true;
+        }
+
         if self.ui_state.show_side_panel {
             self.draw_side_panel(ctx);
         }

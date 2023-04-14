@@ -109,9 +109,7 @@ impl Plot {
         if response.double_clicked() {
             ui_state.toggle_fullscreen(self.component)
         }
-        if ui.input().key_pressed(egui::Key::Escape) {
-            ui_state.close_fullscreen();
-        }
+
         response.context_menu(|ui| ui_state.menu(ui, Some(self.component)));
 
         points
