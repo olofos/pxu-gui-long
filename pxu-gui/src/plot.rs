@@ -48,7 +48,7 @@ impl Plot {
                 let visible_rect = Rect::from_center_size(
                     self.origin,
                     vec2(
-                        self.height * self.width_factor * desired_size.x / desired_size.y,
+                        self.height * self.width_factor * rect.aspect_ratio(),
                         self.height,
                     ),
                 );
