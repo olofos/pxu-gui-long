@@ -30,6 +30,8 @@ impl Plot {
             .show(ui, |ui| {
                 let (response, painter) = ui.allocate_painter(desired_size, egui::Sense::drag());
 
+                let rect = response.rect;
+
                 if response.hovered() {
                     let zoom = ui.input().zoom_delta();
                     self.zoom(zoom);
@@ -37,13 +39,21 @@ impl Plot {
                     if response.dragged() {
                         let delta = response.drag_delta();
                         self.origin -= Vec2::new(
-                            delta.x * (self.height / desired_size.y) * (self.width_factor),
-                            delta.y * (self.height / desired_size.y),
+                            delta.x * (self.height / rect.height()) * (self.width_factor),
+                            delta.y * (self.height / rect.height()),
                         );
                     }
-                }
 
-                let rect = response.rect;
+                    let scroll = ui.input().scroll_delta;
+                    self.origin -= Vec2::new(
+                        scroll.x * (self.height / rect.height()) * (self.width_factor),
+                        scroll.y * (self.height / rect.height()),
+                    );
+
+                    if scroll != vec2(0.0, 0.0) {
+                        log::info!("{scroll:?}");
+                    }
+                }
 
                 let visible_rect = Rect::from_center_size(
                     self.origin,
