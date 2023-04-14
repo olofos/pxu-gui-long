@@ -40,4 +40,52 @@ impl UiState {
     pub fn close_fullscreen(&mut self) {
         self.fullscreen_component = None;
     }
+
+    pub fn menu(&mut self, ui: &mut egui::Ui, component: Option<pxu::Component>) {
+        ui.menu_button("Cut type", |ui| {
+            if UCutType::all()
+                .map(|typ| ui.radio_value(&mut self.u_cut_type, typ, typ.to_string()))
+                .any(|r| r.clicked())
+            {
+                ui.close_menu();
+            }
+        });
+
+        if ui
+            .button(if self.show_side_panel {
+                "Hide side panel"
+            } else {
+                "Show side panel"
+            })
+            .clicked()
+        {
+            self.show_side_panel = !self.show_side_panel;
+            ui.close_menu();
+        }
+
+        if component.is_some() {
+            if ui
+                .button(if self.fullscreen_component.is_none() {
+                    "Fullscreen"
+                } else {
+                    "Close fullscreen"
+                })
+                .clicked()
+            {
+                self.toggle_fullscreen(component.unwrap());
+                ui.close_menu();
+            }
+        } else {
+            if ui
+                .add_enabled(
+                    self.fullscreen_component.is_some(),
+                    egui::Button::new("Close fullscreen"),
+                )
+                .clicked()
+            {
+                self.close_fullscreen();
+                ui.close_menu();
+            }
+        }
+    }
 }

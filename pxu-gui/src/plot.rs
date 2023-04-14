@@ -125,42 +125,7 @@ impl Plot {
                 if ui.input().key_pressed(egui::Key::Escape) {
                     ui_state.close_fullscreen();
                 }
-                response.context_menu(|ui| {
-                    ui.menu_button("Cut type", |ui| {
-                        if UCutType::all()
-                            .map(|typ| {
-                                ui.radio_value(&mut ui_state.u_cut_type, typ, typ.to_string())
-                            })
-                            .any(|r| r.clicked())
-                        {
-                            ui.close_menu();
-                        }
-                    });
-
-                    if ui
-                        .button(if ui_state.show_side_panel {
-                            "Hide side panel"
-                        } else {
-                            "Show side panel"
-                        })
-                        .clicked()
-                    {
-                        ui_state.show_side_panel = !ui_state.show_side_panel;
-                        ui.close_menu();
-                    }
-
-                    if ui
-                        .button(if ui_state.fullscreen_component.is_none() {
-                            "Fullscreen"
-                        } else {
-                            "Close fullscreen"
-                        })
-                        .clicked()
-                    {
-                        ui_state.toggle_fullscreen(self.component);
-                        ui.close_menu();
-                    }
-                });
+                response.context_menu(|ui| ui_state.menu(ui, Some(self.component)));
 
                 let grid_contours = contours.get_grid(self.component);
 

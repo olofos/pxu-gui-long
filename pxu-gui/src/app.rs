@@ -107,41 +107,7 @@ impl eframe::App for PxuGuiApp {
                         _frame.close();
                     }
                 });
-                ui.menu_button("View", |ui| {
-                    ui.menu_button("Cut type", |ui| {
-                        if UCutType::all()
-                            .map(|typ| {
-                                ui.radio_value(&mut self.ui_state.u_cut_type, typ, typ.to_string())
-                            })
-                            .any(|r| r.clicked())
-                        {
-                            ui.close_menu();
-                        }
-                    });
-
-                    if ui
-                        .button(if self.ui_state.show_side_panel {
-                            "Hide side panel"
-                        } else {
-                            "Show side panel"
-                        })
-                        .clicked()
-                    {
-                        self.ui_state.show_side_panel = !self.ui_state.show_side_panel;
-                        ui.close_menu();
-                    }
-
-                    if ui
-                        .add_enabled(
-                            self.ui_state.fullscreen_component.is_some(),
-                            egui::Button::new("Close fullscreen"),
-                        )
-                        .clicked()
-                    {
-                        self.ui_state.close_fullscreen();
-                        ui.close_menu();
-                    }
-                });
+                ui.menu_button("View", |ui| self.ui_state.menu(ui, None));
             });
         });
 
