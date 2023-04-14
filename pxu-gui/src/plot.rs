@@ -152,15 +152,19 @@ impl Plot {
                     let long_cuts = u_cut_type == UCutType::Long;
 
                     for cut in visible_cuts {
+                        let hide_log_cut = |comp| {
+                            comp != cut.component
+                                || (comp == pxu::Component::Xp
+                                    && pxu.active_point().sheet_data.u_branch.1 == UBranch::Between)
+                                || (comp == pxu::Component::Xm
+                                    && pxu.active_point().sheet_data.u_branch.0 == UBranch::Between)
+                        };
+
                         let color = match cut.typ {
                             pxu::CutType::E => Color32::BLACK,
 
                             pxu::CutType::Log(comp) => {
-                                if u_cut_type == UCutType::Short
-                                    && (comp != cut.component
-                                        || pxu.active_point().sheet_data.u_branch
-                                            == (UBranch::Between, UBranch::Between))
-                                {
+                                if u_cut_type == UCutType::Short && hide_log_cut(comp) {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
                                     Color32::from_rgb(255, 128, 128)
@@ -181,10 +185,7 @@ impl Plot {
 
                             pxu::CutType::ULongPositive(comp) => {
                                 if u_cut_type == UCutType::SemiShort
-                                    || u_cut_type == UCutType::Short
-                                        && (comp != cut.component
-                                            || pxu.active_point().sheet_data.u_branch
-                                                == (UBranch::Between, UBranch::Between))
+                                    || u_cut_type == UCutType::Short && hide_log_cut(comp)
                                 {
                                     continue;
                                 } else if comp == pxu::Component::Xp {
