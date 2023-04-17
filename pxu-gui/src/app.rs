@@ -400,16 +400,6 @@ impl PxuGuiApp {
             self.draw_state_information(ui);
             self.draw_animation_controls(ui, false);
 
-            if self.settings.show_fps {
-                ui.add_space(10.0);
-                ui.separator();
-                {
-                    ui.label(format!("FPS: {:.1}", self.frame_history.fps()));
-
-                    self.frame_history.ui(ui);
-                }
-            }
-
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -422,6 +412,16 @@ impl PxuGuiApp {
                     );
                     ui.label(".");
                 });
+
+                if self.settings.show_fps {
+                    ui.separator();
+                    ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
+                    ui.label(format!(
+                        "CPU usage: {:.1} ms/frame",
+                        1000.0 * self.frame_history.mean_frame_time()
+                    ));
+                    ui.separator();
+                }
 
                 ui.add_space(10.0);
                 let (current, total) = self.contours.progress();
