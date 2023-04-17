@@ -110,6 +110,11 @@ impl Plot {
             ui_state.toggle_fullscreen(self.component)
         }
 
+        if ui.input().key_pressed(egui::Key::Home) {
+            let z = pxu.active_point().get(self.component);
+            self.origin = egui::pos2(z.re as f32, -z.im as f32);
+        }
+
         response.context_menu(|ui| ui_state.menu(ui, Some(self.component)));
 
         points
