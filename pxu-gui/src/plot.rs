@@ -255,31 +255,30 @@ impl Plot {
                 };
 
                 for period_shift in period_shifts.iter() {
-                    for points in cut.paths.iter() {
-                        let points = points
-                            .iter()
-                            .map(|z| {
-                                to_screen
-                                    * egui::pos2(z.re as f32, -(z.im as f32 - shift + period_shift))
-                            })
-                            .collect::<Vec<_>>();
+                    let points = cut
+                        .path
+                        .iter()
+                        .map(|z| {
+                            to_screen
+                                * egui::pos2(z.re as f32, -(z.im as f32 - shift + period_shift))
+                        })
+                        .collect::<Vec<_>>();
 
-                        match cut.typ {
-                            pxu::CutType::UShortKidney(_) | pxu::CutType::ULongNegative(_) => {
-                                egui::epaint::Shape::dashed_line_many(
-                                    &points.clone(),
-                                    Stroke::new(3.0, color),
-                                    4.0,
-                                    4.0,
-                                    shapes,
-                                );
-                            }
-                            _ => {
-                                shapes.push(egui::epaint::Shape::line(
-                                    points.clone(),
-                                    Stroke::new(3.0, color),
-                                ));
-                            }
+                    match cut.typ {
+                        pxu::CutType::UShortKidney(_) | pxu::CutType::ULongNegative(_) => {
+                            egui::epaint::Shape::dashed_line_many(
+                                &points.clone(),
+                                Stroke::new(3.0, color),
+                                4.0,
+                                4.0,
+                                shapes,
+                            );
+                        }
+                        _ => {
+                            shapes.push(egui::epaint::Shape::line(
+                                points.clone(),
+                                Stroke::new(3.0, color),
+                            ));
                         }
                     }
 

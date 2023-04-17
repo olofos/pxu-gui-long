@@ -236,9 +236,7 @@ progress_file=io.open(""#;
             }
         };
 
-        for path in cut.paths.iter() {
-            self.add_plot(&[&[color, style, "thick"], options].concat(), path)?
-        }
+        self.add_plot(&[&[color, style, "thick"], options].concat(), &cut.path)?;
 
         if let Some(branch_point) = cut.branch_point {
             self.add_plot_all(
@@ -653,7 +651,7 @@ fn fig_p_plane_long_cuts_regions(
             }
         };
 
-        let mut cropped_path = figure.crop(&cut.paths[0]);
+        let mut cropped_path = figure.crop(&cut.path);
         if cropped_path.len() >= 2 {
             let len = cropped_path.len();
             let start = cropped_path[0];

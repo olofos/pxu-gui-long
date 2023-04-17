@@ -636,7 +636,7 @@ impl Contours {
                     _ => Complex64::from(0.0),
                 };
 
-                let paths = vec![path.iter().map(|z| z + pre_shift).collect()];
+                let paths = path.iter().map(|z| z + pre_shift).collect();
 
                 let cut = Cut::new(
                     component,
@@ -675,13 +675,13 @@ impl Contours {
                     })
                     .tuple_windows::<(_, _)>()
                 {
-                    if let Some((i, j, x)) = cut.intersection(p1, p2, consts) {
+                    if let Some((j, x)) = cut.intersection(p1, p2, consts) {
                         let mut new_path = vec![x];
-                        new_path.extend(cut.paths[i].split_off(j + 1));
-                        cut.paths[i].push(x);
+                        new_path.extend(cut.path.split_off(j + 1));
+                        cut.path.push(x);
 
                         let mut new_cut = Cut {
-                            paths: vec![new_path],
+                            path: new_path,
                             branch_point: None,
                             typ: cut.typ.clone(),
                             p_range: cut.p_range,
@@ -750,7 +750,7 @@ impl Contours {
                     _ => Complex64::from(0.0),
                 };
 
-                self.rctx.cut_data.path = Some(cut.paths[0].iter().map(|z| z - shift).collect());
+                self.rctx.cut_data.path = Some(cut.path.iter().map(|z| z - shift).collect());
                 self.rctx.cut_data.branch_point = cut.branch_point.map(|z| z - shift);
             }
 

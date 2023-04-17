@@ -9,7 +9,7 @@ use num::complex::Complex64;
 #[derive(Debug, Clone)]
 pub struct Cut {
     pub component: Component,
-    pub paths: Vec<Vec<Complex64>>,
+    pub path: Vec<Complex64>,
     pub branch_point: Option<Complex64>,
     pub typ: CutType,
     pub p_range: i32,
@@ -20,7 +20,7 @@ pub struct Cut {
 impl Cut {
     pub fn new(
         component: Component,
-        paths: Vec<Vec<Complex64>>,
+        path: Vec<Complex64>,
         branch_point: Option<Complex64>,
         typ: CutType,
         p_range: i32,
@@ -29,7 +29,7 @@ impl Cut {
     ) -> Self {
         Self {
             component,
-            paths,
+            path,
             branch_point,
             typ,
             p_range,
@@ -39,17 +39,13 @@ impl Cut {
     }
 
     pub fn conj(&self) -> Self {
-        let paths = self
-            .paths
-            .iter()
-            .map(|path| path.iter().rev().map(|z| z.conj()).collect())
-            .collect();
+        let path = self.path.iter().rev().map(|z| z.conj()).collect();
         let branch_point = self.branch_point.map(|z| z.conj());
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
 
         Cut {
             component: self.component.conj(),
-            paths,
+            path,
             branch_point,
             typ: self.typ.conj(),
             visibility,
@@ -59,16 +55,12 @@ impl Cut {
     }
 
     pub fn shift_conj(&self, dz: Complex64) -> Self {
-        let paths = self
-            .paths
-            .iter()
-            .map(|path| path.iter().map(|z| (z - dz).conj() + dz).collect())
-            .collect();
+        let paths = self.path.iter().map(|z| (z - dz).conj() + dz).collect();
         let branch_point = self.branch_point.map(|z| (z - dz).conj() + dz);
         let visibility = self.visibility.iter().map(|v| v.conj()).collect();
         Cut {
             component: self.component.conj(),
-            paths,
+            path: paths,
             branch_point,
             typ: self.typ.conj(),
             visibility,
@@ -78,10 +70,8 @@ impl Cut {
     }
 
     pub fn shift(mut self, dz: Complex64) -> Self {
-        for path in self.paths.iter_mut() {
-            for z in path.iter_mut() {
-                *z += dz;
-            }
+        for z in self.path.iter_mut() {
+            *z += dz;
         }
 
         if let Some(ref mut z) = self.branch_point {
@@ -95,7 +85,7 @@ impl Cut {
         p1: Complex64,
         p2: Complex64,
         consts: CouplingConstants,
-    ) -> Option<(usize, usize, Complex64)> {
+    ) -> Option<(usize, Complex64)> {
         if self.periodic {
             let period = 2.0 * Complex64::i() * consts.k() as f64 / consts.h;
             (-5..=5).find_map(|n| {
@@ -107,7 +97,7 @@ impl Cut {
         }
     }
 
-    fn find_intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, usize, Complex64)> {
+    fn find_intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, Complex64)> {
         fn cross(v: Complex64, w: Complex64) -> f64 {
             v.re * w.im - v.im * w.re
         }
@@ -115,18 +105,16 @@ impl Cut {
         let p = p1;
         let r = p2 - p1;
 
-        for (i, path) in self.paths.iter().enumerate() {
-            for (j, (q1, q2)) in path.iter().tuple_windows::<(_, _)>().enumerate() {
-                let q = q1;
-                let s = q2 - q1;
+        for (j, (q1, q2)) in self.path.iter().tuple_windows::<(_, _)>().enumerate() {
+            let q = q1;
+            let s = q2 - q1;
 
-                if cross(r, s) != 0.0 {
-                    let t = cross(q - p, s) / cross(r, s);
-                    let u = cross(q - p, r) / cross(r, s);
+            if cross(r, s) != 0.0 {
+                let t = cross(q - p, s) / cross(r, s);
+                let u = cross(q - p, r) / cross(r, s);
 
-                    if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
-                        return Some((i, j, p + t * r));
-                    }
+                if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
+                    return Some((j, p + t * r));
                 }
             }
         }
