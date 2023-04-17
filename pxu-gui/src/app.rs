@@ -394,7 +394,7 @@ impl PxuGuiApp {
             });
 
             if ui.add(egui::Button::new("Reset")).clicked() {
-                *self = Self::default();
+                self.pxu = pxu::State::new(self.pxu.points.len(), self.pxu.consts);
             }
 
             self.draw_state_information(ui);
