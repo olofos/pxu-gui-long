@@ -218,6 +218,43 @@ pub enum GridLineComponent {
 pub struct GridLine {
     pub path: Vec<Complex64>,
     pub component: GridLineComponent,
+    #[cfg(feature = "egui")]
+    pub bounding_box: egui::Rect,
+}
+
+impl GridLine {
+    fn new(path: Vec<Complex64>, component: GridLineComponent) -> Self {
+        #[cfg(feature = "egui")]
+        {
+            let mut x0 = path[0].re as f32;
+            let mut y0 = -path[0].im as f32;
+            let mut x1 = path[0].re as f32;
+            let mut y1 = -path[0].im as f32;
+
+            for p in path.iter() {
+                x0 = x0.min(p.re as f32);
+                y0 = y0.min(-p.im as f32);
+
+                x1 = x1.max(p.re as f32);
+                y1 = y1.max(-p.im as f32);
+            }
+
+            let bounding_box = egui::Rect {
+                min: egui::pos2(x0, y0),
+                max: egui::pos2(x1, y1),
+            };
+
+            Self {
+                path,
+                component,
+                bounding_box,
+            }
+        }
+        #[cfg(not(feature = "egui"))]
+        {
+            Self { path, component }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -344,13 +381,13 @@ impl Contours {
         self.cuts.clear();
         self.loaded = false;
 
-        self.grid_p = vec![GridLine {
-            path: vec![
+        self.grid_p = vec![GridLine::new(
+            vec![
                 Complex64::from(P_RANGE_MIN as f64),
                 Complex64::from(P_RANGE_MAX as f64 + 1.0),
             ],
-            component: GridLineComponent::Real,
-        }];
+            GridLineComponent::Real,
+        )];
     }
 
     pub fn progress(&self) -> (usize, usize) {
@@ -414,22 +451,22 @@ impl Contours {
 
         match command {
             AddGridLineU { y } => {
-                self.grid_u.push(GridLine {
-                    path: vec![Complex64::new(-INFINITY, y), Complex64::new(INFINITY, y)],
-                    component: GridLineComponent::Real,
-                });
+                self.grid_u.push(GridLine::new(
+                    vec![Complex64::new(-INFINITY, y), Complex64::new(INFINITY, y)],
+                    GridLineComponent::Real,
+                ));
             }
 
             AddGridLineX { m } => {
                 let path = XInterpolator::generate_xp_full(0, m, consts);
-                self.grid_x.push(GridLine {
-                    path: path.iter().map(|x| x.conj()).collect(),
-                    component: GridLineComponent::Xm(m),
-                });
-                self.grid_x.push(GridLine {
-                    path,
-                    component: GridLineComponent::Xp(m),
-                });
+                if path.len() > 1 {
+                    self.grid_x.push(GridLine::new(
+                        path.iter().map(|x| x.conj()).collect(),
+                        GridLineComponent::Xm(m),
+                    ));
+                    self.grid_x
+                        .push(GridLine::new(path, GridLineComponent::Xp(m)));
+                }
             }
 
             EStart { p_range } => {
@@ -488,11 +525,13 @@ impl Contours {
                     }
                 };
 
-                self.grid_p.push(GridLine {
-                    path: path.iter().map(|p| p.conj()).collect(),
-                    component: conj_component,
-                });
-                self.grid_p.push(GridLine { path, component });
+                if path.len() > 1 {
+                    self.grid_p.push(GridLine::new(
+                        path.iter().map(|p| p.conj()).collect(),
+                        conj_component,
+                    ));
+                    self.grid_p.push(GridLine::new(path, component));
+                }
             }
 
             ClearCut => {

@@ -122,9 +122,10 @@ impl Plot {
 
     fn draw_grid(&self, rect: Rect, contours: &pxu::Contours, shapes: &mut Vec<egui::Shape>) {
         let to_screen = self.to_screen(rect);
-        let origin = to_screen * egui::pos2(0.0, 0.0);
-
+        let visible_rect = self.visible_rect(rect);
         if self.component != pxu::Component::P {
+            let origin = to_screen * egui::pos2(0.0, 0.0);
+
             shapes.extend([
                 egui::epaint::Shape::line(
                     vec![
@@ -146,6 +147,9 @@ impl Plot {
         let grid_contours = contours.get_grid(self.component);
 
         for grid_line in grid_contours {
+            if !grid_line.bounding_box.intersects(visible_rect) {
+                continue;
+            }
             let points = grid_line
                 .path
                 .iter()
@@ -413,15 +417,17 @@ impl Plot {
     }
 
     fn to_screen(&self, rect: Rect) -> RectTransform {
-        let visible_rect = Rect::from_center_size(
+        RectTransform::from_to(self.visible_rect(rect), rect)
+    }
+
+    fn visible_rect(&self, rect: Rect) -> Rect {
+        Rect::from_center_size(
             self.origin,
             vec2(
                 self.height * self.width_factor * rect.aspect_ratio(),
                 self.height,
             ),
-        );
-
-        RectTransform::from_to(visible_rect, rect)
+        )
     }
 
     pub fn show(
