@@ -14,6 +14,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::thread;
 
+use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 mod cache;
@@ -59,6 +60,19 @@ struct Size {
     height: f64,
 }
 
+#[derive(Parser, Clone)]
+#[command(author, version, about, long_about = None)]
+struct Settings {
+    #[arg(short, long, default_value = "lualatex")]
+    lualatex: String,
+    #[arg(short, long, default_value = "./figures")]
+    output_dir: String,
+    #[arg(short, long)]
+    rebuild: bool,
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+}
+
 #[derive(Debug)]
 struct FigureWriter {
     name: String,
@@ -69,8 +83,6 @@ struct FigureWriter {
     component: pxu::Component,
 }
 
-const LUALATEX: &str = "lualatex";
-const FIGURE_PATH: &str = "./figures";
 const TEX_EXT: &str = "tex";
 const SUMMARY_NAME: &str = "all-figures";
 
@@ -107,8 +119,9 @@ progress_file=io.open(""#;
         bounds: Bounds,
         size: Size,
         component: pxu::Component,
+        settings: &Settings,
     ) -> std::io::Result<Self> {
-        let mut path = PathBuf::from(FIGURE_PATH).join(name);
+        let mut path = PathBuf::from(&settings.output_dir).join(name);
         path.set_extension(TEX_EXT);
 
         log::info!("[{name}]: Creating file {}", path.to_string_lossy());
@@ -266,7 +279,11 @@ progress_file=io.open(""#;
         )
     }
 
-    fn finish(mut self, cache: Arc<cache::Cache>) -> std::io::Result<FigureCompiler> {
+    fn finish(
+        mut self,
+        cache: Arc<cache::Cache>,
+        settings: &Settings,
+    ) -> std::io::Result<FigureCompiler> {
         writeln!(self.writer, "\\end{{axis}}\n")?;
         let component_name = match self.component {
             pxu::Component::P => "p",
@@ -281,7 +298,7 @@ progress_file=io.open(""#;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
 
-        FigureCompiler::new(self, cache)
+        FigureCompiler::new(self, cache, settings)
     }
 
     fn transform_vec(&self, v: Complex64) -> Complex64 {
@@ -299,9 +316,9 @@ struct FigureCompiler {
 }
 
 impl FigureCompiler {
-    fn new(figure: FigureWriter, cache: Arc<cache::Cache>) -> Result<Self> {
+    fn new(figure: FigureWriter, cache: Arc<cache::Cache>, settings: &Settings) -> Result<Self> {
         let name = figure.name;
-        if cache.check(&name)? {
+        if !settings.rebuild && cache.check(&name)? {
             log::info!("[{name}]: Matches cached entry");
             let child = Command::new("/bin/true").spawn()?;
             Ok(Self {
@@ -310,11 +327,11 @@ impl FigureCompiler {
                 plot_count: 0,
             })
         } else {
-            let mut path = PathBuf::from(FIGURE_PATH).join(name.clone());
+            let mut path = PathBuf::from(&settings.output_dir).join(name.clone());
             path.set_extension(TEX_EXT);
 
-            let mut cmd = Command::new(LUALATEX);
-            cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+            let mut cmd = Command::new(&settings.lualatex);
+            cmd.arg(format!("--output-directory={}", settings.output_dir))
                 .args(["--interaction=nonstopmode", "--output-format=pdf"])
                 .arg(path.as_os_str())
                 .stderr(Stdio::null())
@@ -331,9 +348,9 @@ impl FigureCompiler {
         }
     }
 
-    fn wait(mut self, pb: &ProgressBar) -> Result<String> {
+    fn wait(mut self, pb: &ProgressBar, settings: &Settings) -> Result<String> {
         pb.set_length(self.plot_count);
-        let mut path = PathBuf::from(FIGURE_PATH).join(&self.name);
+        let mut path = PathBuf::from(&settings.output_dir).join(&self.name);
         path.set_extension("prg");
         loop {
             if let Ok(meta) = path.metadata() {
@@ -377,24 +394,26 @@ impl Summary {
         self.names.push(name);
     }
 
-    fn finish(self) -> Result<Child> {
-        let mut path = PathBuf::from(FIGURE_PATH).join(SUMMARY_NAME);
+    fn finish(self, settings: &Settings) -> Result<Child> {
+        let mut path = PathBuf::from(&settings.output_dir).join(SUMMARY_NAME);
         path.set_extension(TEX_EXT);
 
         let mut writer = BufWriter::new(File::create(path.clone())?);
 
         writer.write_all(Self::START.as_bytes())?;
 
+        let output_dir = &settings.output_dir;
+
         for name in self.names {
-            writeln!(writer,"\\begin{{figure}}\\centering\\includegraphics{{{FIGURE_PATH}/{name}}}\\cprotect\\caption{{\\verb|\\includegraphics{{{FIGURE_PATH}/{name}}}|}}\\end{{figure}}")?;
+            writeln!(writer,"\\begin{{figure}}\\centering\\includegraphics{{{output_dir}/{name}}}\\cprotect\\caption{{\\verb|\\includegraphics{{{output_dir}/{name}}}|}}\\end{{figure}}")?;
         }
 
         writer.write_all(Self::END.as_bytes())?;
 
         writer.flush()?;
 
-        let mut cmd = Command::new(LUALATEX);
-        cmd.arg(format!("--output-directory={}", FIGURE_PATH))
+        let mut cmd = Command::new(&settings.lualatex);
+        cmd.arg(format!("--output-directory={}", settings.output_dir))
             .args(["--interaction=nonstopmode", "--output-format=pdf"])
             .arg(path.as_os_str())
             .stderr(Stdio::null())
@@ -459,6 +478,7 @@ fn fig_xpl_preimage(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
+    settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-preimage",
@@ -468,6 +488,7 @@ fn fig_xpl_preimage(
             height: 6.0,
         },
         pxu::Component::P,
+        settings,
     )?;
 
     let state = State::new(1, consts);
@@ -575,13 +596,14 @@ fn fig_xpl_preimage(
         }
     }
 
-    figure.finish(cache)
+    figure.finish(cache, settings)
 }
 
 fn fig_xpl_cover(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
     _consts: CouplingConstants,
+    settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-cover",
@@ -591,6 +613,7 @@ fn fig_xpl_cover(
             height: 4.0,
         },
         pxu::Component::Xp,
+        settings,
     )?;
 
     figure.add_axis()?;
@@ -599,13 +622,14 @@ fn fig_xpl_cover(
     ) {
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
-    figure.finish(cache)
+    figure.finish(cache, settings)
 }
 
 fn fig_p_plane_long_cuts_regions(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
+    settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p_plane_long_cuts_regions",
@@ -615,6 +639,7 @@ fn fig_p_plane_long_cuts_regions(
             height: 6.0,
         },
         pxu::Component::P,
+        settings,
     )?;
 
     let state = pxu::State::new(1, consts);
@@ -684,13 +709,14 @@ fn fig_p_plane_long_cuts_regions(
         figure.add_cut(cut, &[])?;
     }
 
-    figure.finish(cache)
+    figure.finish(cache, settings)
 }
 
 fn fig_p_plane_short_cuts(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
+    settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-short-cuts",
@@ -700,6 +726,7 @@ fn fig_p_plane_short_cuts(
             height: 6.0 * 25.0 / 15.0,
         },
         pxu::Component::P,
+        settings,
     )?;
 
     let state = pxu::State::new(1, consts);
@@ -722,13 +749,14 @@ fn fig_p_plane_short_cuts(
         figure.add_cut(cut, &[])?;
     }
 
-    figure.finish(cache)
+    figure.finish(cache, settings)
 }
 
 fn fig_xp_cuts_1(
     contours: Arc<Contours>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
+    settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-cuts-1",
@@ -738,6 +766,7 @@ fn fig_xp_cuts_1(
             height: 18.0,
         },
         pxu::Component::Xp,
+        settings,
     )?;
 
     figure.add_axis()?;
@@ -764,13 +793,22 @@ fn fig_xp_cuts_1(
         figure.add_cut(cut, &["very thick"])?;
     }
 
-    figure.finish(cache)
+    figure.finish(cache, settings)
 }
 
 fn main() -> std::io::Result<()> {
-    // tracing_subscriber::fmt::fmt()
-    //     .with_writer(std::io::stderr)
-    //     .init();
+    let settings = Settings::parse();
+
+    if settings.verbose > 0 {
+        tracing_subscriber::fmt::fmt()
+            .with_writer(std::io::stderr)
+            .init();
+        log::set_max_level(log::LevelFilter::Debug);
+    }
+
+    if settings.rebuild {
+        println!(" ---  Rebuilding all figures");
+    }
 
     let spinner_style = ProgressStyle::with_template(
         "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
@@ -778,14 +816,18 @@ fn main() -> std::io::Result<()> {
     .unwrap()
     .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
 
-    let cache = cache::Cache::load(FIGURE_PATH)?;
+    let cache = cache::Cache::load(&settings.output_dir)?;
 
     let consts = CouplingConstants::new(2.0, 5);
 
     let mut contours = pxu::Contours::new();
 
-    println!("[1/3] Generating contours");
-    let pb = ProgressBar::new(1);
+    let pb = if settings.verbose == 0 {
+        println!("[1/3] Generating contours");
+        ProgressBar::new(1)
+    } else {
+        ProgressBar::hidden()
+    };
     pb.set_style(spinner_style.clone());
     loop {
         pb.set_length(contours.progress().1 as u64);
@@ -809,19 +851,26 @@ fn main() -> std::io::Result<()> {
 
     let mut handles = vec![];
 
-    println!("[2/3] Builing figures");
+    if settings.verbose == 0 {
+        println!("[2/3] Builing figures");
+    }
     let mb = MultiProgress::new();
 
     for f in fig_functions {
         let contours_ref = contours_ref.clone();
         let cache_ref = cache_ref.clone();
-        let pb = mb.add(ProgressBar::new_spinner());
+        let pb = if settings.verbose == 0 {
+            mb.add(ProgressBar::new_spinner())
+        } else {
+            ProgressBar::hidden()
+        };
         pb.set_style(spinner_style.clone());
+        let settings = settings.clone();
         handles.push(thread::spawn(move || {
             pb.set_message("Generating tex file");
-            let figure = f(contours_ref, cache_ref, consts)?;
+            let figure = f(contours_ref, cache_ref, consts, &settings)?;
             pb.set_message(format!("Compiling {}.tex", figure.name));
-            let result = figure.wait(&pb);
+            let result = figure.wait(&pb, &settings);
             pb.finish_and_clear();
             result
         }));
@@ -836,7 +885,7 @@ fn main() -> std::io::Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let mut new_cache = cache::Cache::new(FIGURE_PATH);
+    let mut new_cache = cache::Cache::new(&settings.output_dir);
     let mut summary = Summary::default();
 
     for name in names {
@@ -844,12 +893,16 @@ fn main() -> std::io::Result<()> {
         summary.add(name);
     }
 
-    println!("[3/4] Saving cache");
+    if settings.verbose == 0 {
+        println!("[3/4] Saving cache");
+    }
     new_cache.save()?;
 
-    println!("[4/4] Building summary");
+    if settings.verbose == 0 {
+        println!("[4/4] Building summary");
+    }
 
-    if summary.finish()?.wait()?.success() {
+    if summary.finish(&settings)?.wait()?.success() {
         log::info!("[{SUMMARY_NAME}] Done.");
     } else {
         log::error!("[{SUMMARY_NAME}] Error.");
