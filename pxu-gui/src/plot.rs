@@ -196,7 +196,6 @@ impl Plot {
                     pxu,
                     self.component,
                     ui_state.u_cut_type,
-                    pxu.consts,
                     ui_state.active_point,
                 )
                 .collect::<Vec<_>>();

@@ -477,7 +477,6 @@ impl Node for PInterpolatorMut {
 fn fig_xpl_preimage(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
-    consts: CouplingConstants,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -497,13 +496,13 @@ fn fig_xpl_preimage(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[])?;
     }
 
-    let k = consts.k() as f64;
+    let k = pxu.consts.k() as f64;
 
     for p_range in -3..=2 {
         let p_start = p_range as f64;
@@ -511,46 +510,46 @@ fn fig_xpl_preimage(
         let bp1 = pxu::compute_branch_point(
             p_range,
             pxu::BranchPointType::XpPositiveAxisImXmNegative,
-            consts,
+            pxu.consts,
         )
         .unwrap();
 
         let bp2 = pxu::compute_branch_point(
             p_range,
             pxu::BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
-            consts,
+            pxu.consts,
         )
         .unwrap();
 
         let p0 = p_start + (bp1.p + bp2.p) / 2.0;
-        let mut p_int = PInterpolatorMut::xp(p0, consts);
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
 
         for m in 1..=15 {
             p_int.goto_m(m as f64);
-            p_int.write_m_node(&mut figure, "south", 1, consts)?;
+            p_int.write_m_node(&mut figure, "south", 1, pxu.consts)?;
         }
 
-        let mut p_int = PInterpolatorMut::xp(p0, consts);
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
 
         for m in (-15..=0).rev() {
             p_int.goto_m(m as f64);
-            p_int.write_m_node(&mut figure, "south", 1, consts)?;
+            p_int.write_m_node(&mut figure, "south", 1, pxu.consts)?;
         }
 
         // let p0 = p_start + 0.5;
         let p1 = p_start + bp1.p - 0.003;
 
-        let m = p_range * consts.k() + 2;
+        let m = p_range * pxu.consts.k() + 2;
 
-        let mut p_int = PInterpolatorMut::xp(p0, consts);
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
         p_int.goto_m(m as f64 + 1.0 * (p_start + 0.5).signum());
         p_int.goto_p(p1);
 
         p_int.goto_m(m as f64);
         if p_range >= 0 {
-            p_int.write_m_node(&mut figure, "north", 1, consts)?;
+            p_int.write_m_node(&mut figure, "north", 1, pxu.consts)?;
         } else {
-            p_int.write_m_node(&mut figure, "north", -1, consts)?;
+            p_int.write_m_node(&mut figure, "north", -1, pxu.consts)?;
         }
 
         let p2 = p_start + bp1.p + 0.01;
@@ -559,7 +558,7 @@ fn fig_xpl_preimage(
 
             for dm in (1..=4).rev() {
                 p_int.goto_m((m - dm) as f64);
-                p_int.write_m_node(&mut figure, "south", -1, consts)?;
+                p_int.write_m_node(&mut figure, "south", -1, pxu.consts)?;
             }
         }
 
@@ -582,15 +581,15 @@ fn fig_xpl_preimage(
 
         let p2 = p_start + 0.2;
         if p_range != 0 {
-            let mut p_int = PInterpolatorMut::xp(p0, consts);
+            let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
             p_int
                 .goto_m(-p_start * k + 1.0)
                 .goto_p(p_start + 0.1)
                 .goto_conj()
                 .goto_p(p2);
-            for dm in 0..=consts.k() {
+            for dm in 0..=pxu.consts.k() {
                 p_int.goto_m(-p_start * k - dm as f64);
-                p_int.write_m_node(&mut figure, "south", -1, consts)?;
+                p_int.write_m_node(&mut figure, "south", -1, pxu.consts)?;
             }
         }
     }
@@ -601,7 +600,6 @@ fn fig_xpl_preimage(
 fn fig_xpl_cover(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
-    _consts: CouplingConstants,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -627,7 +625,6 @@ fn fig_xpl_cover(
 fn fig_p_plane_long_cuts_regions(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
-    consts: CouplingConstants,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -662,9 +659,9 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in
-        pxu.contours
-            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
     {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
@@ -699,7 +696,7 @@ fn fig_p_plane_long_cuts_regions(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -716,7 +713,6 @@ fn fig_p_plane_long_cuts_regions(
 fn fig_p_plane_short_cuts(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
-    consts: CouplingConstants,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -738,7 +734,7 @@ fn fig_p_plane_short_cuts(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, consts, 0)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, 0)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -755,7 +751,6 @@ fn fig_p_plane_short_cuts(
 fn fig_xp_cuts_1(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
-    consts: CouplingConstants,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
@@ -778,18 +773,12 @@ fn fig_xp_cuts_1(
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
 
-    let mut state = pxu::State::new(1, consts);
+    let mut state = pxu::State::new(1, pxu.consts);
     state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
 
     for cut in pxu
         .contours
-        .get_visible_cuts(
-            &pxu,
-            pxu::Component::Xp,
-            pxu::UCutType::SemiShort,
-            consts,
-            0,
-        )
+        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::SemiShort, 0)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -878,7 +867,7 @@ fn main() -> std::io::Result<()> {
         let settings = settings.clone();
         handles.push(thread::spawn(move || {
             pb.set_message("Generating tex file");
-            let figure = f(pxu_ref, cache_ref, consts, &settings)?;
+            let figure = f(pxu_ref, cache_ref, &settings)?;
             pb.set_message(format!("Compiling {}.tex", figure.name));
             let result = figure.wait(&pb, &settings);
             pb.finish_and_clear();
