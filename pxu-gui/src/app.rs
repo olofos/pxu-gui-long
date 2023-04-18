@@ -222,10 +222,6 @@ impl eframe::App for PxuGuiApp {
                 );
             }
         });
-
-        if ctx.input().key_pressed(egui::Key::Space) {
-            self.editable_path.push(&self.pxu.state);
-        }
     }
 }
 

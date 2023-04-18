@@ -40,11 +40,6 @@ impl EditablePath {
             }
         }
 
-        // self.points
-        //     .iter()
-        //     .map(|pts| pts.iter().map(|pt| pt.get(component)).collect())
-        //     .collect()
-
         result
     }
 

@@ -7,7 +7,7 @@ use crate::kinematics::{
 use crate::nr;
 use num::complex::Complex64;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Point {
     pub p: Complex64,
     pub xp: Complex64,
