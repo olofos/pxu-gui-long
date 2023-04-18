@@ -1,5 +1,6 @@
 use egui::{vec2, Pos2};
 use pxu::kinematics::CouplingConstants;
+use pxu::path::EditablePath;
 use pxu::Pxu;
 use pxu::UCutType;
 
@@ -25,6 +26,8 @@ pub struct PxuGuiApp {
     #[serde(skip)]
     settings: GuiSettings,
     ui_state: UiState,
+    #[serde(skip)]
+    editable_path: EditablePath,
 }
 
 impl Default for PxuGuiApp {
@@ -67,6 +70,7 @@ impl Default for PxuGuiApp {
             anim_data: Default::default(),
             settings: Default::default(),
             ui_state: Default::default(),
+            editable_path: Default::default(),
         }
     }
 }
@@ -170,6 +174,7 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     rect,
                     &mut self.pxu,
+                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
             } else {
@@ -185,6 +190,7 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left, size),
                     &mut self.pxu,
+                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -192,6 +198,7 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, 0.0), size),
                     &mut self.pxu,
+                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -199,6 +206,7 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(0.0, h + GAP), size),
                     &mut self.pxu,
+                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -206,15 +214,14 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, h + GAP), size),
                     &mut self.pxu,
+                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
             }
         });
 
         if ctx.input().key_pressed(egui::Key::Space) {
-            for (i, pt) in self.pxu.points.iter().enumerate() {
-                self.pxu.paths[i].push(pt.clone());
-            }
+            self.editable_path.push(&self.pxu.state.points);
         }
     }
 }
@@ -240,6 +247,7 @@ impl PxuGuiApp {
                 if let Some(n) = n {
                     let n = n as usize;
                     self.pxu.state = pxu::State::new(n, self.pxu.consts);
+                    self.editable_path.clear();
                     self.anim_data.stop();
                 }
                 self.pxu.state.points.len() as f64

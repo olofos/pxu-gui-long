@@ -372,6 +372,7 @@ impl Plot {
         ui: &mut Ui,
         rect: Rect,
         pxu: &mut pxu::Pxu,
+        editable_path: &mut pxu::path::EditablePath,
         ui_state: &mut UiState,
         points: InteractionPointIndices,
     ) {
@@ -382,17 +383,64 @@ impl Plot {
         self.draw_grid(rect, &pxu.contours, &mut shapes);
         self.draw_cuts(rect, pxu, ui_state, &mut shapes);
 
-        for path in pxu.paths.iter() {
-            let points = path
-                .iter()
-                .map(|pt| pt.get(self.component))
-                .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
-                .collect::<Vec<_>>();
+        {
+            let mut anchor_shapes = vec![];
+            let mut active_shapes = vec![];
+            for (i, path) in editable_path.get(self.component).iter().enumerate() {
+                if path.is_empty() {
+                    continue;
+                }
+                let points = path
+                    .iter()
+                    .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
+                    .collect::<Vec<_>>();
 
-            shapes.push(egui::epaint::Shape::line(
-                points,
-                Stroke::new(3.0, Color32::GRAY),
-            ));
+                let is_active = i == pxu.state.active_point;
+
+                let color = if is_active {
+                    Color32::BLUE
+                } else {
+                    Color32::GRAY
+                };
+
+                let z: num::Complex<f64> = pxu.state.points[i].get(self.component);
+                let center = to_screen * egui::pos2(z.re as f32, -(z.im as f32));
+
+                let dashed: Vec<Pos2> = vec![*points.last().unwrap(), center];
+
+                if is_active {
+                    let mut anchor_shapes = vec![];
+                    for center in points.iter() {
+                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 4.0, color));
+                    }
+
+                    active_shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));
+
+                    active_shapes.extend(egui::epaint::Shape::dashed_line(
+                        &dashed,
+                        Stroke::new(3.0, color),
+                        3.0,
+                        3.0,
+                    ));
+
+                    active_shapes.extend(anchor_shapes);
+                } else {
+                    for center in points.iter() {
+                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 4.0, color));
+                    }
+
+                    shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));
+
+                    shapes.extend(egui::epaint::Shape::dashed_line(
+                        &dashed,
+                        Stroke::new(3.0, color),
+                        3.0,
+                        3.0,
+                    ));
+                }
+            }
+            shapes.extend(anchor_shapes);
+            shapes.extend(active_shapes);
         }
 
         self.draw_points(rect, &pxu.state, ui_state, points, &mut shapes);
@@ -451,13 +499,14 @@ impl Plot {
         ui: &mut Ui,
         rect: Rect,
         pxu: &mut pxu::Pxu,
+        editable_path: &mut pxu::path::EditablePath,
         ui_state: &mut UiState,
     ) {
         let old_clip_rect = ui.clip_rect();
         ui.set_clip_rect(rect);
 
         let points = self.interact(ui, rect, pxu, ui_state);
-        self.draw(ui, rect, pxu, ui_state, points);
+        self.draw(ui, rect, pxu, editable_path, ui_state, points);
 
         ui.set_clip_rect(old_clip_rect);
         ui.painter().add(egui::epaint::Shape::rect_stroke(

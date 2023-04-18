@@ -5,6 +5,7 @@ mod cut;
 pub mod interpolation;
 pub mod kinematics;
 mod nr;
+pub mod path;
 mod point;
 mod state;
 
