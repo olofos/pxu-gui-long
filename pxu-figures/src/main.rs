@@ -497,7 +497,7 @@ fn fig_xpl_preimage(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[])?;
@@ -662,9 +662,9 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
+    for cut in
+        pxu.contours
+            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
     {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
@@ -699,7 +699,7 @@ fn fig_p_plane_long_cuts_regions(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts, 0)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -738,7 +738,7 @@ fn fig_p_plane_short_cuts(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, consts)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, consts, 0)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -783,7 +783,13 @@ fn fig_xp_cuts_1(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::SemiShort, consts)
+        .get_visible_cuts(
+            &pxu,
+            pxu::Component::Xp,
+            pxu::UCutType::SemiShort,
+            consts,
+            0,
+        )
         .filter(|cut| {
             matches!(
                 cut.typ,

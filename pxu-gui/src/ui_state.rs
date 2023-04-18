@@ -9,6 +9,7 @@ pub struct UiState {
     pub show_cuts: bool,
     #[serde(skip)]
     pub show_side_panel: bool,
+    pub active_point: usize,
 }
 
 impl Default for UiState {
@@ -18,6 +19,7 @@ impl Default for UiState {
             u_cut_type: Default::default(),
             show_cuts: true,
             show_side_panel: true,
+            active_point: 0,
         }
     }
 }

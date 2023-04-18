@@ -412,8 +412,9 @@ impl Contours {
         component: Component,
         u_cut_type: UCutType,
         consts: CouplingConstants,
+        active_point: usize,
     ) -> impl Iterator<Item = &Cut> {
-        let mut pt = pxu.active_point().clone();
+        let mut pt = pxu.state.points[active_point].clone();
         pt.u += 2.0 * (pt.sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
 
         self.cuts

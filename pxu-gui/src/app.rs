@@ -136,7 +136,10 @@ impl eframe::App for PxuGuiApp {
                 < (1000.0 / 20.0f64).floor() as i64
             {
                 if self.pxu.contours.update(
-                    self.pxu.active_point().p.re.floor() as i32,
+                    self.pxu.state.points[self.ui_state.active_point]
+                        .p
+                        .re
+                        .floor() as i32,
                     self.pxu.consts,
                 ) {
                     break;
@@ -221,7 +224,7 @@ impl eframe::App for PxuGuiApp {
         });
 
         if ctx.input().key_pressed(egui::Key::Space) {
-            self.editable_path.push(&self.pxu.state.points);
+            self.editable_path.push(&self.pxu.state);
         }
     }
 }
@@ -257,6 +260,7 @@ impl PxuGuiApp {
         );
 
         if old_consts != new_consts {
+            self.pxu.consts = new_consts;
             self.pxu.state = pxu::State::new(self.pxu.state.points.len(), new_consts);
             self.pxu.contours.clear();
             self.anim_data.stop();
@@ -336,6 +340,7 @@ impl PxuGuiApp {
     }
 
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {
+        let active_point = &self.pxu.state.points[self.ui_state.active_point];
         ui.separator();
         {
             ui.label(format!("Momentum: {:.3}", self.pxu.state.p()));
@@ -347,39 +352,31 @@ impl PxuGuiApp {
         {
             ui.label("Active excitation:");
 
-            ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
+            ui.label(format!("Momentum: {:.3}", active_point.p));
 
-            ui.label(format!(
-                "Energy: {:.3}",
-                self.pxu.active_point().en(self.pxu.consts)
-            ));
+            ui.label(format!("Energy: {:.3}", active_point.en(self.pxu.consts)));
 
             ui.add_space(10.0);
-            ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
-            ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
-            ui.label(format!("u: {:.3}", self.pxu.active_point().u));
+            ui.label(format!("x+: {:.3}", active_point.xp));
+            ui.label(format!("x-: {:.3}", active_point.xm));
+            ui.label(format!("u: {:.3}", active_point.u));
 
             ui.add_space(10.0);
             ui.label("Branch info:");
 
             ui.label(format!(
                 "Log branches: {:+} {:+}",
-                self.pxu.active_point().sheet_data.log_branch_p,
-                self.pxu.active_point().sheet_data.log_branch_m
+                active_point.sheet_data.log_branch_p, active_point.sheet_data.log_branch_m
             ));
 
-            ui.label(format!(
-                "E branch: {:+} ",
-                self.pxu.active_point().sheet_data.e_branch
-            ));
+            ui.label(format!("E branch: {:+} ", active_point.sheet_data.e_branch));
             ui.label(format!(
                 "U branch: ({:+},{:+}) ",
-                self.pxu.active_point().sheet_data.u_branch.0,
-                self.pxu.active_point().sheet_data.u_branch.1
+                active_point.sheet_data.u_branch.0, active_point.sheet_data.u_branch.1
             ));
 
             {
-                let xp = self.pxu.active_point().xp;
+                let xp = active_point.xp;
                 let xm = xp.conj();
                 let h = self.pxu.consts.h;
                 let k = self.pxu.consts.k() as f64;
@@ -407,7 +404,9 @@ impl PxuGuiApp {
             });
 
             if ui.add(egui::Button::new("Reset")).clicked() {
+                self.pxu.consts = CouplingConstants::new(2.0, 5);
                 self.pxu.state = pxu::State::new(self.pxu.state.points.len(), self.pxu.consts);
+                self.editable_path.clear();
             }
 
             self.draw_state_information(ui);

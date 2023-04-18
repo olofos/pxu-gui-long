@@ -80,7 +80,7 @@ impl Plot {
                 let new_value = to_screen.inverse() * (center + point_response.drag_delta());
                 let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                pxu.set_active_point(j);
+                ui_state.active_point = j;
                 pxu.state.update(
                     j,
                     self.component,
@@ -116,7 +116,7 @@ impl Plot {
         }
 
         if ui.input().key_pressed(egui::Key::Home) {
-            let z = pxu.active_point().get(self.component);
+            let z = pxu.state.points[ui_state.active_point].get(self.component);
             self.origin = egui::pos2(z.re as f32, -z.im as f32);
         }
 
@@ -181,7 +181,10 @@ impl Plot {
 
         if ui_state.show_cuts {
             let shift = if self.component == pxu::Component::U {
-                2.0 * (pxu.active_point().sheet_data.log_branch_p * pxu.consts.k()) as f32
+                2.0 * (pxu.state.points[ui_state.active_point]
+                    .sheet_data
+                    .log_branch_p
+                    * pxu.consts.k()) as f32
                     / pxu.consts.h as f32
             } else {
                 0.0
@@ -189,7 +192,13 @@ impl Plot {
 
             let visible_cuts = pxu
                 .contours
-                .get_visible_cuts(pxu, self.component, ui_state.u_cut_type, pxu.consts)
+                .get_visible_cuts(
+                    pxu,
+                    self.component,
+                    ui_state.u_cut_type,
+                    pxu.consts,
+                    ui_state.active_point,
+                )
                 .collect::<Vec<_>>();
 
             let long_cuts = ui_state.u_cut_type == UCutType::Long;
@@ -198,9 +207,17 @@ impl Plot {
                 let hide_log_cut = |comp| {
                     comp != cut.component
                         || (comp == pxu::Component::Xp
-                            && pxu.active_point().sheet_data.u_branch.1 == UBranch::Between)
+                            && pxu.state.points[ui_state.active_point]
+                                .sheet_data
+                                .u_branch
+                                .1
+                                == UBranch::Between)
                         || (comp == pxu::Component::Xm
-                            && pxu.active_point().sheet_data.u_branch.0 == UBranch::Between)
+                            && pxu.state.points[ui_state.active_point]
+                                .sheet_data
+                                .u_branch
+                                .0
+                                == UBranch::Between)
                 };
 
                 let color = match cut.typ {
@@ -327,7 +344,7 @@ impl Plot {
         for (i, pt) in pxu.state.points.iter().enumerate() {
             let is_hovered = matches!(points.hovered, Some(n) if n == i);
             let is_dragged = matches!(points.dragged, Some(n) if n == i);
-            let is_active = pxu.active_point == i;
+            let is_active = ui_state.active_point == i;
 
             let z = pt.get(self.component);
             let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
@@ -349,7 +366,7 @@ impl Plot {
             let fill = if is_active {
                 Color32::BLUE
             } else if pxu.state.points[i].same_sheet(
-                pxu.active_point(),
+                &pxu.state.points[ui_state.active_point],
                 self.component,
                 ui_state.u_cut_type,
             ) {
@@ -395,7 +412,7 @@ impl Plot {
                     .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
                     .collect::<Vec<_>>();
 
-                let is_active = i == pxu.active_point;
+                let is_active = i == ui_state.active_point;
 
                 let color = if is_active {
                     Color32::BLUE
@@ -411,7 +428,7 @@ impl Plot {
                 if is_active {
                     let mut anchor_shapes = vec![];
                     for center in points.iter() {
-                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 4.0, color));
+                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 3.0, color));
                     }
 
                     active_shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));
@@ -426,7 +443,7 @@ impl Plot {
                     active_shapes.extend(anchor_shapes);
                 } else {
                     for center in points.iter() {
-                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 4.0, color));
+                        anchor_shapes.push(egui::epaint::Shape::circle_filled(*center, 3.0, color));
                     }
 
                     shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));

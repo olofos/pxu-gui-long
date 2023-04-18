@@ -2,7 +2,7 @@ use num::complex::Complex64;
 
 use crate::kinematics::SheetData;
 use crate::Component;
-use crate::Point;
+use crate::State;
 
 pub struct PathSegment {
     pub p: Vec<Vec<Complex64>>,
@@ -19,23 +19,23 @@ pub struct Path {
 
 #[derive(Default)]
 pub struct EditablePath {
-    pub paths: Vec<Vec<Point>>,
+    pub states: Vec<State>,
 }
 
 impl EditablePath {
     pub fn clear(&mut self) {
-        self.paths = vec![];
+        self.states = vec![];
     }
 
     pub fn get(&self, component: Component) -> Vec<Vec<Complex64>> {
-        if self.paths.is_empty() || self.paths[0].is_empty() {
+        if self.states.is_empty() {
             return vec![];
         }
 
-        let mut result = vec![vec![]; self.paths[0].len()];
+        let mut result = vec![vec![]; self.states[0].points.len()];
 
-        for points in self.paths.iter() {
-            for (i, point) in points.iter().enumerate() {
+        for state in self.states.iter() {
+            for (i, point) in state.points.iter().enumerate() {
                 result[i].push(point.get(component));
             }
         }
@@ -48,11 +48,7 @@ impl EditablePath {
         result
     }
 
-    pub fn push(&mut self, points: &Vec<Point>) {
-        if !self.paths.is_empty() && points.len() != self.paths[0].len() {
-            self.clear();
-        }
-
-        self.paths.push(points.clone());
+    pub fn push(&mut self, state: &State) {
+        self.states.push(state.clone());
     }
 }
