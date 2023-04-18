@@ -4,7 +4,7 @@ use num::complex::Complex64;
 
 use crate::ui_state::UiState;
 use pxu::kinematics::UBranch;
-use pxu::{CouplingConstants, UCutType};
+use pxu::UCutType;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Plot {
@@ -178,11 +178,8 @@ impl Plot {
         }
 
         if ui.input().key_pressed(egui::Key::Minus) {
-            match interaction_points.dragged {
-                Some((DraggedPoint::Path(state_index), _)) => {
-                    editable_path.states.remove(state_index);
-                }
-                _ => {}
+            if let Some((DraggedPoint::Path(state_index), _)) = interaction_points.dragged {
+                editable_path.states.remove(state_index);
             }
         }
 

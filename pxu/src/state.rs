@@ -4,15 +4,9 @@ use crate::kinematics::{xm, xm_crossed, xp, xp_crossed, CouplingConstants};
 use crate::point::Point;
 use num::complex::Complex64;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct State {
     pub points: Vec<Point>,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self { points: vec![] }
-    }
 }
 
 impl State {
