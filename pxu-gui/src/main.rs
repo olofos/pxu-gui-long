@@ -13,10 +13,13 @@ use crate::gui_settings::GuiSettings;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    use clap::Parser;
+
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
-    let settings = GuiSettings { show_fps: true };
+    let settings = GuiSettings::from(crate::gui_settings::Cli::parse());
+
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "pxu gui",

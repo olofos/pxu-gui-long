@@ -33,6 +33,7 @@ serde_urlencoded = "0.7.1"
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"
+clap = { version = "4.2.2", features = ["derive"] }
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
