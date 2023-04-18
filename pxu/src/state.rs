@@ -7,15 +7,11 @@ use num::complex::Complex64;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct State {
     pub points: Vec<Point>,
-    pub active_point: usize,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self {
-            points: vec![],
-            active_point: 0,
-        }
+        Self { points: vec![] }
     }
 }
 
@@ -63,22 +59,7 @@ impl State {
             points.push(pt);
         }
 
-        let active_point = points.len() / 2;
-
-        Self {
-            points,
-            active_point,
-        }
-    }
-
-    pub fn active_point(&self) -> &Point {
-        &self.points[self.active_point]
-    }
-
-    pub fn set_active_point(&mut self, active_point: usize) {
-        if active_point <= self.points.len() {
-            self.active_point = active_point;
-        }
+        Self { points }
     }
 
     pub fn update_points(

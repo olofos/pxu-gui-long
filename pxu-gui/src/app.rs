@@ -136,7 +136,7 @@ impl eframe::App for PxuGuiApp {
                 < (1000.0 / 20.0f64).floor() as i64
             {
                 if self.pxu.contours.update(
-                    self.pxu.state.active_point().p.re.floor() as i32,
+                    self.pxu.active_point().p.re.floor() as i32,
                     self.pxu.consts,
                 ) {
                     break;
@@ -347,39 +347,39 @@ impl PxuGuiApp {
         {
             ui.label("Active excitation:");
 
-            ui.label(format!("Momentum: {:.3}", self.pxu.state.active_point().p));
+            ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
 
             ui.label(format!(
                 "Energy: {:.3}",
-                self.pxu.state.active_point().en(self.pxu.consts)
+                self.pxu.active_point().en(self.pxu.consts)
             ));
 
             ui.add_space(10.0);
-            ui.label(format!("x+: {:.3}", self.pxu.state.active_point().xp));
-            ui.label(format!("x-: {:.3}", self.pxu.state.active_point().xm));
-            ui.label(format!("u: {:.3}", self.pxu.state.active_point().u));
+            ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
+            ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
+            ui.label(format!("u: {:.3}", self.pxu.active_point().u));
 
             ui.add_space(10.0);
             ui.label("Branch info:");
 
             ui.label(format!(
                 "Log branches: {:+} {:+}",
-                self.pxu.state.active_point().sheet_data.log_branch_p,
-                self.pxu.state.active_point().sheet_data.log_branch_m
+                self.pxu.active_point().sheet_data.log_branch_p,
+                self.pxu.active_point().sheet_data.log_branch_m
             ));
 
             ui.label(format!(
                 "E branch: {:+} ",
-                self.pxu.state.active_point().sheet_data.e_branch
+                self.pxu.active_point().sheet_data.e_branch
             ));
             ui.label(format!(
                 "U branch: ({:+},{:+}) ",
-                self.pxu.state.active_point().sheet_data.u_branch.0,
-                self.pxu.state.active_point().sheet_data.u_branch.1
+                self.pxu.active_point().sheet_data.u_branch.0,
+                self.pxu.active_point().sheet_data.u_branch.1
             ));
 
             {
-                let xp = self.pxu.state.active_point().xp;
+                let xp = self.pxu.active_point().xp;
                 let xm = xp.conj();
                 let h = self.pxu.consts.h;
                 let k = self.pxu.consts.k() as f64;

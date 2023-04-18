@@ -3,9 +3,9 @@ use num::complex::Complex64;
 use pxu::{
     interpolation::{InterpolationPoint, PInterpolatorMut},
     kinematics::CouplingConstants,
-    State,
+    Pxu,
 };
-use pxu::{Contours, GridLine, GridLineComponent};
+use pxu::{GridLine, GridLineComponent};
 use std::fs::File;
 use std::io::{prelude::*, BufWriter, Result};
 use std::ops::Range;
@@ -475,7 +475,7 @@ impl Node for PInterpolatorMut {
 }
 
 fn fig_xpl_preimage(
-    contours: Arc<Contours>,
+    pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
     settings: &Settings,
@@ -491,14 +491,13 @@ fn fig_xpl_preimage(
         settings,
     )?;
 
-    let state = State::new(1, consts);
-
-    for contour in contours.get_grid(pxu::Component::P).iter() {
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contours
-        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long, consts)
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[])?;
@@ -600,7 +599,7 @@ fn fig_xpl_preimage(
 }
 
 fn fig_xpl_cover(
-    contours: Arc<Contours>,
+    pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     _consts: CouplingConstants,
     settings: &Settings,
@@ -617,7 +616,7 @@ fn fig_xpl_cover(
     )?;
 
     figure.add_axis()?;
-    for contour in contours.get_grid(pxu::Component::Xp).iter().filter(
+    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter().filter(
         |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=6.0).contains(&m)),
     ) {
         figure.add_grid_line(contour, &["thin", "black"])?;
@@ -626,7 +625,7 @@ fn fig_xpl_cover(
 }
 
 fn fig_p_plane_long_cuts_regions(
-    contours: Arc<Contours>,
+    pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
     settings: &Settings,
@@ -641,8 +640,6 @@ fn fig_p_plane_long_cuts_regions(
         pxu::Component::P,
         settings,
     )?;
-
-    let state = pxu::State::new(1, consts);
 
     let color_physical = "blue!10";
     let color_mirror_p = "red!10";
@@ -665,7 +662,10 @@ fn fig_p_plane_long_cuts_regions(
         )?;
     }
 
-    for cut in contours.get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long, consts) {
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
+    {
         let color_mirror = match cut.typ {
             pxu::CutType::ULongPositive(pxu::Component::Xp)
             | pxu::CutType::ULongNegative(pxu::Component::Xp) => color_mirror_p,
@@ -693,12 +693,13 @@ fn fig_p_plane_long_cuts_regions(
         }
     }
 
-    for contour in contours.get_grid(pxu::Component::P).iter() {
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contours
-        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::Long, consts)
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, consts)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -713,7 +714,7 @@ fn fig_p_plane_long_cuts_regions(
 }
 
 fn fig_p_plane_short_cuts(
-    contours: Arc<Contours>,
+    pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
     settings: &Settings,
@@ -729,16 +730,15 @@ fn fig_p_plane_short_cuts(
         settings,
     )?;
 
-    let state = pxu::State::new(1, consts);
-
-    for contour in contours.get_grid(pxu::Component::P).iter()
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
     // .take(100)
     {
         figure.add_grid_line(contour, &[])?;
     }
 
-    for cut in contours
-        .get_visible_cuts(&state, pxu::Component::P, pxu::UCutType::SemiShort, consts)
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, consts)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -753,7 +753,7 @@ fn fig_p_plane_short_cuts(
 }
 
 fn fig_xp_cuts_1(
-    contours: Arc<Contours>,
+    pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     consts: CouplingConstants,
     settings: &Settings,
@@ -770,7 +770,7 @@ fn fig_xp_cuts_1(
     )?;
 
     figure.add_axis()?;
-    for contour in contours
+    for contour in pxu.contours
         .get_grid(pxu::Component::Xp)
         .iter()
         .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
@@ -781,8 +781,9 @@ fn fig_xp_cuts_1(
     let mut state = pxu::State::new(1, consts);
     state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
 
-    for cut in contours
-        .get_visible_cuts(&state, pxu::Component::Xp, pxu::UCutType::SemiShort, consts)
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::SemiShort, consts)
         .filter(|cut| {
             matches!(
                 cut.typ,
@@ -823,7 +824,7 @@ fn main() -> std::io::Result<()> {
     let mut contours = pxu::Contours::new();
 
     let pb = if settings.verbose == 0 {
-        println!("[1/3] Generating contours");
+        println!("[1/3] Generating pxu.contours");
         ProgressBar::new(1)
     } else {
         ProgressBar::hidden()
@@ -846,7 +847,10 @@ fn main() -> std::io::Result<()> {
         fig_xp_cuts_1,
     ];
 
-    let contours_ref = Arc::new(contours);
+    let mut pxu = Pxu::new(consts);
+    pxu.contours = contours;
+
+    let pxu_ref = Arc::new(pxu);
     let cache_ref = Arc::new(cache);
 
     let mut handles = vec![];
@@ -857,7 +861,7 @@ fn main() -> std::io::Result<()> {
     let mb = MultiProgress::new();
 
     for f in fig_functions {
-        let contours_ref = contours_ref.clone();
+        let pxu_ref = pxu_ref.clone();
         let cache_ref = cache_ref.clone();
         let pb = if settings.verbose == 0 {
             mb.add(ProgressBar::new_spinner())
@@ -868,7 +872,7 @@ fn main() -> std::io::Result<()> {
         let settings = settings.clone();
         handles.push(thread::spawn(move || {
             pb.set_message("Generating tex file");
-            let figure = f(contours_ref, cache_ref, consts, &settings)?;
+            let figure = f(pxu_ref, cache_ref, consts, &settings)?;
             pb.set_message(format!("Compiling {}.tex", figure.name));
             let result = figure.wait(&pb, &settings);
             pb.finish_and_clear();
