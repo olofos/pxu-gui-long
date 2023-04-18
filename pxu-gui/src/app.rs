@@ -1,5 +1,6 @@
 use egui::{vec2, Pos2};
 use pxu::kinematics::CouplingConstants;
+use pxu::Pxu;
 use pxu::UCutType;
 
 use crate::anim::Anim;
@@ -11,9 +12,8 @@ use crate::ui_state::UiState;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct PxuGuiApp {
-    pxu: pxu::State,
+    pxu: pxu::Pxu,
     #[serde(skip)]
-    contours: pxu::Contours,
     p_plot: Plot,
     xp_plot: Plot,
     xm_plot: Plot,
@@ -32,11 +32,13 @@ impl Default for PxuGuiApp {
         let bound_state_number = 1;
 
         let consts = CouplingConstants::new(2.0, 5);
-        let state = pxu::State::new(bound_state_number, consts);
+
+        let mut pxu = Pxu::new(consts);
+
+        pxu.state = pxu::State::new(bound_state_number, consts);
 
         Self {
-            pxu: state,
-            contours: pxu::Contours::new(),
+            pxu,
             p_plot: Plot {
                 component: pxu::Component::P,
                 height: 0.75,
@@ -129,10 +131,10 @@ impl eframe::App for PxuGuiApp {
             while (chrono::Utc::now() - start).num_milliseconds()
                 < (1000.0 / 20.0f64).floor() as i64
             {
-                if self
-                    .contours
-                    .update(self.pxu.active_point().p.re.floor() as i32, self.pxu.consts)
-                {
+                if self.pxu.contours.update(
+                    self.pxu.state.active_point().p.re.floor() as i32,
+                    self.pxu.consts,
+                ) {
                     break;
                 }
                 ctx.request_repaint();
@@ -141,12 +143,13 @@ impl eframe::App for PxuGuiApp {
 
         if !self.anim_data.is_stopped() {
             if let Some(z) = self.anim_data.update() {
-                self.pxu.update(
+                self.pxu.state.update(
                     self.anim_data.active_point,
                     self.anim_data.component,
                     z,
-                    &self.contours,
+                    &self.pxu.contours,
                     self.ui_state.u_cut_type,
+                    self.pxu.consts,
                 );
                 ctx.request_repaint();
             }
@@ -163,7 +166,12 @@ impl eframe::App for PxuGuiApp {
                     pxu::Component::U => &mut self.u_plot,
                 };
 
-                plot.show(ui, rect, &self.contours, &mut self.pxu, &mut self.ui_state);
+                plot.show(
+                    ui,
+                    rect,
+                    &mut self.pxu,
+                    &mut self.ui_state,
+                );
             } else {
                 use egui::Rect;
                 const GAP: f32 = 8.0;
@@ -176,7 +184,6 @@ impl eframe::App for PxuGuiApp {
                 self.p_plot.show(
                     ui,
                     Rect::from_min_size(top_left, size),
-                    &self.contours,
                     &mut self.pxu,
                     &mut self.ui_state,
                 );
@@ -184,7 +191,6 @@ impl eframe::App for PxuGuiApp {
                 self.u_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, 0.0), size),
-                    &self.contours,
                     &mut self.pxu,
                     &mut self.ui_state,
                 );
@@ -192,7 +198,6 @@ impl eframe::App for PxuGuiApp {
                 self.xp_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(0.0, h + GAP), size),
-                    &self.contours,
                     &mut self.pxu,
                     &mut self.ui_state,
                 );
@@ -200,7 +205,6 @@ impl eframe::App for PxuGuiApp {
                 self.xm_plot.show(
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, h + GAP), size),
-                    &self.contours,
                     &mut self.pxu,
                     &mut self.ui_state,
                 );
@@ -234,24 +238,25 @@ impl PxuGuiApp {
         ui.add(
             egui::Slider::from_get_set(1.0..=8.0, |n| {
                 if let Some(n) = n {
-                    self.pxu = pxu::State::new(n as usize, self.pxu.consts);
+                    let n = n as usize;
+                    self.pxu.state = pxu::State::new(n, self.pxu.consts);
                     self.anim_data.stop();
                 }
-                self.pxu.points.len() as f64
+                self.pxu.state.points.len() as f64
             })
             .integer()
             .text("M"),
         );
 
         if old_consts != new_consts {
-            self.pxu = pxu::State::new(self.pxu.points.len(), new_consts);
-            self.contours.clear();
+            self.pxu.state = pxu::State::new(self.pxu.state.points.len(), new_consts);
+            self.pxu.contours.clear();
             self.anim_data.stop();
         }
     }
 
     fn draw_animation_controls(&mut self, ui: &mut egui::Ui, visible: bool) {
-        let enabled = !self.pxu.paths.is_empty() && self.pxu.paths[0].len() > 1;
+        let enabled = false;
 
         ui.scope(|ui| {
             ui.set_visible(visible);
@@ -266,12 +271,12 @@ impl PxuGuiApp {
                     )
                     .clicked()
                 {
-                    self.pxu.points = self.anim_data.goto_start();
+                    self.pxu.state.points = self.anim_data.goto_start();
                 }
 
                 if self.anim_data.is_stopped() {
                     if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
-                        self.pxu.points = self.anim_data.start(&self.pxu.paths);
+                        // self.pxu.state.points = self.anim_data.start(&self.pxu.paths);
                     }
                 } else if self.anim_data.is_paused() {
                     if ui.add_enabled(enabled, egui::Button::new("⏵")).clicked() {
@@ -295,7 +300,7 @@ impl PxuGuiApp {
                     )
                     .clicked()
                 {
-                    self.pxu.points = self.anim_data.goto_end();
+                    self.pxu.state.points = self.anim_data.goto_end();
                 }
             });
 
@@ -325,8 +330,8 @@ impl PxuGuiApp {
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {
         ui.separator();
         {
-            ui.label(format!("Momentum: {:.3}", self.pxu.p()));
-            ui.label(format!("Energy: {:.3}", self.pxu.en()));
+            ui.label(format!("Momentum: {:.3}", self.pxu.state.p()));
+            ui.label(format!("Energy: {:.3}", self.pxu.state.en(self.pxu.consts)));
         }
 
         ui.separator();
@@ -334,39 +339,39 @@ impl PxuGuiApp {
         {
             ui.label("Active excitation:");
 
-            ui.label(format!("Momentum: {:.3}", self.pxu.active_point().p));
+            ui.label(format!("Momentum: {:.3}", self.pxu.state.active_point().p));
 
             ui.label(format!(
                 "Energy: {:.3}",
-                self.pxu.active_point().en(self.pxu.consts)
+                self.pxu.state.active_point().en(self.pxu.consts)
             ));
 
             ui.add_space(10.0);
-            ui.label(format!("x+: {:.3}", self.pxu.active_point().xp));
-            ui.label(format!("x-: {:.3}", self.pxu.active_point().xm));
-            ui.label(format!("u: {:.3}", self.pxu.active_point().u));
+            ui.label(format!("x+: {:.3}", self.pxu.state.active_point().xp));
+            ui.label(format!("x-: {:.3}", self.pxu.state.active_point().xm));
+            ui.label(format!("u: {:.3}", self.pxu.state.active_point().u));
 
             ui.add_space(10.0);
             ui.label("Branch info:");
 
             ui.label(format!(
                 "Log branches: {:+} {:+}",
-                self.pxu.active_point().sheet_data.log_branch_p,
-                self.pxu.active_point().sheet_data.log_branch_m
+                self.pxu.state.active_point().sheet_data.log_branch_p,
+                self.pxu.state.active_point().sheet_data.log_branch_m
             ));
 
             ui.label(format!(
                 "E branch: {:+} ",
-                self.pxu.active_point().sheet_data.e_branch
+                self.pxu.state.active_point().sheet_data.e_branch
             ));
             ui.label(format!(
                 "U branch: ({:+},{:+}) ",
-                self.pxu.active_point().sheet_data.u_branch.0,
-                self.pxu.active_point().sheet_data.u_branch.1
+                self.pxu.state.active_point().sheet_data.u_branch.0,
+                self.pxu.state.active_point().sheet_data.u_branch.1
             ));
 
             {
-                let xp = self.pxu.active_point().xp;
+                let xp = self.pxu.state.active_point().xp;
                 let xm = xp.conj();
                 let h = self.pxu.consts.h;
                 let k = self.pxu.consts.k() as f64;
@@ -394,7 +399,7 @@ impl PxuGuiApp {
             });
 
             if ui.add(egui::Button::new("Reset")).clicked() {
-                self.pxu = pxu::State::new(self.pxu.points.len(), self.pxu.consts);
+                self.pxu.state = pxu::State::new(self.pxu.state.points.len(), self.pxu.consts);
             }
 
             self.draw_state_information(ui);
@@ -424,7 +429,7 @@ impl PxuGuiApp {
                 }
 
                 ui.add_space(10.0);
-                let (current, total) = self.contours.progress();
+                let (current, total) = self.pxu.contours.progress();
                 if total > 1 && current != total {
                     let progress = current as f32 / total as f32;
                     ui.add(

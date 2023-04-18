@@ -7,9 +7,16 @@ use num::complex::Complex64;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct State {
     pub points: Vec<Point>,
-    pub consts: CouplingConstants,
     pub active_point: usize,
-    pub paths: Vec<Vec<Point>>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            points: vec![],
+            active_point: 0,
+        }
+    }
 }
 
 impl State {
@@ -58,13 +65,9 @@ impl State {
 
         let active_point = points.len() / 2;
 
-        let paths = points.iter().map(|_| vec![]).collect();
-
         Self {
             points,
-            consts,
             active_point,
-            paths,
         }
     }
 
@@ -78,6 +81,52 @@ impl State {
         }
     }
 
+    pub fn update_points(
+        points: &mut Vec<Point>,
+        active_point: usize,
+        component: Component,
+        new_value: Complex64,
+        contours: &Contours,
+        u_cut_type: UCutType,
+        consts: CouplingConstants,
+    ) {
+        let crossed_cuts = contours
+            .get_crossed_cuts(
+                &points[active_point],
+                component,
+                new_value,
+                consts,
+                u_cut_type,
+            )
+            .collect::<Vec<_>>();
+
+        points[active_point].update(component, new_value, &crossed_cuts, consts);
+
+        for i in (active_point + 1)..points.len() {
+            let new_value = if points[i - 1].sheet_data.e_branch > 0 {
+                xm(points[i - 1].p, 1.0, consts)
+            } else {
+                xm_crossed(points[i - 1].p, 1.0, consts)
+            };
+            let crossed_cuts = contours
+                .get_crossed_cuts(&points[i], Component::Xp, new_value, consts, u_cut_type)
+                .collect::<Vec<_>>();
+            points[i].update(Component::Xp, new_value, &crossed_cuts, consts);
+        }
+
+        for i in (0..active_point).rev() {
+            let new_value = if points[i + 1].sheet_data.e_branch > 0 {
+                xp(points[i + 1].p, 1.0, consts)
+            } else {
+                xp_crossed(points[i + 1].p, 1.0, consts)
+            };
+            let crossed_cuts = contours
+                .get_crossed_cuts(&points[i], Component::Xm, new_value, consts, u_cut_type)
+                .collect::<Vec<_>>();
+            points[i].update(Component::Xm, new_value, &crossed_cuts, consts);
+        }
+    }
+
     pub fn update(
         &mut self,
         active_point: usize,
@@ -85,64 +134,27 @@ impl State {
         new_value: Complex64,
         contours: &Contours,
         u_cut_type: UCutType,
+        consts: CouplingConstants,
     ) {
-        let crossed_cuts = contours
-            .get_crossed_cuts(
-                &self.points[active_point],
-                component,
-                new_value,
-                self.consts,
-                u_cut_type,
-            )
-            .collect::<Vec<_>>();
-
-        self.points[active_point].update(component, new_value, &crossed_cuts, self.consts);
-
-        for i in (active_point + 1)..self.points.len() {
-            let new_value = if self.points[i - 1].sheet_data.e_branch > 0 {
-                xm(self.points[i - 1].p, 1.0, self.consts)
-            } else {
-                xm_crossed(self.points[i - 1].p, 1.0, self.consts)
-            };
-            let crossed_cuts = contours
-                .get_crossed_cuts(
-                    &self.points[i],
-                    Component::Xp,
-                    new_value,
-                    self.consts,
-                    u_cut_type,
-                )
-                .collect::<Vec<_>>();
-            self.points[i].update(Component::Xp, new_value, &crossed_cuts, self.consts);
-        }
-
-        for i in (0..active_point).rev() {
-            let new_value = if self.points[i + 1].sheet_data.e_branch > 0 {
-                xp(self.points[i + 1].p, 1.0, self.consts)
-            } else {
-                xp_crossed(self.points[i + 1].p, 1.0, self.consts)
-            };
-            let crossed_cuts = contours
-                .get_crossed_cuts(
-                    &self.points[i],
-                    Component::Xm,
-                    new_value,
-                    self.consts,
-                    u_cut_type,
-                )
-                .collect::<Vec<_>>();
-            self.points[i].update(Component::Xm, new_value, &crossed_cuts, self.consts);
-        }
+        Self::update_points(
+            &mut self.points,
+            active_point,
+            component,
+            new_value,
+            contours,
+            u_cut_type,
+            consts,
+        );
     }
 
     pub fn p(&self) -> Complex64 {
         self.points.iter().map(|pxu| pxu.p).sum::<Complex64>()
     }
 
-    pub fn en(&self) -> Complex64 {
+    pub fn en(&self, consts: CouplingConstants) -> Complex64 {
         self.points
             .iter()
-            .map(|pt| pt.en(self.consts))
+            .map(|pt| pt.en(consts))
             .sum::<Complex64>()
     }
 }

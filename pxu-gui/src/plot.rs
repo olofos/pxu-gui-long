@@ -50,8 +50,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
+        pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
         response: &egui::Response,
     ) -> InteractionPointIndices {
@@ -60,8 +59,8 @@ impl Plot {
         let mut hovered = None;
         let mut dragged = None;
 
-        for j in 0..pxu.points.len() {
-            let z = pxu.points[j].get(self.component);
+        for j in 0..pxu.state.points.len() {
+            let z = pxu.state.points[j].get(self.component);
 
             let size = egui::epaint::Vec2::splat(8.0);
             let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
@@ -81,8 +80,15 @@ impl Plot {
                 let new_value = to_screen.inverse() * (center + point_response.drag_delta());
                 let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
 
-                pxu.set_active_point(j);
-                pxu.update(j, self.component, new_value, contours, ui_state.u_cut_type);
+                pxu.state.set_active_point(j);
+                pxu.state.update(
+                    j,
+                    self.component,
+                    new_value,
+                    &pxu.contours,
+                    ui_state.u_cut_type,
+                    pxu.consts,
+                );
             }
         }
 
@@ -93,8 +99,7 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
+        pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
     ) -> InteractionPointIndices {
         let response = ui.interact(
@@ -104,14 +109,14 @@ impl Plot {
         );
 
         self.interact_with_grid(ui, rect, &response);
-        let points = self.interact_with_points(ui, rect, contours, pxu, ui_state, &response);
+        let points = self.interact_with_points(ui, rect, pxu, ui_state, &response);
 
         if response.double_clicked() {
             ui_state.toggle_fullscreen(self.component)
         }
 
         if ui.input().key_pressed(egui::Key::Home) {
-            let z = pxu.active_point().get(self.component);
+            let z = pxu.state.active_point().get(self.component);
             self.origin = egui::pos2(z.re as f32, -z.im as f32);
         }
 
@@ -166,8 +171,7 @@ impl Plot {
     fn draw_cuts(
         &self,
         rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
+        pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
         shapes: &mut Vec<egui::Shape>,
     ) {
@@ -177,14 +181,15 @@ impl Plot {
 
         if ui_state.show_cuts {
             let shift = if self.component == pxu::Component::U {
-                2.0 * (pxu.active_point().sheet_data.log_branch_p * pxu.consts.k()) as f32
+                2.0 * (pxu.state.active_point().sheet_data.log_branch_p * pxu.consts.k()) as f32
                     / pxu.consts.h as f32
             } else {
                 0.0
             };
 
-            let visible_cuts = contours
-                .get_visible_cuts(pxu, self.component, ui_state.u_cut_type)
+            let visible_cuts = pxu
+                .contours
+                .get_visible_cuts(&pxu.state, self.component, ui_state.u_cut_type, pxu.consts)
                 .collect::<Vec<_>>();
 
             let long_cuts = ui_state.u_cut_type == UCutType::Long;
@@ -193,9 +198,9 @@ impl Plot {
                 let hide_log_cut = |comp| {
                     comp != cut.component
                         || (comp == pxu::Component::Xp
-                            && pxu.active_point().sheet_data.u_branch.1 == UBranch::Between)
+                            && pxu.state.active_point().sheet_data.u_branch.1 == UBranch::Between)
                         || (comp == pxu::Component::Xm
-                            && pxu.active_point().sheet_data.u_branch.0 == UBranch::Between)
+                            && pxu.state.active_point().sheet_data.u_branch.0 == UBranch::Between)
                 };
 
                 let color = match cut.typ {
@@ -312,17 +317,17 @@ impl Plot {
     fn draw_points(
         &self,
         rect: Rect,
-        pxu: &mut pxu::State,
+        state: &pxu::State,
         ui_state: &mut UiState,
         points: InteractionPointIndices,
         shapes: &mut Vec<egui::Shape>,
     ) {
         let to_screen = self.to_screen(rect);
 
-        for (i, pt) in pxu.points.iter().enumerate() {
+        for (i, pt) in state.points.iter().enumerate() {
             let is_hovered = matches!(points.hovered, Some(n) if n == i);
             let is_dragged = matches!(points.dragged, Some(n) if n == i);
-            let is_active = pxu.active_point == i;
+            let is_active = state.active_point == i;
 
             let z = pt.get(self.component);
             let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
@@ -343,8 +348,8 @@ impl Plot {
 
             let fill = if is_active {
                 Color32::BLUE
-            } else if pxu.points[i].same_sheet(
-                pxu.active_point(),
+            } else if state.points[i].same_sheet(
+                state.active_point(),
                 self.component,
                 ui_state.u_cut_type,
             ) {
@@ -366,8 +371,7 @@ impl Plot {
         &self,
         ui: &mut Ui,
         rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
+        pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
         points: InteractionPointIndices,
     ) {
@@ -375,9 +379,8 @@ impl Plot {
 
         let mut shapes = vec![];
 
-        self.draw_grid(rect, contours, &mut shapes);
-        self.draw_cuts(rect, contours, pxu, ui_state, &mut shapes);
-        self.draw_points(rect, pxu, ui_state, points, &mut shapes);
+        self.draw_grid(rect, &pxu.contours, &mut shapes);
+        self.draw_cuts(rect, pxu, ui_state, &mut shapes);
 
         for path in pxu.paths.iter() {
             let points = path
@@ -391,6 +394,8 @@ impl Plot {
                 Stroke::new(3.0, Color32::GRAY),
             ));
         }
+
+        self.draw_points(rect, &pxu.state, ui_state, points, &mut shapes);
 
         {
             let f = ui.fonts();
@@ -445,15 +450,14 @@ impl Plot {
         &mut self,
         ui: &mut Ui,
         rect: Rect,
-        contours: &pxu::Contours,
-        pxu: &mut pxu::State,
+        pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
     ) {
         let old_clip_rect = ui.clip_rect();
         ui.set_clip_rect(rect);
 
-        let points = self.interact(ui, rect, contours, pxu, ui_state);
-        self.draw(ui, rect, contours, pxu, ui_state, points);
+        let points = self.interact(ui, rect, pxu, ui_state);
+        self.draw(ui, rect, pxu, ui_state, points);
 
         ui.set_clip_rect(old_clip_rect);
         ui.painter().add(egui::epaint::Shape::rect_stroke(
