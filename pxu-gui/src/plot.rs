@@ -169,7 +169,6 @@ impl Plot {
         contours: &pxu::Contours,
         pxu: &mut pxu::State,
         ui_state: &mut UiState,
-        points: InteractionPointIndices,
         shapes: &mut Vec<egui::Shape>,
     ) {
         let to_screen = self.to_screen(rect);
@@ -308,6 +307,17 @@ impl Plot {
         }
 
         shapes.extend(branch_point_shapes);
+    }
+
+    fn draw_points(
+        &self,
+        rect: Rect,
+        pxu: &mut pxu::State,
+        ui_state: &mut UiState,
+        points: InteractionPointIndices,
+        shapes: &mut Vec<egui::Shape>,
+    ) {
+        let to_screen = self.to_screen(rect);
 
         for (i, pt) in pxu.points.iter().enumerate() {
             let is_hovered = matches!(points.hovered, Some(n) if n == i);
@@ -366,7 +376,8 @@ impl Plot {
         let mut shapes = vec![];
 
         self.draw_grid(rect, contours, &mut shapes);
-        self.draw_cuts(rect, contours, pxu, ui_state, points, &mut shapes);
+        self.draw_cuts(rect, contours, pxu, ui_state, &mut shapes);
+        self.draw_points(rect, pxu, ui_state, points, &mut shapes);
 
         for path in pxu.paths.iter() {
             let points = path
