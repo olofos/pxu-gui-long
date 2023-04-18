@@ -150,36 +150,38 @@ impl Plot {
             DraggedPoint::Main,
         );
 
-        for j in 0..editable_path.states.len() {
-            if interaction_points.dragged.is_none() && interaction_points.hovered.is_none() {
-                interaction_points = self.interact_with_points(
-                    ui,
-                    rect,
-                    pxu,
-                    editable_path,
-                    ui_state,
-                    &response,
-                    DraggedPoint::Path(j),
-                );
-            }
-        }
-
-        if ui.input().key_pressed(egui::Key::Space) {
-            match interaction_points.dragged {
-                Some((DraggedPoint::Main, _)) => {
-                    editable_path.push(&pxu.state);
+        if ui_state.edit_path {
+            for j in 0..editable_path.states.len() {
+                if interaction_points.dragged.is_none() && interaction_points.hovered.is_none() {
+                    interaction_points = self.interact_with_points(
+                        ui,
+                        rect,
+                        pxu,
+                        editable_path,
+                        ui_state,
+                        &response,
+                        DraggedPoint::Path(j),
+                    );
                 }
-                Some((DraggedPoint::Path(state_index), _)) => {
-                    let new_state = editable_path.states[state_index].clone();
-                    editable_path.states.insert(state_index, new_state);
-                }
-                _ => {}
             }
-        }
 
-        if ui.input().key_pressed(egui::Key::Minus) {
-            if let Some((DraggedPoint::Path(state_index), _)) = interaction_points.dragged {
-                editable_path.states.remove(state_index);
+            if ui.input().key_pressed(egui::Key::Space) {
+                match interaction_points.dragged {
+                    Some((DraggedPoint::Main, _)) => {
+                        editable_path.push(&pxu.state);
+                    }
+                    Some((DraggedPoint::Path(state_index), _)) => {
+                        let new_state = editable_path.states[state_index].clone();
+                        editable_path.states.insert(state_index, new_state);
+                    }
+                    _ => {}
+                }
+            }
+
+            if ui.input().key_pressed(egui::Key::Minus) {
+                if let Some((DraggedPoint::Path(state_index), _)) = interaction_points.dragged {
+                    editable_path.states.remove(state_index);
+                }
             }
         }
 
@@ -471,7 +473,7 @@ impl Plot {
         self.draw_grid(rect, &pxu.contours, &mut shapes);
         self.draw_cuts(rect, pxu, ui_state, &mut shapes);
 
-        {
+        if ui_state.edit_path {
             let mut anchor_shapes = vec![];
             let mut active_shapes = vec![];
             for (component_index, path) in editable_path.get(self.component).iter().enumerate() {

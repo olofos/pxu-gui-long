@@ -10,6 +10,8 @@ pub struct UiState {
     #[serde(skip)]
     pub show_side_panel: bool,
     pub active_point: usize,
+    #[serde(skip)]
+    pub edit_path: bool,
 }
 
 impl Default for UiState {
@@ -20,6 +22,7 @@ impl Default for UiState {
             show_cuts: true,
             show_side_panel: true,
             active_point: 0,
+            edit_path: false,
         }
     }
 }

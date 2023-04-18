@@ -421,13 +421,21 @@ impl PxuGuiApp {
                     ui.label(".");
                 });
 
-                if self.settings.show_fps {
+                if self.settings.show_fps || self.settings.show_dev {
                     ui.separator();
+                }
+
+                if self.settings.show_fps {
                     ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
                     ui.label(format!(
                         "CPU usage: {:.1} ms/frame",
                         1000.0 * self.frame_history.mean_frame_time()
                     ));
+                    ui.separator();
+                }
+
+                if self.settings.show_dev {
+                    ui.checkbox(&mut self.ui_state.edit_path, "Edit paths");
                     ui.separator();
                 }
 
