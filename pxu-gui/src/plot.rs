@@ -67,9 +67,6 @@ impl Plot {
         rect: Rect,
         pxu: &mut pxu::Pxu,
         editable_path: &mut pxu::path::EditablePath,
-        // state: &mut pxu::State,
-        // contours: &pxu::Contours,
-        // consts: CouplingConstants,
         ui_state: &mut UiState,
         response: &egui::Response,
         dragged_point: DraggedPoint,
@@ -107,8 +104,31 @@ impl Plot {
             }
 
             if point_response.dragged() {
-                let new_value = to_screen.inverse() * (center + point_response.drag_delta());
+                let delta = point_response.drag_delta();
+                let delta = if ui.input().key_down(egui::Key::E) {
+                    vec2(delta.x, 0.0)
+                } else if ui.input().key_down(egui::Key::W) {
+                    vec2(0.0, delta.y)
+                } else {
+                    delta
+                };
+                let new_value = to_screen.inverse() * (center + delta);
                 let new_value = Complex64::new(new_value.x as f64, -new_value.y as f64);
+
+                let new_value = if ui.input().key_pressed(egui::Key::R) {
+                    match self.component {
+                        pxu::Component::P => Complex64::from(new_value.re),
+                        pxu::Component::U => {
+                            let re = new_value.re;
+                            let im = (pxu.consts.h * new_value.im).round() / pxu.consts.h;
+                            log::info!("im: {} => {}", new_value.im, im);
+                            Complex64::new(re, im)
+                        }
+                        _ => new_value,
+                    }
+                } else {
+                    new_value
+                };
 
                 ui_state.active_point = j;
                 state.update(

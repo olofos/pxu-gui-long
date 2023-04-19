@@ -335,6 +335,51 @@ impl PxuGuiApp {
         });
     }
 
+    fn draw_path_editing_controls(&mut self, ui: &mut egui::Ui) {
+        ui.separator();
+        ui.heading("Edit path");
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Start"))
+                .clicked()
+            {
+                self.ui_state.edit_path = true;
+            }
+
+            if ui
+                .add_enabled(self.ui_state.edit_path, egui::Button::new("Clear"))
+                .clicked()
+            {
+                self.editable_path.clear();
+            }
+
+            if ui
+                .add_enabled(self.ui_state.edit_path, egui::Button::new("Done"))
+                .clicked()
+            {
+                self.ui_state.edit_path = false;
+            }
+        });
+        ui.label("Compoinent:");
+        ui.horizontal(|ui| {
+            for component in [
+                pxu::Component::P,
+                pxu::Component::Xp,
+                pxu::Component::Xm,
+                pxu::Component::U,
+            ] {
+                ui.add_enabled_ui(self.ui_state.edit_path, |ui| {
+                    ui.radio_value(
+                        &mut self.editable_path.component,
+                        component,
+                        format!("{component:?}"),
+                    )
+                });
+            }
+        });
+    }
+
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {
         let active_point = &self.pxu.state.points[self.ui_state.active_point];
         ui.separator();
@@ -408,6 +453,10 @@ impl PxuGuiApp {
             self.draw_state_information(ui);
             self.draw_animation_controls(ui, false);
 
+            if self.settings.show_dev {
+                self.draw_path_editing_controls(ui);
+            }
+
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -421,21 +470,13 @@ impl PxuGuiApp {
                     ui.label(".");
                 });
 
-                if self.settings.show_fps || self.settings.show_dev {
-                    ui.separator();
-                }
-
                 if self.settings.show_fps {
+                    ui.separator();
                     ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
                     ui.label(format!(
                         "CPU usage: {:.1} ms/frame",
                         1000.0 * self.frame_history.mean_frame_time()
                     ));
-                    ui.separator();
-                }
-
-                if self.settings.show_dev {
-                    ui.checkbox(&mut self.ui_state.edit_path, "Edit paths");
                     ui.separator();
                 }
 

@@ -17,9 +17,18 @@ pub struct Path {
     pub segments: Vec<PathSegment>,
 }
 
-#[derive(Default)]
 pub struct EditablePath {
     pub states: Vec<State>,
+    pub component: Component,
+}
+
+impl Default for EditablePath {
+    fn default() -> Self {
+        Self {
+            states: Default::default(),
+            component: Component::P,
+        }
+    }
 }
 
 impl EditablePath {
