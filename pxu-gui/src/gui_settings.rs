@@ -2,6 +2,7 @@
 use clap::Parser;
 
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct GuiSettings {
     pub show_fps: bool,
     pub show_dev: bool,
