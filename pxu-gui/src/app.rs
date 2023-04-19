@@ -340,7 +340,7 @@ impl PxuGuiApp {
         ui.add_space(5.0);
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Start"))
+                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Edit"))
                 .clicked()
             {
                 self.ui_state.edit_path = true;
@@ -358,9 +358,17 @@ impl PxuGuiApp {
                 .clicked()
             {
                 self.ui_state.edit_path = false;
+
+                let base_path = pxu::path::BasePath::from_editable_path(
+                    &self.editable_path,
+                    self.ui_state.edit_path_component,
+                    self.ui_state.active_point,
+                );
+                self.pxu.path =
+                    pxu::path::Path::from_base_path(base_path, &self.pxu.contours, self.pxu.consts);
             }
         });
-        ui.label("Compoinent:");
+        ui.label("Component:");
         ui.horizontal(|ui| {
             for component in [
                 pxu::Component::P,
@@ -370,7 +378,7 @@ impl PxuGuiApp {
             ] {
                 ui.add_enabled_ui(self.ui_state.edit_path, |ui| {
                     ui.radio_value(
-                        &mut self.editable_path.component,
+                        &mut self.ui_state.edit_path_component,
                         component,
                         format!("{component:?}"),
                     )

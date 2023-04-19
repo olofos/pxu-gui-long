@@ -15,6 +15,7 @@ pub use contours::{
 };
 pub use cut::{Cut, CutType};
 pub use kinematics::CouplingConstants;
+pub use path::{EditablePath, Path};
 pub use point::Point;
 pub use state::State;
 
@@ -24,7 +25,7 @@ pub struct Pxu {
     #[serde(skip)]
     pub contours: Contours,
     pub state: State,
-    // pub active_point: usize,
+    pub path: Path,
 }
 
 impl Pxu {
@@ -33,17 +34,7 @@ impl Pxu {
             consts,
             contours: Default::default(),
             state: Default::default(),
-            // active_point: Default::default(),
+            path: Default::default(),
         }
     }
-
-    // pub fn active_point(&self) -> &Point {
-    //     &self.state.points[self.active_point]
-    // }
-
-    // pub fn set_active_point(&mut self, active_point: usize) {
-    //     if active_point <= self.state.points.len() {
-    //         self.active_point = active_point;
-    //     }
-    // }
 }

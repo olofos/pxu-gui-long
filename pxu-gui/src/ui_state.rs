@@ -12,6 +12,8 @@ pub struct UiState {
     pub active_point: usize,
     #[serde(skip)]
     pub edit_path: bool,
+    #[serde(skip)]
+    pub edit_path_component: pxu::Component,
 }
 
 impl Default for UiState {
@@ -23,6 +25,7 @@ impl Default for UiState {
             show_side_panel: true,
             active_point: 0,
             edit_path: false,
+            edit_path_component: pxu::Component::P,
         }
     }
 }

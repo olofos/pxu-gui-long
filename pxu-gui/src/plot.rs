@@ -560,6 +560,22 @@ impl Plot {
             }
             shapes.extend(anchor_shapes);
             shapes.extend(active_shapes);
+        } else {
+            let contours = match self.component {
+                pxu::Component::P => &pxu.path.p,
+                pxu::Component::Xp => &pxu.path.xp,
+                pxu::Component::Xm => &pxu.path.xm,
+                pxu::Component::U => &pxu.path.u,
+            };
+
+            for contour in contours.iter() {
+                let points = contour
+                    .iter()
+                    .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
+                    .collect::<Vec<_>>();
+
+                shapes.push(egui::Shape::line(points, Stroke::new(2.0, Color32::GRAY)));
+            }
         }
 
         self.draw_points(rect, pxu, ui_state, interaction_points, &mut shapes);
