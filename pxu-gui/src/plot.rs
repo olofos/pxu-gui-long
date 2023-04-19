@@ -131,14 +131,7 @@ impl Plot {
                 };
 
                 ui_state.active_point = j;
-                state.update(
-                    j,
-                    self.component,
-                    new_value,
-                    &pxu.contours,
-                    ui_state.u_cut_type,
-                    pxu.consts,
-                );
+                state.update(j, self.component, new_value, &pxu.contours, pxu.consts);
             }
         }
 

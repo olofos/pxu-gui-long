@@ -155,7 +155,6 @@ impl eframe::App for PxuGuiApp {
                     self.anim_data.component,
                     z,
                     &self.pxu.contours,
-                    self.ui_state.u_cut_type,
                     self.pxu.consts,
                 );
                 ctx.request_repaint();

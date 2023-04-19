@@ -1,4 +1,4 @@
-use crate::contours::{Component, Contours, UCutType};
+use crate::contours::{Component, Contours};
 use crate::interpolation::PInterpolatorMut;
 use crate::kinematics::{xm, xm_crossed, xp, xp_crossed, CouplingConstants};
 use crate::point::Point;
@@ -62,17 +62,10 @@ impl State {
         component: Component,
         new_value: Complex64,
         contours: &Contours,
-        u_cut_type: UCutType,
         consts: CouplingConstants,
     ) {
         let crossed_cuts = contours
-            .get_crossed_cuts(
-                &points[active_point],
-                component,
-                new_value,
-                consts,
-                u_cut_type,
-            )
+            .get_crossed_cuts(&points[active_point], component, new_value, consts)
             .collect::<Vec<_>>();
 
         points[active_point].update(component, new_value, &crossed_cuts, consts);
@@ -84,7 +77,7 @@ impl State {
                 xm_crossed(points[i - 1].p, 1.0, consts)
             };
             let crossed_cuts = contours
-                .get_crossed_cuts(&points[i], Component::Xp, new_value, consts, u_cut_type)
+                .get_crossed_cuts(&points[i], Component::Xp, new_value, consts)
                 .collect::<Vec<_>>();
             points[i].update(Component::Xp, new_value, &crossed_cuts, consts);
         }
@@ -96,7 +89,7 @@ impl State {
                 xp_crossed(points[i + 1].p, 1.0, consts)
             };
             let crossed_cuts = contours
-                .get_crossed_cuts(&points[i], Component::Xm, new_value, consts, u_cut_type)
+                .get_crossed_cuts(&points[i], Component::Xm, new_value, consts)
                 .collect::<Vec<_>>();
             points[i].update(Component::Xm, new_value, &crossed_cuts, consts);
         }
@@ -108,7 +101,6 @@ impl State {
         component: Component,
         new_value: Complex64,
         contours: &Contours,
-        u_cut_type: UCutType,
         consts: CouplingConstants,
     ) {
         Self::update_points(
@@ -117,7 +109,6 @@ impl State {
             component,
             new_value,
             contours,
-            u_cut_type,
             consts,
         );
     }
