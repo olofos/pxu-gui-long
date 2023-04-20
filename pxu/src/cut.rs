@@ -85,7 +85,7 @@ impl Cut {
         p1: Complex64,
         p2: Complex64,
         consts: CouplingConstants,
-    ) -> Option<(usize, Complex64)> {
+    ) -> Option<(usize, Complex64, f64)> {
         if self.periodic {
             let period = 2.0 * Complex64::i() * consts.k() as f64 / consts.h;
             (-5..=5).find_map(|n| {
@@ -97,7 +97,7 @@ impl Cut {
         }
     }
 
-    fn find_intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, Complex64)> {
+    fn find_intersection(&self, p1: Complex64, p2: Complex64) -> Option<(usize, Complex64, f64)> {
         fn cross(v: Complex64, w: Complex64) -> f64 {
             v.re * w.im - v.im * w.re
         }
@@ -114,7 +114,7 @@ impl Cut {
                 let u = cross(q - p, r) / cross(r, s);
 
                 if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
-                    return Some((j, p + t * r));
+                    return Some((j, p + t * r, t));
                 }
             }
         }

@@ -716,7 +716,7 @@ impl Contours {
                     })
                     .tuple_windows::<(_, _)>()
                 {
-                    if let Some((j, x)) = cut.intersection(p1, p2, consts) {
+                    if let Some((j, x, _)) = cut.intersection(p1, p2, consts) {
                         let mut new_path = vec![x];
                         new_path.extend(cut.path.split_off(j + 1));
                         cut.path.push(x);
