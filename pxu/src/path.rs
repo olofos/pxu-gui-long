@@ -50,13 +50,14 @@ impl Path {
             Component::Xp | Component::Xm => 0.1,
             Component::U => 0.5 / consts.h,
         };
-        for (z1, z2) in base_path.path.iter().tuple_windows() {
-            let steps = ((z2 - z1).norm() / max_step).ceil() as usize;
 
-            for step in 1..=steps {
+        for (segment_start, segment_end) in base_path.path.iter().tuple_windows() {
+            let steps = ((segment_end - segment_start).norm() / max_step).ceil() as usize;
+
+            let mut segment = vec![];
+            for step in 0..=steps {
                 let t = step as f64 / steps as f64;
-                let z = z1 * (1.0 - t) + z2 * t;
-                log::info!("{step} {t} {z}");
+                let z = segment_start * (1.0 - t) + segment_end * t;
                 state.update(
                     base_path.excitation,
                     base_path.component,
@@ -65,6 +66,68 @@ impl Path {
                     consts,
                 );
 
+                segment.push((t, state.clone()));
+            }
+
+            let min_cos = (2.0 * std::f64::consts::TAU / 360.0).cos();
+
+            for _ in 0..5 {
+                let mut refinements: Vec<(f64, State)> = vec![];
+
+                let mut prev = false;
+                for ((t1, s1), (t2, s2), (t3, s3)) in segment.iter().tuple_windows::<(_, _, _)>() {
+                    let mut refine = false;
+                    'comp: for comp in [Component::P, Component::Xp, Component::Xm, Component::U] {
+                        for i in 0..m {
+                            let x1 = s1.points[i].get(comp);
+                            let x2 = s2.points[i].get(comp);
+                            let x3 = s3.points[i].get(comp);
+
+                            let z1 = x2 - x1;
+                            let z2 = x3 - x2;
+                            let cos = (z1.re * z2.re + z1.im * z2.im) / (z1.norm() * z2.norm());
+                            if cos < min_cos {
+                                refine = true;
+                                break 'comp;
+                            }
+                        }
+                    }
+
+                    if refine {
+                        if !prev {
+                            refinements.push(((t1 + t2) / 2.0, s1.clone()));
+                        }
+                        refinements.push(((t2 + t3) / 2.0, s2.clone()));
+                        prev = true;
+                    } else {
+                        prev = false;
+                    }
+                }
+
+                if refinements.is_empty() {
+                    break;
+                }
+
+                for (t, state) in refinements.into_iter() {
+                    let z = segment_start * (1.0 - t) + segment_end * t;
+                    let mut state = state;
+                    state.update(
+                        base_path.excitation,
+                        base_path.component,
+                        z,
+                        contours,
+                        consts,
+                    );
+
+                    segment.push((t, state));
+                }
+
+                segment.sort_unstable_by(|(t1, _), (t2, _)| {
+                    t1.partial_cmp(t2).unwrap_or(std::cmp::Ordering::Greater)
+                });
+            }
+
+            for (_, state) in segment.into_iter().skip(1) {
                 for (i, point) in state.points.iter().enumerate() {
                     p[i].push(point.get(Component::P));
                     xp[i].push(point.get(Component::Xp));
@@ -73,6 +136,7 @@ impl Path {
                 }
             }
         }
+        log::info!("len = {}", p[0].len());
 
         Self {
             p,

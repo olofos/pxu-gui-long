@@ -223,6 +223,7 @@ fn refine<T: Refiner + Clone>(
                     refinements.push((T::mid_point(p1, p2), (x1 + x2) / 2.0));
                 }
                 refinements.push((T::mid_point(p2, p3), (x2 + x3) / 2.0));
+                prev = true;
             } else {
                 prev = false;
             }
