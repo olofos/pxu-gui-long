@@ -245,6 +245,7 @@ impl PxuGuiApp {
                 if let Some(n) = n {
                     let n = n as usize;
                     self.pxu.state = pxu::State::new(n, self.pxu.consts);
+                    self.ui_state.active_point = n / 2;
                     self.editable_path.clear();
                     self.anim_data.stop();
                 }
@@ -359,13 +360,27 @@ impl PxuGuiApp {
             {
                 self.ui_state.edit_path = false;
 
-                let base_path = pxu::path::BasePath::from_editable_path(
-                    &self.editable_path,
-                    self.ui_state.edit_path_component,
-                    self.ui_state.active_point,
-                );
-                self.pxu.path =
-                    pxu::path::Path::from_base_path(base_path, &self.pxu.contours, self.pxu.consts);
+                if !self.editable_path.states.is_empty() {
+                    let base_path = pxu::path::BasePath::from_editable_path(
+                        &self.editable_path,
+                        self.ui_state.edit_path_component,
+                        self.ui_state.active_point,
+                    );
+                    self.pxu.path = pxu::path::Path::from_base_path(
+                        base_path,
+                        &self.pxu.contours,
+                        self.pxu.consts,
+                    );
+                } else {
+                    self.pxu.path = Default::default();
+                }
+            }
+
+            if ui
+                .add_enabled(self.ui_state.edit_path, egui::Button::new("Cancel"))
+                .clicked()
+            {
+                self.ui_state.edit_path = false;
             }
         });
         ui.label("Component:");
@@ -454,7 +469,6 @@ impl PxuGuiApp {
             if ui.add(egui::Button::new("Reset")).clicked() {
                 self.pxu.consts = CouplingConstants::new(2.0, 5);
                 self.pxu.state = pxu::State::new(self.pxu.state.points.len(), self.pxu.consts);
-                self.editable_path.clear();
             }
 
             self.draw_state_information(ui);

@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use num::complex::Complex64;
 
 use crate::Component;
@@ -37,20 +38,39 @@ impl Path {
         let mut xm = vec![vec![]; m];
         let mut u = vec![vec![]; m];
 
-        for z in base_path.path.iter() {
-            state.update(
-                base_path.excitation,
-                base_path.component,
-                *z,
-                contours,
-                consts,
-            );
+        for (i, point) in state.points.iter().enumerate() {
+            p[i].push(point.get(Component::P));
+            xp[i].push(point.get(Component::Xp));
+            xm[i].push(point.get(Component::Xm));
+            u[i].push(point.get(Component::U));
+        }
 
-            for (i, point) in state.points.iter().enumerate() {
-                p[i].push(point.get(Component::P));
-                xp[i].push(point.get(Component::Xp));
-                xm[i].push(point.get(Component::Xm));
-                u[i].push(point.get(Component::U));
+        let max_step = match base_path.component {
+            Component::P => 0.05,
+            Component::Xp | Component::Xm => 0.1,
+            Component::U => 0.5 / consts.h,
+        };
+        for (z1, z2) in base_path.path.iter().tuple_windows() {
+            let steps = ((z2 - z1).norm() / max_step).ceil() as usize;
+
+            for step in 1..=steps {
+                let t = step as f64 / steps as f64;
+                let z = z1 * (1.0 - t) + z2 * t;
+                log::info!("{step} {t} {z}");
+                state.update(
+                    base_path.excitation,
+                    base_path.component,
+                    z,
+                    contours,
+                    consts,
+                );
+
+                for (i, point) in state.points.iter().enumerate() {
+                    p[i].push(point.get(Component::P));
+                    xp[i].push(point.get(Component::Xp));
+                    xm[i].push(point.get(Component::Xm));
+                    u[i].push(point.get(Component::U));
+                }
             }
         }
 
