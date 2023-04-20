@@ -127,6 +127,49 @@ impl Path {
                 });
             }
 
+            let mut extra_states = vec![];
+            for ((t1, s1), (t2, s2)) in segment.iter().tuple_windows() {
+                for i in 0..s1.points.len() {
+                    if s1.points[i].sheet_data != s2.points[i].sheet_data {
+                        let crossed_cuts = contours.get_crossed_cuts(
+                            &s1.points[i],
+                            base_path.component,
+                            s2.points[i].get(base_path.component),
+                            consts,
+                        );
+                        let z1 = s1.points[i].get(base_path.component);
+                        let z2 = s2.points[i].get(base_path.component);
+                        for cut in crossed_cuts {
+                            if matches!(cut.typ, crate::CutType::ULongNegative(_)) {
+                                continue;
+                            }
+                            let Some((_, _, u)) = cut.intersection(
+                                z1,z2,
+                                consts,
+                            ) else {
+                                continue;
+                            };
+
+                            let mut state = s2.clone();
+                            state.update(
+                                base_path.excitation,
+                                base_path.component,
+                                z1 * (1.0 - u) + z2 * u,
+                                contours,
+                                consts,
+                            );
+                            let t = (1.0 - u) * t1 + u * t2;
+                            extra_states.push((t, state));
+                        }
+                    }
+                }
+            }
+
+            segment.extend(extra_states);
+            segment.sort_unstable_by(|(t1, _), (t2, _)| {
+                t1.partial_cmp(t2).unwrap_or(std::cmp::Ordering::Greater)
+            });
+
             for (_, state) in segment.into_iter().skip(1) {
                 for (i, point) in state.points.iter().enumerate() {
                     p[i].push(point.get(Component::P));
