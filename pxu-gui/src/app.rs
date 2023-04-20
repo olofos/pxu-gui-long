@@ -491,6 +491,8 @@ impl PxuGuiApp {
                     ui.label(".");
                 });
 
+                egui::warn_if_debug_build(ui);
+
                 if self.settings.show_fps {
                     ui.separator();
                     ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
