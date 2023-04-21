@@ -3,6 +3,7 @@
 pub struct Arguments {
     pub show_fps: bool,
     pub show_dev: bool,
+    pub continuous_mode: bool,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -42,11 +43,20 @@ impl Arguments {
                     .action(clap::ArgAction::SetTrue)
                     .required(false),
             )
+            .arg(
+                clap::Arg::new("continuous_mode")
+                    .short('c')
+                    .long("continuous")
+                    .help("Draw in continuous mode")
+                    .action(clap::ArgAction::SetTrue)
+                    .required(false),
+            )
             .get_matches();
 
         let arguments = Self {
             show_fps: matches.get_flag("fps"),
             show_dev: matches.get_flag("dev"),
+            continuous_mode: matches.get_flag("continuous_mode"),
         };
 
         arguments

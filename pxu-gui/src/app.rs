@@ -101,6 +101,10 @@ impl eframe::App for PxuGuiApp {
                 .on_new_frame(ctx.input().time, frame.info().cpu_usage);
         }
 
+        if self.ui_state.continuous_mode {
+            ctx.request_repaint();
+        }
+
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:

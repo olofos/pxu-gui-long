@@ -20,6 +20,8 @@ pub struct UiState {
     pub show_fps: bool,
     #[serde(skip)]
     pub show_dev: bool,
+    #[serde(skip)]
+    pub continuous_mode: bool,
 }
 
 impl Default for UiState {
@@ -34,6 +36,7 @@ impl Default for UiState {
             edit_path_component: pxu::Component::P,
             show_fps: false,
             show_dev: false,
+            continuous_mode: false,
         }
     }
 }
@@ -42,6 +45,7 @@ impl UiState {
     pub fn set(&mut self, arguments: Arguments) {
         self.show_fps = arguments.show_fps;
         self.show_dev = arguments.show_dev;
+        self.continuous_mode = arguments.continuous_mode;
     }
 
     pub fn toggle_fullscreen(&mut self, component: pxu::Component) {
