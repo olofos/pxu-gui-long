@@ -1840,6 +1840,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "tracing",
  "tracing-subscriber",
  "tracing-wasm",
  "url",

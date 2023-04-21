@@ -14,7 +14,12 @@ use crate::arguments::Arguments;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_file(true)
+        .with_line_number(true)
+        .without_time()
+        .init();
 
     let arguments = Arguments::parse();
 
