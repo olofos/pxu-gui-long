@@ -24,7 +24,6 @@ pub struct PxuGuiApp {
     #[serde(skip)]
     anim_data: Anim,
     ui_state: UiState,
-    #[serde(skip)]
     editable_path: EditablePath,
 }
 
