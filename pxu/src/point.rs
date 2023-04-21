@@ -1,8 +1,8 @@
 use crate::contours::{Component, UCutType};
 use crate::cut::{Cut, CutType};
 use crate::kinematics::{
-    du_crossed_dp, du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, u_crossed, xm,
-    xm_crossed, xp, xp_crossed, CouplingConstants, SheetData, UBranch,
+    du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, xm, xm_crossed, xp, xp_crossed,
+    CouplingConstants, SheetData, UBranch,
 };
 use crate::nr;
 use num::complex::Complex64;
@@ -63,12 +63,11 @@ impl Point {
         if sheet_data.e_branch > 0 {
             new_xp = xp(p, 1.0, consts);
             new_xm = xm(p, 1.0, consts);
-            new_u = u(p, consts, sheet_data);
         } else {
             new_xp = xp_crossed(p, 1.0, consts);
             new_xm = xm_crossed(p, 1.0, consts);
-            new_u = u_crossed(p, consts, sheet_data);
         }
+        new_u = u(p, consts, sheet_data);
 
         if (self.p - p).re.abs() > 0.125 || (self.p - p).im.abs() > 0.25 {
             log::debug!(
@@ -175,23 +174,13 @@ impl Point {
         guess: Complex64,
         consts: CouplingConstants,
     ) -> Option<Complex64> {
-        if sheet_data.e_branch > 0 {
-            nr::find_root(
-                |p| u(p, consts, sheet_data) - new_u,
-                |p| du_dp(p, consts, sheet_data),
-                guess,
-                1.0e-6,
-                50,
-            )
-        } else {
-            nr::find_root(
-                |p| u_crossed(p, consts, sheet_data) - new_u,
-                |p| du_crossed_dp(p, consts, sheet_data),
-                guess,
-                1.0e-6,
-                50,
-            )
-        }
+        nr::find_root(
+            |p| u(p, consts, sheet_data) - new_u,
+            |p| du_dp(p, consts, sheet_data),
+            guess,
+            1.0e-6,
+            50,
+        )
     }
 
     pub fn get(&self, component: Component) -> Complex64 {

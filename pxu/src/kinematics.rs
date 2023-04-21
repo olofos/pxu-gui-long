@@ -171,7 +171,7 @@ pub fn dxm_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Com
 
 pub fn u(p: impl Into<Complex64>, consts: CouplingConstants, sheet_data: &SheetData) -> Complex64 {
     let p = p.into();
-    let xp = xp(p, 1.0, consts);
+    let xp = xp_on_sheet(p, 1.0, consts, sheet_data);
 
     let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
     let branch_shift =
@@ -183,15 +183,25 @@ pub fn u(p: impl Into<Complex64>, consts: CouplingConstants, sheet_data: &SheetD
 pub fn du_dp(
     p: impl Into<Complex64>,
     consts: CouplingConstants,
-    _sheet_data: &SheetData,
+    sheet_data: &SheetData,
 ) -> Complex64 {
     let p = p.into();
     let cot = 1.0 / (PI * p).tan();
     let sin = (PI * p).sin();
 
-    let term1 = den_dp(p, 1.0, consts) * cot;
-    let term2 = -TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
-    let term3 = -2.0 * consts.kslash() * dx_dp(p, 1.0, consts) / x(p, 1.0, consts);
+    let term1;
+    let term2;
+    let term3;
+
+    if sheet_data.e_branch > 0 {
+        term1 = den_dp(p, 1.0, consts) * cot;
+        term2 = -TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
+        term3 = -2.0 * consts.kslash() * dx_dp(p, 1.0, consts) / x(p, 1.0, consts);
+    } else {
+        term1 = -den_dp(p, 1.0, consts) * cot;
+        term2 = TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
+        term3 = -2.0 * consts.kslash() * dx_crossed_dp(p, 1.0, consts) / x_crossed(p, 1.0, consts);
+    }
 
     (term1 + term2 + term3) * consts.h
 }
@@ -241,37 +251,6 @@ pub fn dxm_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants
     let p = p.into();
     let exp = (-Complex64::i() * PI * p).exp();
     dx_crossed_dp(p, m, consts) * exp - (Complex64::i() * PI) * x_crossed(p, m, consts) * exp
-}
-
-pub fn u_crossed(
-    p: impl Into<Complex64>,
-    consts: CouplingConstants,
-    sheet_data: &SheetData,
-) -> Complex64 {
-    let p = p.into();
-    let xp = xp_crossed(p, 1.0, consts);
-
-    let up = xp + 1.0 / xp - 2.0 * consts.kslash() / consts.h * xp.ln();
-    let branch_shift =
-        2.0 * (sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
-
-    up - Complex64::i() / consts.h - branch_shift
-}
-
-pub fn du_crossed_dp(
-    p: impl Into<Complex64>,
-    consts: CouplingConstants,
-    _sheet_data: &SheetData,
-) -> Complex64 {
-    let p = p.into();
-    let cot = 1.0 / (PI * p).tan();
-    let sin = (PI * p).sin();
-
-    let term1 = -den_dp(p, 1.0, consts) * cot;
-    let term2 = TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
-    let term3 = -2.0 * consts.kslash() * dx_crossed_dp(p, 1.0, consts) / x_crossed(p, 1.0, consts);
-
-    (term1 + term2 + term3) * consts.h
 }
 
 pub fn xp_on_sheet(
