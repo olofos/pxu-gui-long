@@ -53,12 +53,10 @@ impl Arguments {
             )
             .get_matches();
 
-        let arguments = Self {
+        Self {
             show_fps: matches.get_flag("fps"),
             show_dev: matches.get_flag("dev"),
             continuous_mode: matches.get_flag("continuous_mode"),
-        };
-
-        arguments
+        }
     }
 }

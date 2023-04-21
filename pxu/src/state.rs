@@ -79,10 +79,8 @@ impl State {
                 if !pt.update(component, next_value, &[], consts) {
                     break;
                 }
-            } else {
-                if !pt.update(component, next_value, &crossings[0].1, consts) {
-                    break;
-                }
+            } else if !pt.update(component, next_value, &crossings[0].1, consts) {
+                break;
             }
 
             if next_value == final_value {

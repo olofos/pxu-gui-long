@@ -245,7 +245,7 @@ impl Point {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     pub fn same_sheet(&self, other: &Point, component: Component, u_cut_type: UCutType) -> bool {
