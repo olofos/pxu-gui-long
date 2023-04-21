@@ -66,7 +66,7 @@ impl State {
         loop {
             let current_value = pt.get(component);
 
-            let crossings = contours.get_cut_crossings(pt, component, final_value, consts);
+            let crossings = contours.get_crossed_cuts(pt, component, final_value, consts);
 
             let next_value = if crossings.len() > 1 {
                 let t = (crossings[0].0 + crossings[1].0) / 2.0;

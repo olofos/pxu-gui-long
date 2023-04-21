@@ -422,7 +422,7 @@ impl Contours {
             .filter(move |c| c.component == component && c.is_visible(&pt, u_cut_type))
     }
 
-    pub fn get_cut_crossings(
+    pub fn get_crossed_cuts(
         &self,
         pt: &Point,
         component: Component,
@@ -463,55 +463,6 @@ impl Contours {
         }
 
         result
-    }
-
-    pub fn get_crossed_cuts(
-        &self,
-        pt: &Point,
-        component: Component,
-        new_value: Complex64,
-        consts: CouplingConstants,
-    ) -> impl Iterator<Item = &Cut> {
-        let u_cut_type = UCutType::Short;
-        let mut pt = pt.clone();
-        pt.u += 2.0 * (pt.sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h;
-
-        let new_value = if component == Component::U {
-            new_value
-                + 2.0 * (pt.sheet_data.log_branch_p * consts.k()) as f64 * Complex64::i() / consts.h
-        } else {
-            new_value
-        };
-
-        // self.cuts.iter().filter(move |c| {
-        //     c.component == component
-        //         && c.is_visible(&pt, u_cut_type)
-        //         && c.intersection(pt.get(component), new_value, consts)
-        //             .is_some()
-        // })
-
-        let mut cuts = self
-            .cuts
-            .iter()
-            // .filter(move |c| {
-            //     c.component == component
-            //         && c.is_visible(&pt, u_cut_type)
-            //         && c.intersection(pt.get(component), new_value, consts)
-            //             .is_some()
-            // })
-            .filter_map(move |c| {
-                if c.component == component && c.is_visible(&pt, u_cut_type) {
-                    if let Some((_, _, t)) = c.intersection(pt.get(component), new_value, consts) {
-                        return Some((c, t));
-                    }
-                }
-                None
-            })
-            .collect::<Vec<_>>();
-        cuts.sort_unstable_by(|(_, t1), (_, t2)| {
-            t1.partial_cmp(t2).unwrap_or(std::cmp::Ordering::Greater)
-        });
-        cuts.into_iter().map(|(c, _)| c)
     }
 
     fn execute(&mut self, command: GeneratorCommand, consts: CouplingConstants) {

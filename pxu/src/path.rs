@@ -1,18 +1,20 @@
 use itertools::Itertools;
 use num::complex::Complex64;
 
+use crate::kinematics::SheetData;
 use crate::Component;
 use crate::Contours;
 use crate::CouplingConstants;
 use crate::State;
 
-// pub struct PathSegment {
-//     pub p: Vec<Vec<Complex64>>,
-//     pub xp: Vec<Vec<Complex64>>,
-//     pub xm: Vec<Vec<Complex64>>,
-//     pub u: Vec<Vec<Complex64>>,
-//     pub sheet_data: SheetData,
-// }
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct PathSegment {
+    pub p: Vec<Complex64>,
+    pub xp: Vec<Complex64>,
+    pub xm: Vec<Complex64>,
+    pub u: Vec<Complex64>,
+    pub sheet_data: SheetData,
+}
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
@@ -21,6 +23,7 @@ pub struct Path {
     pub xp: Vec<Vec<Complex64>>,
     pub xm: Vec<Vec<Complex64>>,
     pub u: Vec<Vec<Complex64>>,
+    pub segments: Vec<Vec<PathSegment>>,
     pub base_path: Option<BasePath>,
 }
 
@@ -68,6 +71,74 @@ impl Path {
 
                 segment.push((t, state.clone()));
             }
+
+            let mut extra_states = vec![];
+            for ((t1, s1), (t2, s2)) in segment.iter().tuple_windows::<(_, _)>() {
+                let mut state = s1.clone();
+
+                let z1 = s1.points[0].get(base_path.component);
+                let z2 = s2.points[0].get(base_path.component);
+
+                loop {
+                    let u = std::iter::zip(state.points.iter(), s2.points.iter())
+                        .filter_map(|(pt1, pt2)| {
+                            let crossed_cuts = contours.get_crossed_cuts(
+                                pt1,
+                                base_path.component,
+                                pt2.get(base_path.component),
+                                consts,
+                            );
+                            if !crossed_cuts.is_empty() {
+                                Some(crossed_cuts[0].0)
+                            } else {
+                                None
+                            }
+                        })
+                        .fold(1.0_f64, |a, b| a.min(b));
+
+                    if u == 1.0 {
+                        break;
+                    }
+
+                    let zs = state.points[0].get(base_path.component);
+
+                    let z = zs + 0.99 * u * (z2 - zs);
+
+                    state.update(
+                        base_path.excitation,
+                        base_path.component,
+                        z,
+                        contours,
+                        consts,
+                    );
+
+                    let t = t1 + ((z - z1) / (z2 - z1)).re * (t2 - t1);
+
+                    extra_states.push((t, state.clone()));
+
+                    log::info!("{t}: {:?}", state.points[base_path.excitation].sheet_data);
+
+                    let z = zs + 1.01 * u * (z2 - zs);
+
+                    state.update(
+                        base_path.excitation,
+                        base_path.component,
+                        z,
+                        contours,
+                        consts,
+                    );
+
+                    let t = t1 + ((z - z1) / (z2 - z1)).re * (t2 - t1);
+
+                    extra_states.push((t, state.clone()));
+
+                    log::info!("{t}: {:?}", state.points[base_path.excitation].sheet_data);
+                }
+            }
+            segment.extend(extra_states);
+            segment.sort_unstable_by(|(t1, _), (t2, _)| {
+                t1.partial_cmp(t2).unwrap_or(std::cmp::Ordering::Greater)
+            });
 
             let min_cos = (2.0 * std::f64::consts::TAU / 360.0).cos();
 
@@ -127,49 +198,6 @@ impl Path {
                 });
             }
 
-            let mut extra_states = vec![];
-            for ((t1, s1), (t2, s2)) in segment.iter().tuple_windows() {
-                for i in 0..s1.points.len() {
-                    if s1.points[i].sheet_data != s2.points[i].sheet_data {
-                        let crossed_cuts = contours.get_crossed_cuts(
-                            &s1.points[i],
-                            base_path.component,
-                            s2.points[i].get(base_path.component),
-                            consts,
-                        );
-                        let z1 = s1.points[i].get(base_path.component);
-                        let z2 = s2.points[i].get(base_path.component);
-                        for cut in crossed_cuts {
-                            if matches!(cut.typ, crate::CutType::ULongNegative(_)) {
-                                continue;
-                            }
-                            let Some((_, _, u)) = cut.intersection(
-                                z1,z2,
-                                consts,
-                            ) else {
-                                continue;
-                            };
-
-                            let mut state = s2.clone();
-                            state.update(
-                                base_path.excitation,
-                                base_path.component,
-                                z1 * (1.0 - u) + z2 * u,
-                                contours,
-                                consts,
-                            );
-                            let t = (1.0 - u) * t1 + u * t2;
-                            extra_states.push((t, state));
-                        }
-                    }
-                }
-            }
-
-            segment.extend(extra_states);
-            segment.sort_unstable_by(|(t1, _), (t2, _)| {
-                t1.partial_cmp(t2).unwrap_or(std::cmp::Ordering::Greater)
-            });
-
             for (_, state) in segment.into_iter().skip(1) {
                 for (i, point) in state.points.iter().enumerate() {
                     p[i].push(point.get(Component::P));
@@ -187,6 +215,7 @@ impl Path {
             xm,
             u,
             base_path: Some(base_path),
+            segments: vec![],
         }
     }
 }
@@ -224,7 +253,7 @@ impl BasePath {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct EditablePath {
     pub states: Vec<State>,
 }
