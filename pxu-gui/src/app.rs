@@ -5,7 +5,7 @@ use pxu::Pxu;
 use pxu::UCutType;
 
 use crate::anim::Anim;
-use crate::gui_settings::GuiSettings;
+use crate::arguments::Arguments;
 use crate::plot::Plot;
 use crate::ui_state::UiState;
 
@@ -23,8 +23,6 @@ pub struct PxuGuiApp {
     frame_history: crate::frame_history::FrameHistory,
     #[serde(skip)]
     anim_data: Anim,
-    #[serde(skip)]
-    settings: GuiSettings,
     ui_state: UiState,
     #[serde(skip)]
     editable_path: EditablePath,
@@ -68,7 +66,6 @@ impl Default for PxuGuiApp {
             },
             frame_history: Default::default(),
             anim_data: Default::default(),
-            settings: Default::default(),
             ui_state: Default::default(),
             editable_path: Default::default(),
         }
@@ -77,7 +74,7 @@ impl Default for PxuGuiApp {
 
 impl PxuGuiApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, settings: GuiSettings) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, settings: Arguments) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -85,7 +82,7 @@ impl PxuGuiApp {
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
             let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-            app.settings = settings;
+            app.ui_state.set(settings);
             return app;
         }
 
@@ -99,7 +96,7 @@ impl eframe::App for PxuGuiApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if self.settings.show_fps {
+        if self.ui_state.show_fps {
             self.frame_history
                 .on_new_frame(ctx.input().time, frame.info().cpu_usage);
         }
@@ -474,7 +471,7 @@ impl PxuGuiApp {
             self.draw_state_information(ui);
             self.draw_animation_controls(ui, false);
 
-            if self.settings.show_dev {
+            if self.ui_state.show_dev {
                 self.draw_path_editing_controls(ui);
             }
 
@@ -493,7 +490,7 @@ impl PxuGuiApp {
 
                 egui::warn_if_debug_build(ui);
 
-                if self.settings.show_fps {
+                if self.ui_state.show_fps {
                     ui.separator();
                     ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
                     ui.label(format!(

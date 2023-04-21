@@ -1,5 +1,7 @@
 use pxu::UCutType;
 
+use crate::arguments::Arguments;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct UiState {
@@ -14,6 +16,10 @@ pub struct UiState {
     pub edit_path: bool,
     #[serde(skip)]
     pub edit_path_component: pxu::Component,
+    #[serde(skip)]
+    pub show_fps: bool,
+    #[serde(skip)]
+    pub show_dev: bool,
 }
 
 impl Default for UiState {
@@ -26,11 +32,18 @@ impl Default for UiState {
             active_point: 0,
             edit_path: false,
             edit_path_component: pxu::Component::P,
+            show_fps: false,
+            show_dev: false,
         }
     }
 }
 
 impl UiState {
+    pub fn set(&mut self, arguments: Arguments) {
+        self.show_fps = arguments.show_fps;
+        self.show_dev = arguments.show_dev;
+    }
+
     pub fn toggle_fullscreen(&mut self, component: pxu::Component) {
         if self.fullscreen_component.is_some() {
             if self.fullscreen_component != Some(component) {

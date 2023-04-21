@@ -3,22 +3,20 @@
 
 mod anim;
 mod app;
+mod arguments;
 mod frame_history;
-mod gui_settings;
 mod plot;
 mod ui_state;
 
-use crate::gui_settings::GuiSettings;
+use crate::arguments::Arguments;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    use clap::Parser;
-
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
-    let settings = GuiSettings::from(crate::gui_settings::Cli::parse());
+    let arguments = Arguments::parse();
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -30,7 +28,7 @@ fn main() {
                 ..egui::Style::default()
             };
             cc.egui_ctx.set_style(style);
-            Box::new(app::PxuGuiApp::new(cc, settings))
+            Box::new(app::PxuGuiApp::new(cc, arguments))
         }),
     );
 }
@@ -56,7 +54,7 @@ fn main() {
     tracing_wasm::set_as_global_default();
     wasm_logger::init(wasm_logger::Config::default());
 
-    let settings = GuiSettings::from(get_url());
+    let arguments = Arguments::from(get_url());
 
     let web_options = eframe::WebOptions::default();
 
@@ -64,7 +62,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
-            Box::new(|cc| Box::new(app::PxuGuiApp::new(cc, settings))),
+            Box::new(|cc| Box::new(app::PxuGuiApp::new(cc, arguments))),
         )
         .await
         .expect("failed to start eframe");
