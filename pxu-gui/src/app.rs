@@ -496,11 +496,21 @@ impl PxuGuiApp {
 
                 if self.ui_state.show_fps {
                     ui.separator();
+
                     ui.label(format!("Framerate: {:.0} fps", self.frame_history.fps()));
                     ui.label(format!(
                         "CPU usage: {:.1} ms/frame",
                         1000.0 * self.frame_history.mean_frame_time()
                     ));
+
+                    if !self.ui_state.continuous_mode {
+                        ui.label(
+                            egui::RichText::new("⚠ Not running in continuous mode ⚠")
+                                .small()
+                                .color(ui.visuals().warn_fg_color),
+                        )
+                        .on_hover_text("The screen will only be redrawn when it receives input");
+                    }
                     ui.separator();
                 }
 
