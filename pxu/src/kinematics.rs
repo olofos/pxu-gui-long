@@ -273,3 +273,29 @@ pub fn du_crossed_dp(
 
     (term1 + term2 + term3) * consts.h
 }
+
+pub fn xp_on_sheet(
+    p: impl Into<Complex64>,
+    m: f64,
+    consts: CouplingConstants,
+    sheet_data: &SheetData,
+) -> Complex64 {
+    if sheet_data.e_branch > 0 {
+        xp(p, m, consts)
+    } else {
+        xp_crossed(p, m, consts)
+    }
+}
+
+pub fn xm_on_sheet(
+    p: impl Into<Complex64>,
+    m: f64,
+    consts: CouplingConstants,
+    sheet_data: &SheetData,
+) -> Complex64 {
+    if sheet_data.e_branch > 0 {
+        xm(p, m, consts)
+    } else {
+        xm_crossed(p, m, consts)
+    }
+}

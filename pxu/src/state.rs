@@ -1,6 +1,6 @@
 use crate::contours::{Component, Contours};
 use crate::interpolation::PInterpolatorMut;
-use crate::kinematics::{xm, xm_crossed, xp, xp_crossed, CouplingConstants};
+use crate::kinematics::{xm_on_sheet, xp_on_sheet, CouplingConstants};
 use crate::point::Point;
 use num::complex::Complex64;
 
@@ -71,11 +71,7 @@ impl State {
         points[active_point].update(component, new_value, &crossed_cuts, consts);
 
         for i in (active_point + 1)..points.len() {
-            let new_value = if points[i - 1].sheet_data.e_branch > 0 {
-                xm(points[i - 1].p, 1.0, consts)
-            } else {
-                xm_crossed(points[i - 1].p, 1.0, consts)
-            };
+            let new_value = xm_on_sheet(points[i - 1].p, 1.0, consts, &points[i - 1].sheet_data);
             let crossed_cuts = contours
                 .get_crossed_cuts(&points[i], Component::Xp, new_value, consts)
                 .collect::<Vec<_>>();
@@ -83,11 +79,7 @@ impl State {
         }
 
         for i in (0..active_point).rev() {
-            let new_value = if points[i + 1].sheet_data.e_branch > 0 {
-                xp(points[i + 1].p, 1.0, consts)
-            } else {
-                xp_crossed(points[i + 1].p, 1.0, consts)
-            };
+            let new_value = xp_on_sheet(points[i + 1].p, 1.0, consts, &points[i + 1].sheet_data);
             let crossed_cuts = contours
                 .get_crossed_cuts(&points[i], Component::Xm, new_value, consts)
                 .collect::<Vec<_>>();
