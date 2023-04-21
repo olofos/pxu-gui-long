@@ -1,7 +1,7 @@
 use crate::contours::{Component, UCutType};
 use crate::cut::{Cut, CutType};
 use crate::kinematics::{
-    du_dp, dxm_crossed_dp, dxm_dp, dxp_crossed_dp, dxp_dp, u, xm, xm_crossed, xp, xp_crossed,
+    du_dp, dxm_dp_on_sheet, dxp_dp_on_sheet, u, xm, xm_on_sheet, xp, xp_on_sheet,
     CouplingConstants, SheetData, UBranch,
 };
 use crate::nr;
@@ -56,18 +56,9 @@ impl Point {
         consts: CouplingConstants,
     ) -> bool {
         let Some(p) = p else {return false};
-        let new_xp: Complex64;
-        let new_xm: Complex64;
-        let new_u: Complex64;
-
-        if sheet_data.e_branch > 0 {
-            new_xp = xp(p, 1.0, consts);
-            new_xm = xm(p, 1.0, consts);
-        } else {
-            new_xp = xp_crossed(p, 1.0, consts);
-            new_xm = xm_crossed(p, 1.0, consts);
-        }
-        new_u = u(p, consts, sheet_data);
+        let new_xp = xp_on_sheet(p, 1.0, consts, sheet_data);
+        let new_xm = xm_on_sheet(p, 1.0, consts, sheet_data);
+        let new_u = u(p, consts, sheet_data);
 
         if (self.p - p).re.abs() > 0.125 || (self.p - p).im.abs() > 0.25 {
             log::debug!(
@@ -122,23 +113,13 @@ impl Point {
         guess: Complex64,
         consts: CouplingConstants,
     ) -> Option<Complex64> {
-        if sheet_data.e_branch > 0 {
-            nr::find_root(
-                |p| xp(p, 1.0, consts) - new_xp,
-                |p| dxp_dp(p, 1.0, consts),
-                guess,
-                1.0e-6,
-                50,
-            )
-        } else {
-            nr::find_root(
-                |p| xp_crossed(p, 1.0, consts) - new_xp,
-                |p| dxp_crossed_dp(p, 1.0, consts),
-                guess,
-                1.0e-6,
-                50,
-            )
-        }
+        nr::find_root(
+            |p| xp_on_sheet(p, 1.0, consts, sheet_data) - new_xp,
+            |p| dxp_dp_on_sheet(p, 1.0, consts, sheet_data),
+            guess,
+            1.0e-6,
+            50,
+        )
     }
 
     fn shift_xm(
@@ -148,23 +129,13 @@ impl Point {
         guess: Complex64,
         consts: CouplingConstants,
     ) -> Option<Complex64> {
-        if sheet_data.e_branch > 0 {
-            nr::find_root(
-                |p| xm(p, 1.0, consts) - new_xm,
-                |p| dxm_dp(p, 1.0, consts),
-                guess,
-                1.0e-6,
-                50,
-            )
-        } else {
-            nr::find_root(
-                |p| xm_crossed(p, 1.0, consts) - new_xm,
-                |p| dxm_crossed_dp(p, 1.0, consts),
-                guess,
-                1.0e-6,
-                50,
-            )
-        }
+        nr::find_root(
+            |p| xm_on_sheet(p, 1.0, consts, sheet_data) - new_xm,
+            |p| dxm_dp_on_sheet(p, 1.0, consts, sheet_data),
+            guess,
+            1.0e-6,
+            50,
+        )
     }
 
     fn shift_u(

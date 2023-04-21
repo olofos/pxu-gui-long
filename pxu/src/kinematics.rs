@@ -278,3 +278,29 @@ pub fn xm_on_sheet(
         xm_crossed(p, m, consts)
     }
 }
+
+pub fn dxp_dp_on_sheet(
+    p: impl Into<Complex64>,
+    m: f64,
+    consts: CouplingConstants,
+    sheet_data: &SheetData,
+) -> Complex64 {
+    if sheet_data.e_branch > 0 {
+        dxp_dp(p, m, consts)
+    } else {
+        dxp_crossed_dp(p, m, consts)
+    }
+}
+
+pub fn dxm_dp_on_sheet(
+    p: impl Into<Complex64>,
+    m: f64,
+    consts: CouplingConstants,
+    sheet_data: &SheetData,
+) -> Complex64 {
+    if sheet_data.e_branch > 0 {
+        dxm_dp(p, m, consts)
+    } else {
+        dxm_crossed_dp(p, m, consts)
+    }
+}
