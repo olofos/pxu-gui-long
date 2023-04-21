@@ -56,6 +56,41 @@ impl State {
         Self { points }
     }
 
+    fn update_point(
+        pt: &mut Point,
+        component: Component,
+        final_value: Complex64,
+        contours: &Contours,
+        consts: CouplingConstants,
+    ) {
+        loop {
+            let current_value = pt.get(component);
+
+            let crossings = contours.get_cut_crossings(pt, component, final_value, consts);
+
+            let next_value = if crossings.len() > 1 {
+                let t = (crossings[0].0 + crossings[1].0) / 2.0;
+                current_value + t * (final_value - current_value)
+            } else {
+                final_value
+            };
+
+            if crossings.is_empty() {
+                if !pt.update(component, next_value, &[], consts) {
+                    break;
+                }
+            } else {
+                if !pt.update(component, next_value, &crossings[0].1, consts) {
+                    break;
+                }
+            }
+
+            if next_value == final_value {
+                break;
+            }
+        }
+    }
+
     pub fn update_points(
         points: &mut Vec<Point>,
         active_point: usize,
@@ -64,26 +99,22 @@ impl State {
         contours: &Contours,
         consts: CouplingConstants,
     ) {
-        let crossed_cuts = contours
-            .get_crossed_cuts(&points[active_point], component, new_value, consts)
-            .collect::<Vec<_>>();
-
-        points[active_point].update(component, new_value, &crossed_cuts, consts);
+        Self::update_point(
+            &mut points[active_point],
+            component,
+            new_value,
+            contours,
+            consts,
+        );
 
         for i in (active_point + 1)..points.len() {
             let new_value = xm_on_sheet(points[i - 1].p, 1.0, consts, &points[i - 1].sheet_data);
-            let crossed_cuts = contours
-                .get_crossed_cuts(&points[i], Component::Xp, new_value, consts)
-                .collect::<Vec<_>>();
-            points[i].update(Component::Xp, new_value, &crossed_cuts, consts);
+            Self::update_point(&mut points[i], Component::Xp, new_value, contours, consts);
         }
 
         for i in (0..active_point).rev() {
             let new_value = xp_on_sheet(points[i + 1].p, 1.0, consts, &points[i + 1].sheet_data);
-            let crossed_cuts = contours
-                .get_crossed_cuts(&points[i], Component::Xm, new_value, consts)
-                .collect::<Vec<_>>();
-            points[i].update(Component::Xm, new_value, &crossed_cuts, consts);
+            Self::update_point(&mut points[i], Component::Xm, new_value, contours, consts);
         }
     }
 

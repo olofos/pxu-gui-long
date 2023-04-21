@@ -169,7 +169,7 @@ impl Point {
         new_value: Complex64,
         crossed_cuts: &[&Cut],
         consts: CouplingConstants,
-    ) {
+    ) -> bool {
         let mut new_sheet_data = self.sheet_data.clone();
         for cut in crossed_cuts {
             match cut.typ {
@@ -242,9 +242,10 @@ impl Point {
             };
 
             if self.try_set(p, &new_sheet_data, consts) {
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     pub fn same_sheet(&self, other: &Point, component: Component, u_cut_type: UCutType) -> bool {
