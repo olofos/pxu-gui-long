@@ -258,41 +258,7 @@ impl Point {
     pub fn same_sheet(&self, other: &Point, component: Component, u_cut_type: UCutType) -> bool {
         let sd1 = &self.sheet_data;
         let sd2 = &other.sheet_data;
-
-        match component {
-            Component::P => sd1.e_branch == sd2.e_branch,
-            Component::U => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
-                    || (sd1.log_branch_p - sd1.log_branch_m)
-                        != (sd2.log_branch_p - sd2.log_branch_m)
-                {
-                    false
-                } else if u_cut_type == UCutType::Long {
-                    self.xp.im.signum() == other.xp.im.signum()
-                        && self.xm.im.signum() == other.xm.im.signum()
-                } else {
-                    sd1.u_branch == sd2.u_branch
-                }
-            }
-            Component::Xp => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
-                    false
-                } else if u_cut_type == UCutType::Long {
-                    self.xm.im.signum() == other.xm.im.signum()
-                } else {
-                    sd1.u_branch.1 == sd2.u_branch.1
-                }
-            }
-            Component::Xm => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
-                    false
-                } else if u_cut_type == UCutType::Long {
-                    self.xp.im.signum() == other.xp.im.signum()
-                } else {
-                    sd1.u_branch.0 == sd2.u_branch.0
-                }
-            }
-        }
+        sd1.is_same(sd2, component, u_cut_type)
     }
 
     pub fn en(&self, consts: CouplingConstants) -> Complex64 {
@@ -308,7 +274,14 @@ impl SheetData {
         match component {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
+                if u_cut_type == UCutType::Short
+                    && ((sd1.u_branch.0 == UBranch::Between && sd2.u_branch.0 == UBranch::Between)
+                        || (sd1.u_branch.1 == UBranch::Between
+                            && sd2.u_branch.1 == UBranch::Between))
+                {
+                    return true;
+                } else if (sd1.log_branch_p + sd1.log_branch_m)
+                    != (sd2.log_branch_p + sd2.log_branch_m)
                     || (sd1.log_branch_p - sd1.log_branch_m)
                         != (sd2.log_branch_p - sd2.log_branch_m)
                 {
@@ -321,7 +294,14 @@ impl SheetData {
                 }
             }
             Component::Xp => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                if u_cut_type == UCutType::Short
+                    && sd1.u_branch.1 == UBranch::Between
+                    && sd2.u_branch.1 == UBranch::Between
+                {
+                    return true;
+                } else if (sd1.log_branch_p + sd1.log_branch_m)
+                    != (sd2.log_branch_p + sd2.log_branch_m)
+                {
                     false
                 } else if u_cut_type == UCutType::Long {
                     self.im_x_sign.1.signum() == other.im_x_sign.1.signum()
@@ -330,7 +310,14 @@ impl SheetData {
                 }
             }
             Component::Xm => {
-                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                if u_cut_type == UCutType::Short
+                    && sd1.u_branch.0 == UBranch::Between
+                    && sd2.u_branch.0 == UBranch::Between
+                {
+                    return true;
+                } else if (sd1.log_branch_p + sd1.log_branch_m)
+                    != (sd2.log_branch_p + sd2.log_branch_m)
+                {
                     false
                 } else if u_cut_type == UCutType::Long {
                     self.im_x_sign.0.signum() == other.im_x_sign.0.signum()
