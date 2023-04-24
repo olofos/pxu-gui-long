@@ -327,7 +327,6 @@ impl Path {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct BasePath {
     pub start: State,
-    pub end: State,
     pub path: Vec<Complex64>,
     pub component: Component,
     pub excitation: usize,
@@ -340,7 +339,6 @@ impl BasePath {
         excitation: usize,
     ) -> Self {
         let start = editable_path.states.first().unwrap().clone();
-        let end = editable_path.states.last().unwrap().clone();
         let path = editable_path
             .states
             .iter()
@@ -349,7 +347,6 @@ impl BasePath {
 
         Self {
             start,
-            end,
             path,
             component,
             excitation,
