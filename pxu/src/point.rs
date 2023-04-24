@@ -49,13 +49,13 @@ impl Point {
         }
     }
 
-    fn try_set(
-        &mut self,
+    fn shifted(
+        &self,
         p: Option<Complex64>,
         sheet_data: &SheetData,
         consts: CouplingConstants,
-    ) -> bool {
-        let Some(p) = p else {return false};
+    ) -> Option<Self> {
+        let Some(p) = p else {return None};
         let new_xp = xp_on_sheet(p, 1.0, consts, sheet_data);
         let new_xm = xm_on_sheet(p, 1.0, consts, sheet_data);
         let new_u = u(p, consts, sheet_data);
@@ -66,7 +66,7 @@ impl Point {
                 (self.p - p).norm_sqr(),
                 (self.p - p).re.abs()
             );
-            return false;
+            return None;
         }
 
         if (self.xp - new_xp).norm_sqr() > 16.0 / (consts.h * consts.h) {
@@ -77,7 +77,7 @@ impl Point {
                 self.xp.norm_sqr(),
                 self.xp.norm_sqr() * (consts.h * consts.h)
             );
-            // return false;
+            // return None;
         }
 
         if (self.xm - new_xm).norm_sqr() > 16.0 / (consts.h * consts.h) {
@@ -89,21 +89,26 @@ impl Point {
                 self.xm.norm_sqr() * (consts.h * consts.h)
             );
 
-            // return false;
+            // return None;
         }
 
         if (self.u - new_u).norm_sqr() > 16.0 / (consts.h * consts.h) {
             log::debug!("u jump too large");
-            // return false;
+            // return None;
         }
 
-        self.sheet_data = sheet_data.clone();
-        self.p = p;
-        self.xp = new_xp;
-        self.xm = new_xm;
-        self.u = new_u;
+        let sheet_data = sheet_data.clone();
+        let xp = new_xp;
+        let xm = new_xm;
+        let u = new_u;
 
-        true
+        Some(Self {
+            p,
+            xp,
+            xm,
+            u,
+            sheet_data,
+        })
     }
 
     fn shift_xp(
@@ -225,7 +230,7 @@ impl Point {
             log::info!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
-        for guess in vec![
+        for guess in [
             self.p,
             self.p - 0.01,
             self.p + 0.01,
@@ -241,10 +246,12 @@ impl Point {
                 Component::U => self.shift_u(new_value, &new_sheet_data, guess, consts),
             };
 
-            if self.try_set(p, &new_sheet_data, consts) {
+            if let Some(pt) = self.shifted(p, &new_sheet_data, consts) {
+                *self = pt;
                 return true;
             }
         }
+
         false
     }
 
@@ -290,5 +297,47 @@ impl Point {
 
     pub fn en(&self, consts: CouplingConstants) -> Complex64 {
         -Complex64::i() * consts.h / 2.0 * (self.xp - 1.0 / self.xp - self.xm + 1.0 / self.xm)
+    }
+}
+
+impl SheetData {
+    pub fn is_same(&self, other: &SheetData, component: Component, u_cut_type: UCutType) -> bool {
+        let sd1 = self;
+        let sd2 = other;
+
+        match component {
+            Component::P => sd1.e_branch == sd2.e_branch,
+            Component::U => {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m)
+                    || (sd1.log_branch_p - sd1.log_branch_m)
+                        != (sd2.log_branch_p - sd2.log_branch_m)
+                {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.im_x_sign.0.signum() == other.im_x_sign.0.signum()
+                        && self.im_x_sign.1.signum() == other.im_x_sign.1.signum()
+                } else {
+                    sd1.u_branch == sd2.u_branch
+                }
+            }
+            Component::Xp => {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.im_x_sign.1.signum() == other.im_x_sign.1.signum()
+                } else {
+                    sd1.u_branch.1 == sd2.u_branch.1
+                }
+            }
+            Component::Xm => {
+                if (sd1.log_branch_p + sd1.log_branch_m) != (sd2.log_branch_p + sd2.log_branch_m) {
+                    false
+                } else if u_cut_type == UCutType::Long {
+                    self.im_x_sign.0.signum() == other.im_x_sign.0.signum()
+                } else {
+                    sd1.u_branch.0 == sd2.u_branch.0
+                }
+            }
+        }
     }
 }

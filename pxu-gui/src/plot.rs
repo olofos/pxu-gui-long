@@ -561,20 +561,42 @@ impl Plot {
             shapes.extend(anchor_shapes);
             shapes.extend(active_shapes);
         } else {
-            let contours = match self.component {
-                pxu::Component::P => &pxu.path.p,
-                pxu::Component::Xp => &pxu.path.xp,
-                pxu::Component::Xm => &pxu.path.xm,
-                pxu::Component::U => &pxu.path.u,
-            };
+            for (active_point, segments) in pxu.path.segments.iter().enumerate() {
+                for segment in segments.iter() {
+                    let contour = match self.component {
+                        pxu::Component::P => &segment.p,
+                        pxu::Component::Xp => &segment.xp,
+                        pxu::Component::Xm => &segment.xm,
+                        pxu::Component::U => &segment.u,
+                    };
 
-            for contour in contours.iter() {
-                let points = contour
-                    .iter()
-                    .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
-                    .collect::<Vec<_>>();
+                    let points = contour
+                        .iter()
+                        .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
+                        .collect::<Vec<_>>();
 
-                shapes.push(egui::Shape::line(points, Stroke::new(2.0, Color32::GRAY)));
+                    // for center in points.iter() {
+                    //     shapes.push(egui::Shape::circle_filled(*center, 4.0, Color32::GRAY));
+                    // }
+
+                    let color = if pxu.state.points[ui_state.active_point].sheet_data.is_same(
+                        &segment.sheet_data,
+                        self.component,
+                        ui_state.u_cut_type,
+                    ) {
+                        Color32::DARK_GRAY
+                    } else {
+                        Color32::GRAY
+                    };
+
+                    let width = if active_point == ui_state.active_point {
+                        4.0
+                    } else {
+                        2.0
+                    };
+
+                    shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
+                }
             }
         }
 

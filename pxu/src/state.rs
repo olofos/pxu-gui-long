@@ -62,7 +62,7 @@ impl State {
         final_value: Complex64,
         contours: &Contours,
         consts: CouplingConstants,
-    ) {
+    ) -> bool {
         loop {
             let current_value = pt.get(component);
 
@@ -77,14 +77,14 @@ impl State {
 
             if crossings.is_empty() {
                 if !pt.update(component, next_value, &[], consts) {
-                    break;
+                    return false;
                 }
             } else if !pt.update(component, next_value, &crossings[0].1, consts) {
-                break;
+                return false;
             }
 
             if next_value == final_value {
-                break;
+                return true;
             }
         }
     }
@@ -96,8 +96,10 @@ impl State {
         new_value: Complex64,
         contours: &Contours,
         consts: CouplingConstants,
-    ) {
-        Self::update_point(
+    ) -> bool {
+        let mut result = true;
+
+        result &= Self::update_point(
             &mut points[active_point],
             component,
             new_value,
@@ -107,13 +109,16 @@ impl State {
 
         for i in (active_point + 1)..points.len() {
             let new_value = xm_on_sheet(points[i - 1].p, 1.0, consts, &points[i - 1].sheet_data);
-            Self::update_point(&mut points[i], Component::Xp, new_value, contours, consts);
+            result &=
+                Self::update_point(&mut points[i], Component::Xp, new_value, contours, consts);
         }
 
         for i in (0..active_point).rev() {
             let new_value = xp_on_sheet(points[i + 1].p, 1.0, consts, &points[i + 1].sheet_data);
-            Self::update_point(&mut points[i], Component::Xm, new_value, contours, consts);
+            result &=
+                Self::update_point(&mut points[i], Component::Xm, new_value, contours, consts);
         }
+        result
     }
 
     pub fn update(
@@ -123,7 +128,7 @@ impl State {
         new_value: Complex64,
         contours: &Contours,
         consts: CouplingConstants,
-    ) {
+    ) -> bool {
         Self::update_points(
             &mut self.points,
             active_point,
@@ -131,7 +136,7 @@ impl State {
             new_value,
             contours,
             consts,
-        );
+        )
     }
 
     pub fn p(&self) -> Complex64 {
