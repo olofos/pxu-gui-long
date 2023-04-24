@@ -188,7 +188,7 @@ impl ConstructedSegment {
 
                 let zs = state.points[base_path.excitation].get(base_path.component);
 
-                let z = zs + (s - 0.05).clamp(0.0, 1.0) * (z2 - zs);
+                let z = zs + (s - 0.01).clamp(0.0, 1.0) * (z2 - zs);
 
                 if !state.update(
                     base_path.excitation,
@@ -213,7 +213,7 @@ impl ConstructedSegment {
                     state.points[base_path.excitation].sheet_data
                 );
 
-                let z = zs + (s + 0.05).clamp(0.0, 1.0) * (z2 - zs);
+                let z = zs + (s + 0.01).clamp(0.0, 1.0) * (z2 - zs);
 
                 if !state.update(
                     base_path.excitation,
