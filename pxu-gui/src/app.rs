@@ -25,6 +25,8 @@ pub struct PxuGuiApp {
     anim_data: Anim,
     ui_state: UiState,
     editable_path: EditablePath,
+    #[serde(skip)]
+    path_dialog_text: Option<String>,
 }
 
 impl Default for PxuGuiApp {
@@ -67,6 +69,7 @@ impl Default for PxuGuiApp {
             anim_data: Default::default(),
             ui_state: Default::default(),
             editable_path: Default::default(),
+            path_dialog_text: None,
         }
     }
 }
@@ -221,6 +224,48 @@ impl eframe::App for PxuGuiApp {
                 );
             }
         });
+
+        let mut close_dialog = false;
+        if let Some(ref mut s) = self.path_dialog_text {
+            egui::Window::new("Load/save path")
+                .default_height(500.0)
+                .show(ctx, |ui| {
+                    egui::ScrollArea::vertical()
+                        .max_height(600.0)
+                        .show(ui, |ui| {
+                            ui.add(
+                                egui::TextEdit::multiline(s)
+                                    .font(egui::TextStyle::Monospace) // for cursor height
+                                    .code_editor()
+                                    .desired_rows(10)
+                                    .lock_focus(true)
+                                    .desired_width(f32::INFINITY),
+                            );
+                        });
+                    ui.add_space(10.0);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::LEFT), |ui| {
+                        ui.add_space(10.0);
+                        if ui.button("Cancel").clicked() {
+                            close_dialog = true;
+                        }
+                        if ui.button("OK").clicked() {
+                            let base_path: Result<pxu::path::BasePath, _> =
+                                serde_json::from_str(&s);
+                            if let Ok(base_path) = base_path {
+                                close_dialog = true;
+                                self.pxu.path = pxu::Path::from_base_path(
+                                    base_path,
+                                    &self.pxu.contours,
+                                    self.pxu.consts,
+                                );
+                            }
+                        }
+                    });
+                });
+        }
+        if close_dialog {
+            self.path_dialog_text = None;
+        }
     }
 }
 
@@ -374,6 +419,19 @@ impl PxuGuiApp {
                 } else {
                     self.pxu.path = Default::default();
                 }
+            }
+            // });
+            // ui.horizontal(|ui| {
+            if ui
+                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load/Save"))
+                .clicked()
+            {
+                let s = if let Some(base_path) = &self.pxu.path.base_path {
+                    serde_json::json!(base_path).to_string()
+                } else {
+                    String::new()
+                };
+                self.path_dialog_text = Some(s);
             }
 
             if ui
