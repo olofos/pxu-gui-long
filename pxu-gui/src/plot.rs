@@ -575,27 +575,27 @@ impl Plot {
                         .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
                         .collect::<Vec<_>>();
 
-                    // for center in points.iter() {
-                    //     shapes.push(egui::Shape::circle_filled(*center, 4.0, Color32::GRAY));
-                    // }
+                    let color = if active_point == ui_state.active_point {
+                        Color32::BLUE
+                    } else {
+                        Color32::GRAY
+                    };
+                    let width = 2.0;
 
-                    let color = if pxu.state.points[ui_state.active_point].sheet_data.is_same(
+                    if pxu.state.points[ui_state.active_point].sheet_data.is_same(
                         &segment.sheet_data,
                         self.component,
                         ui_state.u_cut_type,
                     ) {
-                        Color32::DARK_GRAY
+                        shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
                     } else {
-                        Color32::GRAY
-                    };
-
-                    let width = if active_point == ui_state.active_point {
-                        4.0
-                    } else {
-                        2.0
-                    };
-
-                    shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
+                        shapes.extend(egui::Shape::dashed_line(
+                            &points,
+                            Stroke::new(width, color),
+                            2.5,
+                            5.0,
+                        ));
+                    }
                 }
             }
         }
