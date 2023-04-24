@@ -279,7 +279,7 @@ impl SheetData {
                         || (sd1.u_branch.1 == UBranch::Between
                             && sd2.u_branch.1 == UBranch::Between))
                 {
-                    return true;
+                    true
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
                     != (sd2.log_branch_p + sd2.log_branch_m)
                     || (sd1.log_branch_p - sd1.log_branch_m)
@@ -298,7 +298,7 @@ impl SheetData {
                     && sd1.u_branch.1 == UBranch::Between
                     && sd2.u_branch.1 == UBranch::Between
                 {
-                    return true;
+                    true
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
                     != (sd2.log_branch_p + sd2.log_branch_m)
                 {
@@ -314,7 +314,7 @@ impl SheetData {
                     && sd1.u_branch.0 == UBranch::Between
                     && sd2.u_branch.0 == UBranch::Between
                 {
-                    return true;
+                    true
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
                     != (sd2.log_branch_p + sd2.log_branch_m)
                 {

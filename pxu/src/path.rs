@@ -30,7 +30,7 @@ struct ConstructedSegment {
 }
 
 impl ConstructedSegment {
-    fn to_segments(self) -> Vec<Segment> {
+    fn segments(self) -> Vec<Segment> {
         let mut segments = vec![];
         for i in 0..self.path[0].1.points.len() {
             let mut p = vec![];
@@ -144,7 +144,7 @@ impl ConstructedSegment {
     ) -> Vec<Self> {
         segments
             .iter_mut()
-            .for_each(|segment| segment.refine(&base_path, contours, consts));
+            .for_each(|segment| segment.refine(base_path, contours, consts));
         segments
     }
 
@@ -307,7 +307,7 @@ impl Path {
 
         let segments = segments
             .into_iter()
-            .map(|segment| segment.to_segments())
+            .map(|segment| segment.segments())
             .collect::<Vec<_>>();
 
         let rows = segments.len();

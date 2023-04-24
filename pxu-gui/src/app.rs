@@ -249,8 +249,7 @@ impl eframe::App for PxuGuiApp {
                             close_dialog = true;
                         }
                         if ui.button("OK").clicked() {
-                            let base_path: Result<pxu::path::BasePath, _> =
-                                serde_json::from_str(&s);
+                            let base_path: Result<pxu::path::BasePath, _> = serde_json::from_str(s);
                             if let Ok(base_path) = base_path {
                                 close_dialog = true;
                                 self.pxu.path = pxu::Path::from_base_path(
