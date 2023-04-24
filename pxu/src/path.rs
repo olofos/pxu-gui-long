@@ -163,23 +163,21 @@ impl ConstructedSegment {
         for ((t1, s1), (t2, s2)) in self.path.into_iter().tuple_windows::<(_, _)>() {
             let mut state = s1.clone();
 
-            let z1 = s1.points[0].get(base_path.component);
-            let z2 = s2.points[0].get(base_path.component);
+            let z1 = s1.points[base_path.excitation].get(base_path.component);
+            let z2 = s2.points[base_path.excitation].get(base_path.component);
 
             loop {
                 let s = std::iter::zip(state.points.iter(), s2.points.iter())
                     .filter_map(|(pt1, pt2)| {
-                        let crossed_cuts = contours.get_crossed_cuts(
-                            pt1,
-                            base_path.component,
-                            pt2.get(base_path.component),
-                            consts,
-                        );
-                        if !crossed_cuts.is_empty() {
-                            Some(crossed_cuts[0].0)
-                        } else {
-                            None
-                        }
+                        contours
+                            .get_crossed_cuts(
+                                pt1,
+                                base_path.component,
+                                pt2.get(base_path.component),
+                                consts,
+                            )
+                            .first()
+                            .map(|&(t, _)| t)
                     })
                     .fold(1.0_f64, |a, b| a.min(b));
 
@@ -188,7 +186,7 @@ impl ConstructedSegment {
                     break;
                 }
 
-                let zs = state.points[0].get(base_path.component);
+                let zs = state.points[base_path.excitation].get(base_path.component);
 
                 let z = zs + (s - 0.05).clamp(0.0, 1.0) * (z2 - zs);
 
@@ -209,7 +207,11 @@ impl ConstructedSegment {
                 segments.last_mut().unwrap().end =
                     state.points[base_path.excitation].get(base_path.component);
 
-                log::info!("{t}: {:?}", state.points[base_path.excitation].sheet_data);
+                log::info!(
+                    "{t} ({t1},{t2}): {:.2} {:?}",
+                    z,
+                    state.points[base_path.excitation].sheet_data
+                );
 
                 let z = zs + (s + 0.05).clamp(0.0, 1.0) * (z2 - zs);
 
@@ -232,7 +234,11 @@ impl ConstructedSegment {
                     path: vec![(t, state.clone())],
                 });
 
-                log::info!("{t}: {:?}", state.points[base_path.excitation].sheet_data);
+                log::info!(
+                    "{t} ({t1},{t2}): {:.2} {:?}",
+                    z,
+                    state.points[base_path.excitation].sheet_data
+                );
             }
         }
 
