@@ -249,11 +249,15 @@ impl eframe::App for PxuGuiApp {
                             close_dialog = true;
                         }
                         if ui.button("OK").clicked() {
-                            let base_path: Result<pxu::path::BasePath, _> = serde_json::from_str(s);
-                            if let Ok(base_path) = base_path {
+                            let saved_path: Result<pxu::path::SavedPath, _> =
+                                serde_json::from_str(s);
+                            if let Ok(saved_path) = saved_path {
                                 close_dialog = true;
+                                self.pxu.consts = saved_path.consts;
+                                self.pxu.state = saved_path.base_path.start.clone();
+                                self.ui_state.active_point = saved_path.base_path.excitation;
                                 self.pxu.path = pxu::Path::from_base_path(
-                                    base_path,
+                                    saved_path.base_path,
                                     &self.pxu.contours,
                                     self.pxu.consts,
                                 );
@@ -426,7 +430,11 @@ impl PxuGuiApp {
                 .clicked()
             {
                 let s = if let Some(base_path) = &self.pxu.path.base_path {
-                    serde_json::json!(base_path).to_string()
+                    let saved_path = pxu::path::SavedPath {
+                        base_path: base_path.clone(),
+                        consts: self.pxu.consts,
+                    };
+                    serde_json::json!(saved_path).to_string()
                 } else {
                     String::new()
                 };

@@ -29,6 +29,20 @@ struct ConstructedSegment {
     path: Vec<(f64, State)>,
 }
 
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub struct BasePath {
+    pub start: State,
+    pub path: Vec<Complex64>,
+    pub component: Component,
+    pub excitation: usize,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct SavedPath {
+    pub base_path: BasePath,
+    pub consts: crate::CouplingConstants,
+}
+
 impl ConstructedSegment {
     fn segments(self) -> Vec<Segment> {
         let mut segments = vec![];
@@ -43,7 +57,7 @@ impl ConstructedSegment {
             for (_, state) in self.path.iter() {
                 if state.points[i].sheet_data != sheet_data {
                     log::warn!(
-                        "Inconsistent sheet data: {:?} vs {:?}",
+                        "Inconsistent sheet data ({i}): {:?} vs {:?}",
                         sheet_data,
                         state.points[i].sheet_data
                     );
@@ -79,7 +93,7 @@ impl ConstructedSegment {
 
         let min_cos = (2.0 * std::f64::consts::TAU / 360.0).cos();
 
-        for _ in 0..5 {
+        for _ in 0..10 {
             let mut refinements: Vec<(f64, State)> = vec![];
 
             let mut prev = false;
@@ -197,7 +211,11 @@ impl ConstructedSegment {
                     contours,
                     consts,
                 ) {
-                    log::warn!("Couldn't update #1");
+                    log::warn!(
+                        "Couldn't update #1 ({} {:?})",
+                        base_path.excitation,
+                        base_path.component
+                    );
                     break;
                 }
 
@@ -222,7 +240,11 @@ impl ConstructedSegment {
                     contours,
                     consts,
                 ) {
-                    log::warn!("Couldn't update #2");
+                    log::warn!(
+                        "Couldn't update #2 ({} {:?})",
+                        base_path.excitation,
+                        base_path.component,
+                    );
                     break;
                 }
 
@@ -322,14 +344,6 @@ impl Path {
             segments,
         }
     }
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct BasePath {
-    pub start: State,
-    pub path: Vec<Complex64>,
-    pub component: Component,
-    pub excitation: usize,
 }
 
 impl BasePath {
