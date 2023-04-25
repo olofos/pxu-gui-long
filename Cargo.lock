@@ -1359,6 +1359,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "make-paths"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "indicatif",
+ "itertools",
+ "log",
+ "md5",
+ "num",
+ "pxu",
+ "serde",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

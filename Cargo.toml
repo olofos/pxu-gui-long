@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["pxu", "pxu-figures", "pxu-gui"]
+members = ["pxu", "pxu-figures", "pxu-gui", "make-paths"]
 
 [workspace.package]
 version = "0.1.0"
