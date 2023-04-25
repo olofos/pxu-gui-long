@@ -1,4 +1,4 @@
-use std::f64::consts::TAU;
+use std::f64::consts::{PI, TAU};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use num::complex::Complex64;
@@ -108,7 +108,7 @@ fn main() -> std::io::Result<()> {
         println!("{s}");
     }
 
-    if true {
+    if false {
         let center = Complex64::new(0.0, 0.0);
         let radius = 0.10;
         let steps = 128;
@@ -129,6 +129,97 @@ fn main() -> std::io::Result<()> {
                 path,
                 start: state,
                 component: pxu::Component::P,
+                excitation: 0,
+            },
+            consts,
+        };
+
+        let s = serde_json::to_string(&saved_path)?;
+        println!("{s}");
+    }
+
+    if true {
+        fn goto(
+            state: &mut pxu::State,
+            component: pxu::Component,
+            new_value: impl Into<Complex64>,
+            contours: &pxu::Contours,
+            consts: CouplingConstants,
+            steps: usize,
+        ) {
+            let z0 = state.points[0].get(component);
+            let z1 = new_value.into();
+
+            for i in 0..=steps {
+                let z = z0 + (i as f64 / steps as f64) * (z1 - z0);
+                state.update(0, component, z, contours, consts);
+            }
+
+            if (state.points[0].get(component) - z1).norm() > 1.0e-6 {
+                println!(
+                    "Could not goto ({})",
+                    (state.points[0].get(component) - z1).norm()
+                );
+            }
+        }
+
+        let mut state = pxu::State::new(1, consts);
+
+        let x0 = 2.8;
+        let y0 = -1.5;
+        let r = 0.25;
+
+        goto(&mut state, pxu::Component::U, 0.0, &contours, consts, 10);
+        goto(
+            &mut state,
+            pxu::Component::U,
+            Complex64::new(0.0, y0),
+            &contours,
+            consts,
+            3,
+        );
+
+        goto(
+            &mut state,
+            pxu::Component::U,
+            -x0 + r,
+            &contours,
+            consts,
+            16,
+        );
+
+        let mut path = vec![Complex64::new(-x0 + r, y0)];
+
+        let steps = (0..=4)
+            .map(|n| PI / 2.0 * n as f64 / 4.0)
+            .collect::<Vec<_>>();
+        for y in 0..=2 {
+            let c = Complex64::new(x0 - r, y0 + r + 5.0 * y as f64);
+            for theta in steps.iter() {
+                path.push(c + Complex64::from_polar(r, *theta - PI / 2.0));
+            }
+
+            let c = Complex64::new(x0 - r, y0 - r + 5.0 * (y as f64 + 0.5));
+            for theta in steps.iter() {
+                path.push(c + Complex64::from_polar(r, *theta));
+            }
+
+            let c = Complex64::new(-x0 + r, y0 + r + 5.0 * (y as f64 + 0.5));
+            for theta in steps.iter() {
+                path.push(c + Complex64::from_polar(r, -PI / 2.0 - *theta));
+            }
+
+            let c = Complex64::new(-x0 + r, y0 - r + 5.0 * (y as f64 + 1.0));
+            for theta in steps.iter() {
+                path.push(c + Complex64::from_polar(r, PI - *theta));
+            }
+        }
+
+        let saved_path = pxu::path::SavedPath {
+            base_path: pxu::path::BasePath {
+                path,
+                start: state,
+                component: pxu::Component::U,
                 excitation: 0,
             },
             consts,
