@@ -275,9 +275,8 @@ impl SheetData {
             Component::P => sd1.e_branch == sd2.e_branch,
             Component::U => {
                 if u_cut_type == UCutType::Short
-                    && ((sd1.u_branch.0 == UBranch::Between && sd2.u_branch.0 == UBranch::Between)
-                        || (sd1.u_branch.1 == UBranch::Between
-                            && sd2.u_branch.1 == UBranch::Between))
+                    && sd1.u_branch == sd2.u_branch
+                    && (sd1.u_branch.0 == UBranch::Between || sd1.u_branch.1 == UBranch::Between)
                 {
                     true
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
