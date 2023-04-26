@@ -335,14 +335,53 @@ impl Path {
         let rows = segments.len();
         let cols = segments[0].len();
 
-        let segments: Vec<Vec<_>> = (0..cols)
+        let mut segments: Vec<Vec<_>> = (0..cols)
             .map(|col| (0..rows).map(|row| segments[row][col].clone()).collect())
             .collect();
+
+        segments
+            .iter_mut()
+            .for_each(|excitation| excitation.iter_mut().for_each(|segment| segment.simplify()));
+
+        log::info!(
+            "{},{},{},{} points",
+            segments[0].iter().map(|s| s.p.len()).sum::<usize>(),
+            segments[0].iter().map(|s| s.xp.len()).sum::<usize>(),
+            segments[0].iter().map(|s| s.xm.len()).sum::<usize>(),
+            segments[0].iter().map(|s| s.u.len()).sum::<usize>(),
+        );
 
         Self {
             base_path: Some(base_path),
             segments,
         }
+    }
+}
+
+impl Segment {
+    fn simplify_line(points: &mut Vec<Complex64>) {
+        if points.len() < 2 {
+            return;
+        }
+        let mut new_points = vec![points[0]];
+        for (z1, z2, z3) in points.iter().tuple_windows::<(_, _, _)>() {
+            let w1 = z2 - z1;
+            let w2 = z3 - z2;
+            let cross = w1.re * w2.im - w1.im * w2.re;
+
+            if cross * cross > w1.norm_sqr() * w2.norm_sqr() * 1.0e-6 {
+                new_points.push(*z2);
+            }
+        }
+        new_points.push(*points.last().unwrap());
+        *points = new_points;
+    }
+
+    fn simplify(&mut self) {
+        Self::simplify_line(&mut self.p);
+        Self::simplify_line(&mut self.xp);
+        Self::simplify_line(&mut self.xm);
+        Self::simplify_line(&mut self.u);
     }
 }
 
