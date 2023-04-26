@@ -4,23 +4,20 @@ use std::f64::consts::{PI, TAU};
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CouplingConstants {
     pub h: f64,
-    kslash_: f64,
+    k: f64,
 }
 
 impl CouplingConstants {
     pub fn new(h: f64, k: i32) -> Self {
-        Self {
-            h,
-            kslash_: k as f64 / TAU,
-        }
+        Self { h, k: k as f64 }
     }
 
     pub fn k(&self) -> i32 {
-        (TAU * self.kslash() + 0.1).floor() as i32
+        self.k.round() as i32
     }
 
     pub fn kslash(&self) -> f64 {
-        self.kslash_
+        self.k / TAU
     }
 
     pub fn s(&self) -> f64 {
@@ -29,7 +26,7 @@ impl CouplingConstants {
 
     pub fn get_set_k(&mut self, k: Option<f64>) -> f64 {
         if let Some(k) = k {
-            self.kslash_ = k / std::f64::consts::TAU;
+            self.k = k;
         }
         self.k() as f64
     }
