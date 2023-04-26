@@ -69,7 +69,7 @@ fn path_xp_circle_between_between(
     state.follow_path(
         pxu::Component::P,
         &[[0.03, 0.03], [-0.03, 0.03], [-0.06, 0.0]],
-        &contours,
+        contours,
         consts,
     );
 
@@ -79,7 +79,7 @@ fn path_xp_circle_between_between(
 
     let mut path = vec![];
 
-    state.update(0, pxu::Component::Xp, center - radius, &contours, consts);
+    state.update(0, pxu::Component::Xp, center - radius, contours, consts);
     for i in 0..=(4 * steps) {
         let theta = 6.0 * (i as f64 / steps as f64 - 0.5);
         let xp = center + Complex64::from_polar(radius, theta);
@@ -104,7 +104,7 @@ fn path_p_circle_origin_not_e(contours: &pxu::Contours, consts: CouplingConstant
     let steps = 128;
 
     let mut state = pxu::State::new(1, consts);
-    state.goto(pxu::Component::P, center + radius, &contours, consts, 4);
+    state.goto(pxu::Component::P, center + radius, contours, consts, 4);
 
     let mut path = vec![];
 
@@ -132,7 +132,7 @@ fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstants) -
     let steps = 128;
 
     let mut state = pxu::State::new(1, consts);
-    state.goto(pxu::Component::P, center + radius, &contours, consts, 4);
+    state.goto(pxu::Component::P, center + radius, contours, consts, 4);
 
     let mut path = vec![];
 
@@ -164,7 +164,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     state.follow_path(
         pxu::Component::U,
         &[[0.0, 0.0], [0.0, y0]],
-        &contours,
+        contours,
         consts,
     );
 
@@ -177,7 +177,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
             [x0, y0 + k * (y - 1.0)],
         ];
 
-        state.follow_path(pxu::Component::U, &path, &contours, consts);
+        state.follow_path(pxu::Component::U, &path, contours, consts);
     }
 
     let y0 = y0 - 3.0 * k;
@@ -185,7 +185,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     state.goto(
         pxu::Component::U,
         Complex64::new(0.0, y0),
-        &contours,
+        contours,
         consts,
         16,
     );
@@ -233,7 +233,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
     state.follow_path(
         pxu::Component::U,
         &[[4.8, 0.0], [4.8, 1.0], [0.0, 1.0], [0.0, -2.5], [-x0, -2.5]],
-        &contours,
+        contours,
         consts,
     );
 
@@ -246,7 +246,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
             [x0, y0 + k * (y - 1.0)],
         ];
 
-        state.follow_path(pxu::Component::U, &path, &contours, consts);
+        state.follow_path(pxu::Component::U, &path, contours, consts);
     }
 
     let x0 = 1.8;
@@ -255,7 +255,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
     state.goto(
         pxu::Component::U,
         Complex64::new(-x0, y0),
-        &contours,
+        contours,
         consts,
         16,
     );
@@ -307,7 +307,7 @@ fn path_u_periodic_between_between(
     state.follow_path(
         pxu::Component::U,
         &[[4.8, 0.0], [4.8, 1.0], [0.0, 1.0], [0.0, y0], [-x0, y0]],
-        &contours,
+        contours,
         consts,
     );
 
@@ -320,7 +320,7 @@ fn path_u_periodic_between_between(
             [x0, y0 + k * (y - 1.0)],
         ];
 
-        state.follow_path(pxu::Component::U, &path, &contours, consts);
+        state.follow_path(pxu::Component::U, &path, contours, consts);
     }
 
     let y0 = y0 - 3.0 * k;
@@ -328,7 +328,7 @@ fn path_u_periodic_between_between(
     state.goto(
         pxu::Component::U,
         Complex64::new(-x0, y0),
-        &contours,
+        contours,
         consts,
         16,
     );
@@ -340,14 +340,14 @@ fn path_u_periodic_between_between(
     state.goto(
         pxu::Component::U,
         Complex64::new(-x0, y0),
-        &contours,
+        contours,
         consts,
         16,
     );
     state.goto(
         pxu::Component::U,
         Complex64::new(0.0, y0),
-        &contours,
+        contours,
         consts,
         16,
     );
