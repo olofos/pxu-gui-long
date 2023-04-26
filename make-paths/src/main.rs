@@ -1,8 +1,7 @@
-use std::f64::consts::{PI, TAU};
-
 use indicatif::{ProgressBar, ProgressStyle};
 use num::complex::Complex64;
 use pxu::kinematics::CouplingConstants;
+use std::f64::consts::{PI, TAU};
 
 trait Goto {
     fn goto(
@@ -324,8 +323,12 @@ fn main() -> std::io::Result<()> {
             consts,
         };
 
-        let s = serde_json::to_string(&saved_path)?;
+        let s = saved_path.encode().unwrap();
         println!("{s}");
+
+        let v = saved_path.encode_compressed().unwrap();
+        eprintln!("{}", v);
+        eprintln!("{}", v.len());
     }
 
     // U period between/between

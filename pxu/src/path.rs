@@ -1,5 +1,7 @@
+use base64::Engine;
 use itertools::Itertools;
 use num::complex::Complex64;
+use std::io::Write;
 
 use crate::kinematics::SheetData;
 use crate::Component;
@@ -41,6 +43,55 @@ pub struct BasePath {
 pub struct SavedPath {
     pub base_path: BasePath,
     pub consts: crate::CouplingConstants,
+}
+
+impl SavedPath {
+    pub fn encode(&self) -> Option<String> {
+        ron::to_string(&self).ok()
+    }
+
+    pub fn encode_compressed(&self) -> Option<String> {
+        let str = self.encode()?;
+        let mut enc = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::best());
+        enc.write_all(str.as_bytes()).ok()?;
+        let data = enc.finish().ok()?;
+        Some(base64::engine::general_purpose::URL_SAFE.encode(data))
+    }
+
+    pub fn decode(input: &str) -> Option<Self> {
+        if let Ok(path) = ron::from_str(input) {
+            return Some(path);
+        }
+        log::info!("Could not decode RON, trying JSON");
+        if let Ok(path) = serde_json::from_str(input) {
+            return Some(path);
+        }
+        log::info!("Could not decode JSON, trying base64");
+
+        let Ok(data) = base64::engine::general_purpose::URL_SAFE.decode(input) else {
+            log::warn!("Could not decode base64");
+            return None;
+        };
+
+        let mut dec = flate2::write::DeflateDecoder::new(Vec::new());
+        let Ok(()) = dec.write_all(&data[..]) else {
+            log::warn!("Could not deflate");
+            return None;
+        };
+        let Ok(data) = dec.finish() else {
+            log::warn!("Could not deflate");
+            return None;
+        };
+        let Ok(input) = String::from_utf8(data) else {
+            log::warn!("Resulting data is not a string");
+            return None;
+        };
+        if let Ok(path) = ron::from_str(&input) {
+            return Some(path);
+        }
+        log::warn!("Could not decode RON");
+        None
+    }
 }
 
 impl ConstructedSegment {

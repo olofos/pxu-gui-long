@@ -211,6 +211,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "base64"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1362,13 +1368,16 @@ dependencies = [
 name = "make-paths"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.0",
  "clap",
+ "flate2",
  "indicatif",
  "itertools",
  "log",
  "md5",
  "num",
  "pxu",
+ "ron",
  "serde",
  "serde_json",
  "tracing-subscriber",
@@ -1819,11 +1828,15 @@ dependencies = [
 name = "pxu"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.0",
  "egui",
+ "flate2",
  "itertools",
  "log",
  "num",
+ "ron",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1844,15 +1857,18 @@ dependencies = [
 name = "pxu-gui"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.0",
  "chrono",
  "clap",
  "console_error_panic_hook",
  "eframe",
  "egui",
+ "flate2",
  "itertools",
  "log",
  "num",
  "pxu",
+ "ron",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -1915,7 +1931,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
 dependencies = [
- "base64",
+ "base64 0.13.1",
  "bitflags",
  "serde",
 ]

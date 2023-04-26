@@ -249,9 +249,7 @@ impl eframe::App for PxuGuiApp {
                             close_dialog = true;
                         }
                         if ui.button("OK").clicked() {
-                            let saved_path: Result<pxu::path::SavedPath, _> =
-                                serde_json::from_str(s);
-                            if let Ok(saved_path) = saved_path {
+                            if let Some(saved_path) = pxu::path::SavedPath::decode(s) {
                                 close_dialog = true;
                                 self.pxu.consts = saved_path.consts;
                                 self.pxu.state = saved_path.base_path.start.clone();
