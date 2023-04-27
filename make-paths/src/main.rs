@@ -1,3 +1,4 @@
+use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use num::complex::Complex64;
 use pxu::{kinematics::CouplingConstants, path::SavedPath};
@@ -81,20 +82,12 @@ fn path_xp_circle_between_between(
 
     state.update(0, pxu::Component::Xp, center - radius, contours, consts);
     for i in 0..=(4 * steps) {
-        let theta = 6.0 * (i as f64 / steps as f64 - 0.5);
+        let theta = TAU * (i as f64 / steps as f64 - 0.5);
         let xp = center + Complex64::from_polar(radius, theta);
         path.push(xp);
     }
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::Xp,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::Xp, 0, consts)
 }
 
 // p circle origin not through E cut
@@ -114,15 +107,7 @@ fn path_p_circle_origin_not_e(contours: &pxu::Contours, consts: CouplingConstant
         path.push(z);
     }
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::P,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::P, 0, consts)
 }
 
 // P circle around origin through E cuts
@@ -142,15 +127,7 @@ fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstants) -
         path.push(z);
     }
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::P,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::P, 0, consts)
 }
 
 // U band between/outside
@@ -211,15 +188,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
         }
     }
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::U,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
 }
 
 // U band between/inside
@@ -281,15 +250,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
         }
     }
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::U,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
 }
 
 // U period between/between
@@ -375,15 +336,17 @@ fn path_u_periodic_between_between(
 
     path.push(Complex64::new(0.0, y0 + 6.0 * k));
 
-    pxu::path::SavedPath {
-        base_path: pxu::path::BasePath {
-            path,
-            start: state,
-            component: pxu::Component::U,
-            excitation: 0,
-        },
-        consts,
-    }
+    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
+}
+
+#[derive(Parser, Clone)]
+#[command(author, version, about, long_about = None)]
+struct Settings {
+    #[arg(short, long)]
+    compressed: bool,
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+    path_number: Option<usize>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -395,6 +358,8 @@ fn main() -> std::io::Result<()> {
         path_u_band_between_outside,
         path_u_periodic_between_between,
     ];
+
+    let settings = Settings::parse();
 
     let consts = CouplingConstants::new(2.0, 5);
     let mut contours = pxu::Contours::new();
@@ -417,8 +382,22 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    let saved_path = functions[1](&contours, consts);
-    println!("{}", saved_path.encode().unwrap());
+    let saved_paths = functions
+        .into_iter()
+        .map(|f| f(&contours, consts))
+        .collect::<Vec<_>>();
+
+    let n = settings
+        .path_number
+        .unwrap_or_default()
+        .clamp(0, saved_paths.len() - 1);
+    let result = if settings.compressed {
+        saved_paths[n].encode_compressed()
+    } else {
+        saved_paths[n].encode()
+    }
+    .unwrap();
+    println!("{result}");
 
     Ok(())
 }

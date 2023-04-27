@@ -1,7 +1,5 @@
-use base64::Engine;
 use itertools::Itertools;
 use num::complex::Complex64;
-use std::io::Write;
 
 use crate::kinematics::SheetData;
 use crate::Component;
@@ -41,16 +39,107 @@ pub struct BasePath {
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct SavedPath {
-    pub base_path: BasePath,
+    pub start: State,
+    pub deltas: Vec<[i32; 2]>,
+    pub component: Component,
+    pub excitation: usize,
     pub consts: crate::CouplingConstants,
 }
 
+const SCALE_FACTOR: f64 = 100_000.0;
+
+impl From<SavedPath> for BasePath {
+    fn from(saved_path: SavedPath) -> Self {
+        let SavedPath {
+            start,
+            deltas,
+            component,
+            excitation,
+            consts: _consts,
+        } = saved_path;
+
+        let mut z = start.points[excitation].get(component);
+        let mut path = vec![z];
+        for dz in deltas {
+            z += Complex64::new(dz[0] as f64 / SCALE_FACTOR, dz[1] as f64 / SCALE_FACTOR);
+            path.push(z);
+        }
+
+        BasePath {
+            start,
+            path,
+            component,
+            excitation,
+        }
+    }
+}
+
+impl From<(BasePath, CouplingConstants)> for SavedPath {
+    fn from((base_path, consts): (BasePath, CouplingConstants)) -> Self {
+        let BasePath {
+            path,
+            start,
+            component,
+            excitation,
+        } = base_path;
+        let deltas = path
+            .iter()
+            .tuple_windows()
+            .map(|(a, b)| (b - a))
+            .map(|z| {
+                [
+                    (z.re * SCALE_FACTOR).round() as i32,
+                    (z.im * SCALE_FACTOR).round() as i32,
+                ]
+            })
+            .collect();
+
+        SavedPath {
+            start,
+            deltas,
+            component,
+            excitation,
+            consts,
+        }
+    }
+}
+
 impl SavedPath {
+    pub fn new(
+        path: Vec<Complex64>,
+        start: State,
+        component: Component,
+        excitation: usize,
+        consts: CouplingConstants,
+    ) -> Self {
+        let deltas = path
+            .into_iter()
+            .tuple_windows()
+            .map(|(a, b)| b - a)
+            .map(|z| {
+                [
+                    (z.re * 100000.0).round() as i32,
+                    (z.im * 100000.0).round() as i32,
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        SavedPath {
+            start,
+            deltas,
+            component,
+            excitation,
+            consts,
+        }
+    }
     pub fn encode(&self) -> Option<String> {
         ron::to_string(&self).ok()
     }
 
     pub fn encode_compressed(&self) -> Option<String> {
+        use base64::Engine;
+        use std::io::Write;
+
         let str = self.encode()?;
         let mut enc = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::best());
         enc.write_all(str.as_bytes()).ok()?;
@@ -59,6 +148,9 @@ impl SavedPath {
     }
 
     pub fn decode(input: &str) -> Option<Self> {
+        use base64::Engine;
+        use std::io::Write;
+
         if let Ok(path) = ron::from_str(input) {
             return Some(path);
         }
@@ -86,8 +178,8 @@ impl SavedPath {
             log::warn!("Resulting data is not a string");
             return None;
         };
-        if let Ok(path) = ron::from_str(&input) {
-            return Some(path);
+        if let Ok(saved_path) = ron::from_str::<SavedPath>(&input) {
+            return Some(saved_path);
         }
         log::warn!("Could not decode RON");
         None
