@@ -921,11 +921,10 @@ fn fig_xm_band_between_inside(
     figure.finish(cache, settings)
 }
 
-pub const ALL_FIGURES: &[fn(
-    pxu: Arc<Pxu>,
-    cache: Arc<cache::Cache>,
-    settings: &Settings,
-) -> Result<FigureCompiler>] = &[
+type FigureFunction =
+    fn(pxu: Arc<Pxu>, cache: Arc<cache::Cache>, settings: &Settings) -> Result<FigureCompiler>;
+
+pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_xpl_preimage,
     fig_xpl_cover,
     fig_p_plane_long_cuts_regions,

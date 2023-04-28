@@ -107,7 +107,7 @@ fn main() -> std::io::Result<()> {
     let pool = threadpool::ThreadPool::new(num_threads);
     let (tx, rx) = std::sync::mpsc::channel();
 
-    for (i, f) in ALL_FIGURES.into_iter().enumerate() {
+    for (i, f) in ALL_FIGURES.iter().enumerate() {
         let pxu_ref = pxu_ref.clone();
         let cache_ref = cache_ref.clone();
         let spinner_style = spinner_style.clone();
