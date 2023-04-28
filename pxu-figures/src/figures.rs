@@ -1,0 +1,942 @@
+use crate::cache;
+use crate::fig_compiler::FigureCompiler;
+use crate::fig_writer::{Bounds, FigureWriter, Node};
+use crate::utils::{Settings, Size};
+
+use num::complex::Complex64;
+use pxu::GridLineComponent;
+use pxu::{interpolation::PInterpolatorMut, kinematics::UBranch, Pxu};
+use std::io::Result;
+use std::sync::Arc;
+
+fn error(message: &str) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::Other, message)
+}
+
+fn fig_xpl_preimage(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xpL-preimage",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 15.0,
+            height: 6.0,
+        },
+        pxu::Component::P,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
+        figure.add_grid_line(contour, &[])?;
+    }
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+        .filter(|cut| matches!(cut.typ, pxu::CutType::E))
+    {
+        figure.add_cut(cut, &[], pxu.consts)?;
+    }
+
+    let k = pxu.consts.k() as f64;
+
+    for p_range in -3..=2 {
+        let p_start = p_range as f64;
+
+        let bp1 = pxu::compute_branch_point(
+            p_range,
+            pxu::BranchPointType::XpPositiveAxisImXmNegative,
+            pxu.consts,
+        )
+        .unwrap();
+
+        let bp2 = pxu::compute_branch_point(
+            p_range,
+            pxu::BranchPointType::XpNegativeAxisFromAboveWithImXmNegative,
+            pxu.consts,
+        )
+        .unwrap();
+
+        let p0 = p_start + (bp1.p + bp2.p) / 2.0;
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+
+        for m in 1..=15 {
+            p_int.goto_m(m as f64);
+            p_int.write_m_node(&mut figure, "south", 1, pxu.consts)?;
+        }
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+
+        for m in (-15..=0).rev() {
+            p_int.goto_m(m as f64);
+            p_int.write_m_node(&mut figure, "south", 1, pxu.consts)?;
+        }
+
+        // let p0 = p_start + 0.5;
+        let p1 = p_start + bp1.p - 0.003;
+
+        let m = p_range * pxu.consts.k() + 2;
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_m(m as f64 + 1.0 * (p_start + 0.5).signum());
+        p_int.goto_p(p1);
+
+        p_int.goto_m(m as f64);
+        if p_range >= 0 {
+            p_int.write_m_node(&mut figure, "north", 1, pxu.consts)?;
+        } else {
+            p_int.write_m_node(&mut figure, "north", -1, pxu.consts)?;
+        }
+
+        let p2 = p_start + bp1.p + 0.01;
+        if p_range > 0 {
+            p_int.goto_m(m as f64 - 1.0).goto_p(p2);
+
+            for dm in (1..=4).rev() {
+                p_int.goto_m((m - dm) as f64);
+                p_int.write_m_node(&mut figure, "south", -1, pxu.consts)?;
+            }
+        }
+
+        // if p_range > 0 {
+        //     let p0 = p_start + 0.4;
+
+        //     let mut p_int = PInterpolatorMut::xp(p0, consts);
+        //     p_int.goto_m(m as f64 - 1.0);
+        //     p_int.goto_p(p1);
+        //     p_int.goto_m(m as f64 + 1.0);
+
+        //     let p2 = p1;
+        //     p_int.goto_p(p2);
+
+        //     for m in ((m + 1)..(m + 4)).rev() {
+        //         p_int.goto_m(m as f64);
+        //         p_int.write_m_node(&mut figure, "south", consts)?;
+        //     }
+        // }
+
+        let p2 = p_start + 0.2;
+        if p_range != 0 {
+            let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+            p_int
+                .goto_m(-p_start * k + 1.0)
+                .goto_p(p_start + 0.1)
+                .goto_conj()
+                .goto_p(p2);
+            for dm in 0..=pxu.consts.k() {
+                p_int.goto_m(-p_start * k - dm as f64);
+                p_int.write_m_node(&mut figure, "south", -1, pxu.consts)?;
+            }
+        }
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xpl_cover(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xpL-cover",
+        Bounds::new(-6.0..6.0, -0.2..4.0),
+        Size {
+            width: 6.0,
+            height: 4.0,
+        },
+        pxu::Component::Xp,
+        settings,
+    )?;
+
+    figure.add_axis()?;
+    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter().filter(
+        |line| matches!(line.component, GridLineComponent::Xp(m) if (-8.0..=6.0).contains(&m)),
+    ) {
+        figure.add_grid_line(contour, &["thin", "black"])?;
+    }
+    figure.finish(cache, settings)
+}
+
+fn fig_p_plane_long_cuts_regions(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-plane-long-cuts-regions",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 15.0,
+            height: 6.0,
+        },
+        pxu::Component::P,
+        settings,
+    )?;
+
+    let color_physical = "blue!10";
+    let color_mirror_p = "red!10";
+    let color_mirror_m = "green!10";
+
+    {
+        let x1 = figure.bounds.x_range.start - 0.25;
+        let x2 = figure.bounds.x_range.end + 0.25;
+        let y1 = figure.bounds.y_range.start - 0.25;
+        let y2 = figure.bounds.y_range.end + 0.25;
+
+        figure.add_plot_all(
+            &[format!("fill={color_physical}").as_str()],
+            vec![
+                Complex64::new(x1, y1),
+                Complex64::new(x1, y2),
+                Complex64::new(x2, y2),
+                Complex64::new(x2, y1),
+            ],
+        )?;
+    }
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+    {
+        let color_mirror = match cut.typ {
+            pxu::CutType::ULongPositive(pxu::Component::Xp)
+            | pxu::CutType::ULongNegative(pxu::Component::Xp) => color_mirror_p,
+            pxu::CutType::ULongPositive(pxu::Component::Xm)
+            | pxu::CutType::ULongNegative(pxu::Component::Xm) => color_mirror_m,
+            _ => {
+                continue;
+            }
+        };
+
+        let mut cropped_path = figure.crop(&cut.path);
+        if cropped_path.len() >= 2 {
+            let len = cropped_path.len();
+            let start = cropped_path[0];
+            let mid = cropped_path[len / 2];
+            let end = cropped_path[len - 1];
+
+            cropped_path.push(Complex64::new(mid.re.round(), end.im));
+            cropped_path.push(Complex64::new(mid.re.round(), start.im));
+
+            figure.add_plot_all(
+                &["draw=none", format!("fill={color_mirror}").as_str()],
+                cropped_path,
+            )?;
+        }
+    }
+
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
+        figure.add_grid_line(contour, &[])?;
+    }
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::ULongNegative(_) | pxu::CutType::ULongPositive(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &[], pxu.consts)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_p_plane_short_cuts(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-plane-short-cuts",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 25.0,
+            height: 6.0 * 25.0 / 15.0,
+        },
+        pxu::Component::P,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
+    // .take(100)
+    {
+        figure.add_grid_line(contour, &[])?;
+    }
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &[], pxu.consts)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xp_cuts_1(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xp-cuts-1",
+        Bounds::new(-4.0..4.0, -6.0..6.0),
+        Size {
+            width: 12.0,
+            height: 18.0,
+        },
+        pxu::Component::Xp,
+        settings,
+    )?;
+
+    figure.add_axis()?;
+    for contour in pxu.contours
+        .get_grid(pxu::Component::Xp)
+        .iter()
+        .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["thin", "black"])?;
+    }
+
+    let mut state = pxu::State::new(1, pxu.consts);
+    state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::SemiShort, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_u_period_between_between(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "u-period-between-between",
+        Bounds::new(-6.0..4.0, -12.25..12.75),
+        Size {
+            width: 5.0,
+            height: 12.5,
+        },
+        pxu::Component::U,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (
+        ::pxu::kinematics::UBranch::Between,
+        ::pxu::kinematics::UBranch::Between,
+    );
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U period between/between")
+        .ok_or(error("Path not found"))?;
+
+    for segment in &path.segments[0] {
+        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_u_band_between_outside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "u-band-between-outside",
+        Bounds::new(-6.0..4.0, -12.25..12.75),
+        Size {
+            width: 5.0,
+            height: 12.5,
+        },
+        pxu::Component::U,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (
+        ::pxu::kinematics::UBranch::Between,
+        ::pxu::kinematics::UBranch::Outside,
+    );
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/outside")
+        .ok_or(error("Path not found"))?;
+
+    for segment in &path.segments[0] {
+        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_u_band_between_inside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "u-band-between-inside",
+        Bounds::new(-6.0..4.0, -12.25..12.75),
+        Size {
+            width: 5.0,
+            height: 12.5,
+        },
+        pxu::Component::U,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (
+        ::pxu::kinematics::UBranch::Between,
+        ::pxu::kinematics::UBranch::Inside,
+    );
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/inside")
+        .ok_or(error("Path not found"))?;
+
+    for segment in &path.segments[0] {
+        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_p_band_between_outside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-band-between-outside",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 15.0,
+            height: 6.0,
+        },
+        pxu::Component::P,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/outside")
+        .ok_or(error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state = path.base_path.start.clone();
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let mut straight_segments = vec![];
+    let mut dotted_segments = vec![];
+
+    let mut same_branch = false;
+    let mut points = vec![];
+
+    for segment in &path.segments[0] {
+        let segment_same_branch = segment.sheet_data.is_same(
+            &pxu.state.points[0].sheet_data,
+            pxu::Component::P,
+            pxu::UCutType::Short,
+        );
+
+        if segment_same_branch != same_branch && !points.is_empty() {
+            if same_branch {
+                straight_segments.push(points);
+            } else {
+                dotted_segments.push(points);
+            }
+            points = vec![];
+        }
+
+        points.extend(&segment.p);
+        same_branch = segment_same_branch;
+    }
+
+    if same_branch {
+        straight_segments.push(points);
+    } else {
+        dotted_segments.push(points);
+    }
+
+    for points in dotted_segments {
+        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+    }
+
+    for points in straight_segments {
+        figure.add_plot(&["very thick", "blue"], &points)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_p_band_between_inside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-band-between-inside",
+        Bounds::new(-2.6..2.6, -0.7..0.7),
+        Size {
+            width: 15.0,
+            height: 6.0,
+        },
+        pxu::Component::P,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/inside")
+        .ok_or(error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state = path.base_path.start.clone();
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let mut straight_segments = vec![];
+    let mut dotted_segments = vec![];
+
+    let mut same_branch = false;
+    let mut points = vec![];
+
+    for segment in &path.segments[0] {
+        let segment_same_branch = segment.sheet_data.is_same(
+            &pxu.state.points[0].sheet_data,
+            pxu::Component::P,
+            pxu::UCutType::Short,
+        );
+
+        if segment_same_branch != same_branch && !points.is_empty() {
+            if same_branch {
+                straight_segments.push(points);
+            } else {
+                dotted_segments.push(points);
+            }
+            points = vec![];
+        }
+
+        points.extend(&segment.p);
+        same_branch = segment_same_branch;
+    }
+
+    if same_branch {
+        straight_segments.push(points);
+    } else {
+        dotted_segments.push(points);
+    }
+
+    for points in dotted_segments {
+        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+    }
+
+    for points in straight_segments {
+        figure.add_plot(&["very thick", "blue"], &points)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xp_band_between_inside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xp-band-between-inside",
+        Bounds::new(-2.6..2.6, -2.6..2.6),
+        Size {
+            width: 8.0,
+            height: 8.0,
+        },
+        pxu::Component::Xp,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/inside")
+        .ok_or(error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
+    pxu.state.points[0].sheet_data.log_branch_p = 0;
+    pxu.state.points[0].sheet_data.log_branch_m = -1;
+    pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E
+                    | pxu::CutType::UShortScallion(_)
+                    | pxu::CutType::UShortKidney(_)
+                    | pxu::CutType::Log(pxu::Component::Xp)
+                    | pxu::CutType::ULongPositive(pxu::Component::Xp)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let mut straight_segments = vec![];
+    let mut dotted_segments = vec![];
+
+    let mut same_branch = false;
+    let mut points = vec![];
+
+    for segment in &path.segments[0] {
+        let segment_same_branch = segment.sheet_data.is_same(
+            &pxu.state.points[0].sheet_data,
+            pxu::Component::Xp,
+            pxu::UCutType::Short,
+        );
+
+        if segment_same_branch != same_branch && !points.is_empty() {
+            if same_branch {
+                straight_segments.push(points);
+            } else {
+                dotted_segments.push(points);
+            }
+            points = vec![];
+        }
+
+        points.extend(&segment.xp);
+        same_branch = segment_same_branch;
+    }
+
+    if same_branch {
+        straight_segments.push(points);
+    } else {
+        dotted_segments.push(points);
+    }
+
+    for points in dotted_segments {
+        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+    }
+
+    for points in straight_segments {
+        figure.add_plot(&["very thick", "blue"], &points)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xp_band_between_outside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xp-band-between-outside",
+        Bounds::new(-3.1..2.1, -2.6..2.6),
+        Size {
+            width: 8.0,
+            height: 8.0,
+        },
+        pxu::Component::Xp,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter() {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/outside")
+        .ok_or(error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Outside);
+    pxu.state.points[0].sheet_data.log_branch_p = 0;
+    pxu.state.points[0].sheet_data.log_branch_m = -1;
+    pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let mut straight_segments = vec![];
+    let mut dotted_segments = vec![];
+
+    let mut same_branch = false;
+    let mut points = vec![];
+
+    for segment in &path.segments[0] {
+        let segment_same_branch = segment.sheet_data.is_same(
+            &pxu.state.points[0].sheet_data,
+            pxu::Component::Xp,
+            pxu::UCutType::Short,
+        );
+
+        if segment_same_branch != same_branch && !points.is_empty() {
+            if same_branch {
+                straight_segments.push(points);
+            } else {
+                dotted_segments.push(points);
+            }
+            points = vec![];
+        }
+
+        points.extend(&segment.xp);
+        same_branch = segment_same_branch;
+    }
+
+    if same_branch {
+        straight_segments.push(points);
+    } else {
+        dotted_segments.push(points);
+    }
+
+    for points in dotted_segments {
+        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+    }
+
+    for points in straight_segments {
+        figure.add_plot(&["very thick", "blue"], &points)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xm_band_between_inside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xm-band-between-inside",
+        Bounds::new(-1.3..1.3, -1.3..1.3),
+        Size {
+            width: 8.0,
+            height: 8.0,
+        },
+        pxu::Component::Xm,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::Xm).iter() {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/inside")
+        .ok_or(error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
+    pxu.state.points[0].sheet_data.log_branch_p = 0;
+    pxu.state.points[0].sheet_data.log_branch_m = -1;
+    pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::Xm, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let mut straight_segments = vec![];
+    let mut dotted_segments = vec![];
+
+    let mut same_branch = false;
+    let mut points = vec![];
+
+    for segment in &path.segments[0] {
+        let segment_same_branch = segment.sheet_data.is_same(
+            &pxu.state.points[0].sheet_data,
+            pxu::Component::Xm,
+            pxu::UCutType::Short,
+        );
+
+        if segment_same_branch != same_branch && !points.is_empty() {
+            if same_branch {
+                straight_segments.push(points);
+            } else {
+                dotted_segments.push(points);
+            }
+            points = vec![];
+        }
+
+        points.extend(&segment.xm);
+        same_branch = segment_same_branch;
+    }
+
+    if same_branch {
+        straight_segments.push(points);
+    } else {
+        dotted_segments.push(points);
+    }
+
+    for points in dotted_segments {
+        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+    }
+
+    for points in straight_segments {
+        figure.add_plot(&["very thick", "blue"], &points)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+pub const ALL_FIGURES: &[fn(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler>] = &[
+    fig_xpl_preimage,
+    fig_xpl_cover,
+    fig_p_plane_long_cuts_regions,
+    fig_p_plane_short_cuts,
+    fig_xp_cuts_1,
+    fig_u_period_between_between,
+    fig_u_band_between_outside,
+    fig_u_band_between_inside,
+    fig_p_band_between_outside,
+    fig_p_band_between_inside,
+    fig_xp_band_between_inside,
+    fig_xp_band_between_outside,
+    fig_xm_band_between_inside,
+];
