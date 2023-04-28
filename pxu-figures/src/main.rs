@@ -863,10 +863,10 @@ fn fig_u_u_period_between_between(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "u-u-period-between-between",
-        Bounds::new(-6.0..4.0, -12.25..12.25),
+        Bounds::new(-6.0..4.0, -12.25..12.75),
         Size {
-            width: 12.0,
-            height: 18.0,
+            width: 5.0,
+            height: 12.5,
         },
         pxu::Component::U,
         settings,
