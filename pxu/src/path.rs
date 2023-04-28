@@ -7,8 +7,7 @@ use crate::Contours;
 use crate::CouplingConstants;
 use crate::State;
 
-#[derive(Default, serde::Deserialize, serde::Serialize)]
-#[serde(default)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct Path {
     pub segments: Vec<Vec<Segment>>,
     pub base_path: Option<BasePath>,
@@ -37,7 +36,7 @@ pub struct BasePath {
     pub excitation: usize,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct SavedPath {
     pub start: State,
     pub deltas: Vec<[i32; 2]>,

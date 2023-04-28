@@ -651,7 +651,7 @@ impl PInterpolatorMut {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EPInterpolator {
     branch_point_p: Option<Complex64>,
     starting_path_p: Option<Vec<(f64, Complex64)>>,

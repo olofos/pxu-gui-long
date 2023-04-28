@@ -19,7 +19,7 @@ pub use path::{EditablePath, Path};
 pub use point::Point;
 pub use state::State;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct Pxu {
     pub consts: CouplingConstants,
     #[serde(skip)]

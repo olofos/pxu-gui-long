@@ -107,31 +107,31 @@ pub struct BranchPointData {
     pub typ: BranchPointType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum CutDirection {
     Positive,
     Negative,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum XCut {
     Scallion,
     Kidney,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum SplitCutBranchPoint {
     Old,
     New,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum SplitCutOrder {
     OldFirst,
     NewFirst,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum GeneratorCommand {
     AddGridLineU {
         y: f64,
@@ -186,13 +186,13 @@ enum GeneratorCommand {
     PGotoRe(f64),
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct RuntimeCutData {
     branch_point: Option<Complex64>,
     path: Option<Vec<Complex64>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct ContourGeneratorRuntimeContext {
     p_int: Option<PInterpolatorMut>,
     e_int: Option<EPInterpolator>,
@@ -210,12 +210,14 @@ struct ContourCommandGenerator {
     commands: VecDeque<GeneratorCommand>,
 }
 
+#[derive(Clone)]
 pub enum GridLineComponent {
     Real,
     Xp(f64),
     Xm(f64),
 }
 
+#[derive(Clone)]
 pub struct GridLine {
     pub path: Vec<Complex64>,
     pub component: GridLineComponent,
@@ -258,7 +260,7 @@ impl GridLine {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Contours {
     cuts: Vec<Cut>,
     commands: VecDeque<GeneratorCommand>,
