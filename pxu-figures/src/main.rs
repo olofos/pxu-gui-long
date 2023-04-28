@@ -387,7 +387,7 @@ impl FigureCompiler {
     }
 
     fn wait(mut self, pb: &ProgressBar, settings: &Settings) -> Result<FinishedFigure> {
-        pb.set_length(self.plot_count);
+        pb.set_length(self.plot_count + 1);
         let mut path = PathBuf::from(&settings.output_dir).join(&self.name);
         path.set_extension("prg");
         loop {
