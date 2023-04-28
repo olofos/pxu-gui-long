@@ -560,64 +560,62 @@ impl Plot {
             }
             shapes.extend(anchor_shapes);
             shapes.extend(active_shapes);
-        } else {
-            if let Some(path_index) = ui_state.path_index {
-                for (active_point, segments) in pxu.paths[path_index].segments.iter().enumerate() {
-                    let mut points = vec![];
-                    let mut same_branch = false;
+        } else if let Some(path_index) = ui_state.path_index {
+            for (active_point, segments) in pxu.paths[path_index].segments.iter().enumerate() {
+                let mut points = vec![];
+                let mut same_branch = false;
 
-                    let color = if active_point == ui_state.active_point {
-                        Color32::BLUE
-                    } else {
-                        Color32::GRAY
+                let color = if active_point == ui_state.active_point {
+                    Color32::BLUE
+                } else {
+                    Color32::GRAY
+                };
+                let width = 2.0;
+
+                for segment in segments.iter() {
+                    let contour = match self.component {
+                        pxu::Component::P => &segment.p,
+                        pxu::Component::Xp => &segment.xp,
+                        pxu::Component::Xm => &segment.xm,
+                        pxu::Component::U => &segment.u,
                     };
-                    let width = 2.0;
 
-                    for segment in segments.iter() {
-                        let contour = match self.component {
-                            pxu::Component::P => &segment.p,
-                            pxu::Component::Xp => &segment.xp,
-                            pxu::Component::Xm => &segment.xm,
-                            pxu::Component::U => &segment.u,
-                        };
+                    let segment_points = contour
+                        .iter()
+                        .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
+                        .collect::<Vec<_>>();
 
-                        let segment_points = contour
-                            .iter()
-                            .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
-                            .collect::<Vec<_>>();
+                    let segment_same_branch = pxu.state.points[ui_state.active_point]
+                        .sheet_data
+                        .is_same(&segment.sheet_data, self.component, ui_state.u_cut_type);
 
-                        let segment_same_branch = pxu.state.points[ui_state.active_point]
-                            .sheet_data
-                            .is_same(&segment.sheet_data, self.component, ui_state.u_cut_type);
-
-                        if segment_same_branch != same_branch {
-                            if same_branch {
-                                shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
-                            } else {
-                                shapes.extend(egui::Shape::dashed_line(
-                                    &points,
-                                    Stroke::new(width, color),
-                                    2.5,
-                                    5.0,
-                                ));
-                            }
-                            points = vec![];
+                    if segment_same_branch != same_branch {
+                        if same_branch {
+                            shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
+                        } else {
+                            shapes.extend(egui::Shape::dashed_line(
+                                &points,
+                                Stroke::new(width, color),
+                                2.5,
+                                5.0,
+                            ));
                         }
-
-                        points.extend(segment_points);
-                        same_branch = segment_same_branch;
+                        points = vec![];
                     }
 
-                    if same_branch {
-                        shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
-                    } else {
-                        shapes.extend(egui::Shape::dashed_line(
-                            &points,
-                            Stroke::new(width, color),
-                            2.5,
-                            5.0,
-                        ));
-                    }
+                    points.extend(segment_points);
+                    same_branch = segment_same_branch;
+                }
+
+                if same_branch {
+                    shapes.push(egui::Shape::line(points, Stroke::new(width, color)));
+                } else {
+                    shapes.extend(egui::Shape::dashed_line(
+                        &points,
+                        Stroke::new(width, color),
+                        2.5,
+                        5.0,
+                    ));
                 }
             }
         }

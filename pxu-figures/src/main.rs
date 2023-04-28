@@ -264,7 +264,7 @@ progress_file=io.open(""#;
 
         let shifts = if cut.component == pxu::Component::U && cut.periodic {
             let period = 2.0 * consts.k() as f64 / consts.h;
-            (-5..=5).map(|n| Some(period as f64 * n as f64)).collect()
+            (-5..=5).map(|n| Some(period * n as f64)).collect()
         } else {
             vec![None]
         };
