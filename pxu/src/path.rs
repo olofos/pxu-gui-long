@@ -10,7 +10,7 @@ use crate::State;
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct Path {
     pub segments: Vec<Vec<Segment>>,
-    pub base_path: Option<BasePath>,
+    pub base_path: BasePath,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
@@ -34,6 +34,7 @@ pub struct BasePath {
     pub path: Vec<Complex64>,
     pub component: Component,
     pub excitation: usize,
+    pub name: String,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
@@ -43,6 +44,7 @@ pub struct SavedPath {
     pub component: Component,
     pub excitation: usize,
     pub consts: crate::CouplingConstants,
+    pub name: String,
 }
 
 const SCALE_FACTOR: f64 = 100_000.0;
@@ -55,6 +57,7 @@ impl From<SavedPath> for BasePath {
             component,
             excitation,
             consts: _consts,
+            name,
         } = saved_path;
 
         let mut z = start.points[excitation].get(component);
@@ -69,6 +72,7 @@ impl From<SavedPath> for BasePath {
             path,
             component,
             excitation,
+            name,
         }
     }
 }
@@ -80,6 +84,7 @@ impl From<(BasePath, CouplingConstants)> for SavedPath {
             start,
             component,
             excitation,
+            name,
         } = base_path;
         let deltas = path
             .iter()
@@ -99,12 +104,14 @@ impl From<(BasePath, CouplingConstants)> for SavedPath {
             component,
             excitation,
             consts,
+            name,
         }
     }
 }
 
 impl SavedPath {
     pub fn new(
+        name: impl Into<String>,
         path: Vec<Complex64>,
         start: State,
         component: Component,
@@ -123,12 +130,15 @@ impl SavedPath {
             })
             .collect::<Vec<_>>();
 
+        let name = name.into();
+
         SavedPath {
             start,
             deltas,
             component,
             excitation,
             consts,
+            name,
         }
     }
     pub fn encode(&self) -> Option<String> {
@@ -179,6 +189,59 @@ impl SavedPath {
         };
         if let Ok(saved_path) = ron::from_str::<SavedPath>(&input) {
             return Some(saved_path);
+        }
+        log::warn!("Could not decode RON");
+        None
+    }
+
+    pub fn save(paths: &Vec<Self>) -> Option<String> {
+        ron::to_string(paths).ok()
+    }
+
+    pub fn save_compressed(paths: &Vec<Self>) -> Option<String> {
+        use base64::Engine;
+        use std::io::Write;
+
+        let str = Self::save(paths)?;
+        let mut enc = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::best());
+        enc.write_all(str.as_bytes()).ok()?;
+        let data = enc.finish().ok()?;
+        Some(base64::engine::general_purpose::URL_SAFE.encode(data))
+    }
+
+    pub fn load(input: &str) -> Option<Vec<Self>> {
+        use base64::Engine;
+        use std::io::Write;
+
+        if let Ok(saved_paths) = ron::from_str(input) {
+            return Some(saved_paths);
+        }
+        log::info!("Could not decode RON, trying JSON");
+        if let Ok(saved_paths) = serde_json::from_str(input) {
+            return Some(saved_paths);
+        }
+        log::info!("Could not decode JSON, trying base64");
+
+        let Ok(data) = base64::engine::general_purpose::URL_SAFE.decode(input) else {
+            log::warn!("Could not decode base64");
+            return None;
+        };
+
+        let mut dec = flate2::write::DeflateDecoder::new(Vec::new());
+        let Ok(()) = dec.write_all(&data[..]) else {
+            log::warn!("Could not deflate");
+            return None;
+        };
+        let Ok(data) = dec.finish() else {
+            log::warn!("Could not deflate");
+            return None;
+        };
+        let Ok(input) = String::from_utf8(data) else {
+            log::warn!("Resulting data is not a string");
+            return None;
+        };
+        if let Ok(saved_paths) = ron::from_str(&input) {
+            return Some(saved_paths);
         }
         log::warn!("Could not decode RON");
         None
@@ -494,7 +557,7 @@ impl Path {
         );
 
         Self {
-            base_path: Some(base_path),
+            base_path,
             segments,
         }
     }
@@ -545,6 +608,7 @@ impl BasePath {
             path,
             component,
             excitation,
+            name: "(Unnamed)".to_owned(),
         }
     }
 }

@@ -25,7 +25,7 @@ pub struct Pxu {
     #[serde(skip)]
     pub contours: Contours,
     pub state: State,
-    pub path: Path,
+    pub paths: Vec<Path>,
 }
 
 impl Pxu {
@@ -34,7 +34,11 @@ impl Pxu {
             consts,
             contours: Default::default(),
             state: Default::default(),
-            path: Default::default(),
+            paths: Default::default(),
         }
+    }
+
+    pub fn get_path_by_name(&self, name: &str) -> Option<&Path> {
+        self.paths.iter().find(|path| path.base_path.name == name)
     }
 }

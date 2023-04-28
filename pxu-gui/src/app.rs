@@ -249,16 +249,21 @@ impl eframe::App for PxuGuiApp {
                             close_dialog = true;
                         }
                         if ui.button("OK").clicked() {
-                            if let Some(saved_path) = pxu::path::SavedPath::decode(s) {
+                            if let Some(saved_paths) = pxu::path::SavedPath::load(s) {
                                 close_dialog = true;
-                                self.pxu.consts = saved_path.consts;
-                                self.pxu.state = saved_path.start.clone();
-                                self.ui_state.active_point = saved_path.excitation;
-                                self.pxu.path = pxu::Path::from_base_path(
-                                    saved_path.into(),
-                                    &self.pxu.contours,
-                                    self.pxu.consts,
-                                );
+                                self.pxu.consts = saved_paths[0].consts;
+                                self.pxu.state = saved_paths[0].start.clone();
+                                self.ui_state.active_point = saved_paths[0].excitation;
+                                self.pxu.paths = saved_paths
+                                    .into_iter()
+                                    .map(|saved_path| {
+                                        pxu::Path::from_base_path(
+                                            saved_path.into(),
+                                            &self.pxu.contours,
+                                            self.pxu.consts,
+                                        )
+                                    })
+                                    .collect();
                             }
                         }
                     });
@@ -406,20 +411,20 @@ impl PxuGuiApp {
             {
                 self.ui_state.edit_path = false;
 
-                if !self.editable_path.states.is_empty() {
-                    let base_path = pxu::path::BasePath::from_editable_path(
-                        &self.editable_path,
-                        self.ui_state.edit_path_component,
-                        self.ui_state.active_point,
-                    );
-                    self.pxu.path = pxu::path::Path::from_base_path(
-                        base_path,
-                        &self.pxu.contours,
-                        self.pxu.consts,
-                    );
-                } else {
-                    self.pxu.path = Default::default();
-                }
+                // if !self.editable_path.states.is_empty() {
+                //     let base_path = pxu::path::BasePath::from_editable_path(
+                //         &self.editable_path,
+                //         self.ui_state.edit_path_component,
+                //         self.ui_state.active_point,
+                //     );
+                //     self.pxu.path = pxu::path::Path::from_base_path(
+                //         base_path,
+                //         &self.pxu.contours,
+                //         self.pxu.consts,
+                //     );
+                // } else {
+                //     self.pxu.path = Default::default();
+                // }
             }
             // });
             // ui.horizontal(|ui| {
@@ -427,13 +432,14 @@ impl PxuGuiApp {
                 .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load/Save"))
                 .clicked()
             {
-                let s = if let Some(base_path) = &self.pxu.path.base_path {
-                    let saved_path: pxu::path::SavedPath =
-                        (base_path.clone(), self.pxu.consts).into();
-                    saved_path.encode().unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                // let s = if let Some(base_path) = &self.pxu.path.base_path {
+                //     let saved_path: pxu::path::SavedPath =
+                //         (base_path.clone(), self.pxu.consts).into();
+                //     saved_path.encode().unwrap_or_default()
+                // } else {
+                //     String::new()
+                // };
+                let s = String::new();
                 self.path_dialog_text = Some(s);
             }
 
@@ -533,6 +539,28 @@ impl PxuGuiApp {
             }
 
             self.draw_state_information(ui);
+
+            let path_name = if let Some(path_index) = self.ui_state.path_index {
+                &self.pxu.paths[path_index].base_path.name
+            } else {
+                "None"
+            };
+            egui::ComboBox::from_id_source("path")
+                .selected_text(path_name)
+                .show_ui(ui, |ui| {
+                    ui.style_mut().wrap = Some(false);
+                    ui.set_min_width(60.0);
+                    ui.selectable_value(&mut self.ui_state.path_index, None, "None");
+                    for i in 0..self.pxu.paths.len() {
+                        ui.selectable_value(
+                            &mut self.ui_state.path_index,
+                            Some(i),
+                            &self.pxu.paths[i].base_path.name,
+                        );
+                    }
+                });
+            ui.end_row();
+
             self.draw_animation_controls(ui, false);
 
             if self.ui_state.show_dev {

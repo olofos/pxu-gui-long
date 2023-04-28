@@ -87,7 +87,14 @@ fn path_xp_circle_between_between(
         path.push(xp);
     }
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::Xp, 0, consts)
+    pxu::path::SavedPath::new(
+        "xp circle between/between",
+        path,
+        state,
+        pxu::Component::Xp,
+        0,
+        consts,
+    )
 }
 
 // p circle origin not through E cut
@@ -107,7 +114,14 @@ fn path_p_circle_origin_not_e(contours: &pxu::Contours, consts: CouplingConstant
         path.push(z);
     }
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::P, 0, consts)
+    pxu::path::SavedPath::new(
+        "p circle origin not through E cut",
+        path,
+        state,
+        pxu::Component::P,
+        0,
+        consts,
+    )
 }
 
 // P circle around origin through E cuts
@@ -127,7 +141,14 @@ fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstants) -
         path.push(z);
     }
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::P, 0, consts)
+    pxu::path::SavedPath::new(
+        "P circle around origin through E cuts",
+        path,
+        state,
+        pxu::Component::P,
+        0,
+        consts,
+    )
 }
 
 // U band between/outside
@@ -188,7 +209,14 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
         }
     }
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
+    pxu::path::SavedPath::new(
+        "U band between/outside",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
 }
 
 // U band between/inside
@@ -250,7 +278,14 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
         }
     }
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
+    pxu::path::SavedPath::new(
+        "U band between/inside",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
 }
 
 // U period between/between
@@ -336,7 +371,14 @@ fn path_u_periodic_between_between(
 
     path.push(Complex64::new(0.0, y0 + 6.0 * k));
 
-    pxu::path::SavedPath::new(path, state, pxu::Component::U, 0, consts)
+    pxu::path::SavedPath::new(
+        "U period between/between",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
 }
 
 #[derive(Parser, Clone)]
@@ -387,14 +429,10 @@ fn main() -> std::io::Result<()> {
         .map(|f| f(&contours, consts))
         .collect::<Vec<_>>();
 
-    let n = settings
-        .path_number
-        .unwrap_or_default()
-        .clamp(0, saved_paths.len() - 1);
     let result = if settings.compressed {
-        saved_paths[n].encode_compressed()
+        pxu::path::SavedPath::save_compressed(&saved_paths)
     } else {
-        saved_paths[n].encode()
+        pxu::path::SavedPath::save(&saved_paths)
     }
     .unwrap();
     println!("{result}");

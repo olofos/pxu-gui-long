@@ -22,6 +22,7 @@ pub struct UiState {
     pub show_dev: bool,
     #[serde(skip)]
     pub continuous_mode: bool,
+    pub path_index: Option<usize>,
 }
 
 impl Default for UiState {
@@ -37,6 +38,7 @@ impl Default for UiState {
             show_fps: false,
             show_dev: false,
             continuous_mode: false,
+            path_index: None,
         }
     }
 }
