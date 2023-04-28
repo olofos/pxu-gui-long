@@ -96,7 +96,7 @@ progress_file=io.open(""#;
     const FILE_START_2: &str = r#"","w")
 \end{luacode}
 \usepackage{pgfplots}
-\pgfplotsset{compat=1.18}
+\pgfplotsset{compat=1.17}
 \usepgfplotslibrary{fillbetween}
 \usepackage[active,tightpage]{preview}
 \PreviewEnvironment{tikzpicture}
@@ -313,11 +313,23 @@ struct FigureCompiler {
     name: String,
     child: Child,
     plot_count: u64,
+    size: Size,
+}
+
+#[derive(Debug)]
+struct FinishedFigure {
+    name: String,
+    size: Size,
 }
 
 impl FigureCompiler {
     fn new(figure: FigureWriter, cache: Arc<cache::Cache>, settings: &Settings) -> Result<Self> {
-        let name = figure.name;
+        let FigureWriter {
+            name,
+            size,
+            plot_count,
+            ..
+        } = figure;
         if !settings.rebuild && cache.check(&name)? {
             log::info!("[{name}]: Matches cached entry");
             let child = Command::new("/bin/true").spawn()?;
@@ -325,6 +337,7 @@ impl FigureCompiler {
                 name,
                 child,
                 plot_count: 0,
+                size,
             })
         } else {
             let mut path = PathBuf::from(&settings.output_dir).join(name.clone());
@@ -343,12 +356,13 @@ impl FigureCompiler {
             Ok(Self {
                 name,
                 child,
-                plot_count: figure.plot_count,
+                plot_count,
+                size,
             })
         }
     }
 
-    fn wait(mut self, pb: &ProgressBar, settings: &Settings) -> Result<String> {
+    fn wait(mut self, pb: &ProgressBar, settings: &Settings) -> Result<FinishedFigure> {
         pb.set_length(self.plot_count);
         let mut path = PathBuf::from(&settings.output_dir).join(&self.name);
         path.set_extension("prg");
@@ -368,13 +382,16 @@ impl FigureCompiler {
             thread::sleep(std::time::Duration::from_millis(250));
         }
         let _ = std::fs::remove_file(path);
-        Ok(self.name)
+        Ok(FinishedFigure {
+            name: self.name,
+            size: self.size,
+        })
     }
 }
 
 #[derive(Debug, Default)]
 struct Summary {
-    names: Vec<String>,
+    finished_figures: Vec<FinishedFigure>,
 }
 
 impl Summary {
@@ -384,14 +401,15 @@ impl Summary {
     \usepackage{cprotect}
     \usepackage{caption}
     \captionsetup{labelformat=empty}
+    \usepackage{pdflscape}
     \begin{document}
     \pagestyle{empty}
     "#;
 
     const END: &str = r#"\end{document}"#;
 
-    fn add(&mut self, name: String) {
-        self.names.push(name);
+    fn add(&mut self, finished_figure: FinishedFigure) {
+        self.finished_figures.push(finished_figure);
     }
 
     fn finish(self, settings: &Settings) -> Result<Child> {
@@ -404,8 +422,30 @@ impl Summary {
 
         let output_dir = &settings.output_dir;
 
-        for name in self.names {
-            writeln!(writer,"\\begin{{figure}}\\centering\\includegraphics{{{output_dir}/{name}}}\\cprotect\\caption{{\\verb|\\includegraphics{{{output_dir}/{name}}}|}}\\end{{figure}}")?;
+        for finished_figure in self.finished_figures {
+            let name = &finished_figure.name;
+            let Size { width, height } = finished_figure.size;
+
+            let landscape = width > 20.0;
+
+            if landscape {
+                write!(writer, "\\begin{{landscape}}")?;
+            }
+
+            let includegraphics = format!(
+                "\\includegraphics[width={width}cm,height={height}cm]{{{output_dir}/{name}}}"
+            );
+            write!(writer, "\\begin{{figure}}\\centering")?;
+            write!(writer, "{includegraphics}")?;
+            write!(writer, "\\cprotect\\caption{{\\verb|")?;
+            write!(writer, "{includegraphics}")?;
+            write!(writer, "|}}\\end{{figure}}")?;
+
+            if landscape {
+                write!(writer, "\\end{{landscape}}")?;
+            }
+
+            writeln!(writer)?;
         }
 
         writer.write_all(Self::END.as_bytes())?;
@@ -875,7 +915,7 @@ fn main() -> std::io::Result<()> {
         }));
     }
 
-    let names = handles
+    let finished_figures = handles
         .into_iter()
         .map(|handle| {
             handle
@@ -887,9 +927,9 @@ fn main() -> std::io::Result<()> {
     let mut new_cache = cache::Cache::new(&settings.output_dir);
     let mut summary = Summary::default();
 
-    for name in names {
-        new_cache.update(&name)?;
-        summary.add(name);
+    for finished_figure in finished_figures {
+        new_cache.update(&finished_figure.name)?;
+        summary.add(finished_figure);
     }
 
     if settings.verbose == 0 {
