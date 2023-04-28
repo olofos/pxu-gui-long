@@ -135,7 +135,7 @@ progress_file=io.open(""#;
 
     fn format_coordinate(&self, p: Complex64) -> String {
         format!(
-            "({:.3},{:.3})",
+            "({:.5},{:.5})",
             p.re,
             p.im + self.y_shift.unwrap_or_default()
         )
