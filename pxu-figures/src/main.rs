@@ -692,7 +692,7 @@ fn fig_p_plane_long_cuts_regions(
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
-        "p_plane_long_cuts_regions",
+        "p-plane-long-cuts-regions",
         Bounds::new(-2.6..2.6, -0.7..0.7),
         Size {
             width: 15.0,
@@ -856,13 +856,13 @@ fn fig_xp_cuts_1(
     figure.finish(cache, settings)
 }
 
-fn fig_u_u_period_between_between(
+fn fig_u_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
-        "u-u-period-between-between",
+        "u-period-between-between",
         Bounds::new(-6.0..4.0, -12.25..12.75),
         Size {
             width: 5.0,
@@ -899,6 +899,110 @@ fn fig_u_u_period_between_between(
 
     let path = pxu
         .get_path_by_name("U period between/between")
+        .ok_or(error("Path not found"))?;
+
+    for segment in &path.segments[0] {
+        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_u_band_between_outside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "u-band-between-outside",
+        Bounds::new(-6.0..4.0, -12.25..12.75),
+        Size {
+            width: 5.0,
+            height: 12.5,
+        },
+        pxu::Component::U,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (
+        ::pxu::kinematics::UBranch::Between,
+        ::pxu::kinematics::UBranch::Outside,
+    );
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/outside")
+        .ok_or(error("Path not found"))?;
+
+    for segment in &path.segments[0] {
+        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn fig_u_band_between_inside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "u-band-between-inside",
+        Bounds::new(-6.0..4.0, -12.25..12.75),
+        Size {
+            width: 5.0,
+            height: 12.5,
+        },
+        pxu::Component::U,
+        settings,
+    )?;
+
+    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
+    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
+    {
+        figure.add_grid_line(contour, &["very thin", "gray"])?;
+    }
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (
+        ::pxu::kinematics::UBranch::Between,
+        ::pxu::kinematics::UBranch::Inside,
+    );
+
+    for cut in pxu
+        .contours
+        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
+        .filter(|cut| {
+            matches!(
+                cut.typ,
+                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
+            )
+        })
+    {
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    let path = pxu
+        .get_path_by_name("U band between/inside")
         .ok_or(error("Path not found"))?;
 
     for segment in &path.segments[0] {
@@ -956,7 +1060,9 @@ fn main() -> std::io::Result<()> {
         fig_p_plane_long_cuts_regions,
         fig_p_plane_short_cuts,
         fig_xp_cuts_1,
-        fig_u_u_period_between_between,
+        fig_u_period_between_between,
+        fig_u_band_between_outside,
+        fig_u_band_between_inside,
     ];
 
     let mut pxu = Pxu::new(consts);
