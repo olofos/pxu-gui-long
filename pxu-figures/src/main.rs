@@ -71,6 +71,8 @@ struct Settings {
     rebuild: bool,
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
+    #[arg(short, long)]
+    jobs: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -1039,7 +1041,7 @@ fn main() -> std::io::Result<()> {
     let mut contours = pxu::Contours::new();
 
     let pb = if settings.verbose == 0 {
-        println!("[1/5] Generating pxu.contours");
+        println!("[1/5] Generating contours");
         ProgressBar::new(1)
     } else {
         ProgressBar::hidden()
@@ -1095,40 +1097,59 @@ fn main() -> std::io::Result<()> {
     let pxu_ref = Arc::new(pxu);
     let cache_ref = Arc::new(cache);
 
-    let mut handles = vec![];
-
     if settings.verbose == 0 {
-        println!("[3/5] Builing figures");
+        if settings.rebuild {
+            println!("[3/5] Builing figures (ignoring cache)");
+        } else {
+            println!("[3/5] Builing figures");
+        }
     }
-    let mb = MultiProgress::new();
+    let mb = Arc::new(MultiProgress::new());
+
+    let num_threads = if let Some(jobs) = settings.jobs {
+        jobs
+    } else {
+        num_cpus::get()
+    }
+    .min(fig_functions.len());
+
+    let pool = threadpool::ThreadPool::new(num_threads);
+    let (tx, rx) = std::sync::mpsc::channel();
 
     for f in fig_functions {
         let pxu_ref = pxu_ref.clone();
         let cache_ref = cache_ref.clone();
-        let pb = if settings.verbose == 0 {
-            mb.add(ProgressBar::new_spinner())
-        } else {
-            ProgressBar::hidden()
-        };
-        pb.set_style(spinner_style.clone());
+        let spinner_style = spinner_style.clone();
         let settings = settings.clone();
-        handles.push(thread::spawn(move || {
+        let mb = mb.clone();
+        let tx = tx.clone();
+        pool.execute(move || {
+            let pb = if settings.verbose == 0 {
+                mb.add(ProgressBar::new_spinner())
+            } else {
+                ProgressBar::hidden()
+            };
+            pb.set_style(spinner_style);
             pb.set_message("Generating tex file");
-            let figure = f(pxu_ref, cache_ref, &settings)?;
-            pb.set_message(format!("Compiling {}.tex", figure.name));
-            let result = figure.wait(&pb, &settings);
-            pb.finish_and_clear();
-            result
-        }));
+            match f(pxu_ref, cache_ref, &settings) {
+                Ok(figure) => {
+                    pb.set_message(format!("Compiling {}.tex", figure.name));
+                    let result = figure.wait(&pb, &settings);
+                    pb.finish_and_clear();
+                    tx.send(result).unwrap();
+                }
+                Err(e) => {
+                    tx.send(Err(e)).unwrap();
+                }
+            }
+        });
     }
 
-    let finished_figures = handles
+    pool.join();
+
+    let finished_figures = rx
         .into_iter()
-        .map(|handle| {
-            handle
-                .join()
-                .map_err(|err| error(format!("Join error: {err:?}").as_str()))?
-        })
+        .take(fig_functions.len())
         .collect::<Result<Vec<_>>>()?;
 
     let mut new_cache = cache::Cache::new(&settings.output_dir);
