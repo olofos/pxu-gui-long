@@ -81,6 +81,7 @@ struct FigureWriter {
     writer: BufWriter<File>,
     plot_count: u64,
     component: pxu::Component,
+    y_shift: Option<f64>,
 }
 
 const TEX_EXT: &str = "tex";
@@ -155,17 +156,22 @@ progress_file=io.open(""#;
             size,
             plot_count: 0,
             component,
+            y_shift: None,
         })
     }
 
-    fn format_coordinate(p: Complex64) -> String {
-        format!("({:.3},{:.3})", p.re, p.im)
+    fn format_coordinate(&self, p: Complex64) -> String {
+        format!(
+            "({:.3},{:.3})",
+            p.re,
+            p.im + self.y_shift.unwrap_or_default()
+        )
     }
 
     fn format_contour(&self, contour: Vec<Complex64>) -> Vec<String> {
         let mut coordinates = contour
             .into_iter()
-            .map(Self::format_coordinate)
+            .map(|z| self.format_coordinate(z))
             .collect::<Vec<_>>();
         coordinates.dedup();
         coordinates
@@ -231,7 +237,12 @@ progress_file=io.open(""#;
         Ok(())
     }
 
-    fn add_cut(&mut self, cut: &pxu::Cut, options: &[&str]) -> Result<()> {
+    fn add_cut(
+        &mut self,
+        cut: &pxu::Cut,
+        options: &[&str],
+        consts: CouplingConstants,
+    ) -> Result<()> {
         let (color, style) = match cut.typ {
             pxu::CutType::E => ("black", ""),
             pxu::CutType::Log(pxu::Component::Xp) => ("red", ""),
@@ -249,14 +260,27 @@ progress_file=io.open(""#;
             }
         };
 
-        self.add_plot(&[&[color, style, "thick"], options].concat(), &cut.path)?;
+        let shifts = if cut.component == pxu::Component::U && cut.periodic {
+            let period = 2.0 * consts.k() as f64 / consts.h;
+            (-5..=5).map(|n| Some(period as f64 * n as f64)).collect()
+        } else {
+            vec![None]
+        };
 
-        if let Some(branch_point) = cut.branch_point {
-            self.add_plot_all(
-                &[&[color, "only marks", "mark size=0.02cm"], options].concat(),
-                vec![branch_point],
-            )?;
+        for shift in shifts {
+            self.y_shift = shift;
+
+            self.add_plot(&[&[color, style, "thick"], options].concat(), &cut.path)?;
+
+            if let Some(branch_point) = cut.branch_point {
+                self.add_plot_all(
+                    &[&[color, "only marks", "mark size=0.02cm"], options].concat(),
+                    vec![branch_point],
+                )?;
+            }
         }
+
+        self.y_shift = None;
 
         Ok(())
     }
@@ -539,7 +563,7 @@ fn fig_xpl_preimage(
         .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
-        figure.add_cut(cut, &[])?;
+        figure.add_cut(cut, &[], pxu.consts)?;
     }
 
     let k = pxu.consts.k() as f64;
@@ -744,7 +768,7 @@ fn fig_p_plane_long_cuts_regions(
             )
         })
     {
-        figure.add_cut(cut, &[])?;
+        figure.add_cut(cut, &[], pxu.consts)?;
     }
 
     figure.finish(cache, settings)
@@ -782,7 +806,7 @@ fn fig_p_plane_short_cuts(
             )
         })
     {
-        figure.add_cut(cut, &[])?;
+        figure.add_cut(cut, &[], pxu.consts)?;
     }
 
     figure.finish(cache, settings)
@@ -826,7 +850,12 @@ fn fig_xp_cuts_1(
             )
         })
     {
-        figure.add_cut(cut, &["very thick"])?;
+        figure.add_cut(cut, &["very thick"], pxu.consts)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
     }
 
     figure.finish(cache, settings)
