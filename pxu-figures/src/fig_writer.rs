@@ -55,6 +55,7 @@ pub struct FigureWriter {
     pub plot_count: u64,
     component: pxu::Component,
     y_shift: Option<f64>,
+    u_cut_type: pxu::UCutType,
 }
 
 impl FigureWriter {
@@ -90,6 +91,7 @@ progress_file=io.open(""#;
         bounds: Bounds,
         size: Size,
         component: pxu::Component,
+        u_cut_type: pxu::UCutType,
         settings: &Settings,
     ) -> std::io::Result<Self> {
         let mut path = PathBuf::from(&settings.output_dir).join(name);
@@ -127,6 +129,7 @@ progress_file=io.open(""#;
             plot_count: 0,
             component,
             y_shift: None,
+            u_cut_type,
         })
     }
 
@@ -207,6 +210,13 @@ progress_file=io.open(""#;
         Ok(())
     }
 
+    pub fn add_grid_lines(&mut self, pxu: &pxu::Pxu, options: &[&str]) -> Result<()> {
+        for contour in pxu.contours.get_grid(self.component).iter() {
+            self.add_grid_line(contour, options)?;
+        }
+        Ok(())
+    }
+
     pub fn add_cut(
         &mut self,
         cut: &pxu::Cut,
@@ -252,6 +262,34 @@ progress_file=io.open(""#;
 
         self.y_shift = None;
 
+        Ok(())
+    }
+
+    pub fn add_cuts(&mut self, pxu: &pxu::Pxu, options: &[&str]) -> Result<()> {
+        use pxu::{kinematics::UBranch, CutType::*, UCutType::*};
+
+        let u_cut_type = self.u_cut_type;
+        for cut in pxu
+            .contours
+            .get_visible_cuts(pxu, self.component, self.u_cut_type, 0)
+            .filter(|cut| match cut.typ {
+                Log(comp) | ULongPositive(comp) => {
+                    u_cut_type != Short
+                        || (comp == pxu::Component::Xp
+                            && cut.component == pxu::Component::Xp
+                            && pxu.state.points[0].sheet_data.u_branch.1 != UBranch::Between)
+                        || (comp == pxu::Component::Xm
+                            && cut.component == pxu::Component::Xm
+                            && pxu.state.points[0].sheet_data.u_branch.0 != UBranch::Between)
+                }
+                ULongNegative(_) => u_cut_type == Long,
+                UShortScallion(_) | UShortKidney(_) => u_cut_type != Long,
+                E => true,
+                DebugPath => false,
+            })
+        {
+            self.add_cut(cut, options, pxu.consts)?;
+        }
         Ok(())
     }
 

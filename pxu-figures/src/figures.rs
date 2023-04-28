@@ -26,12 +26,11 @@ fn fig_xpl_preimage(
             height: 6.0,
         },
         pxu::Component::P,
+        pxu::UCutType::Long,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
-        figure.add_grid_line(contour, &[])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     for cut in pxu
         .contours
@@ -149,6 +148,7 @@ fn fig_xpl_cover(
             height: 4.0,
         },
         pxu::Component::Xp,
+        pxu::UCutType::Long,
         settings,
     )?;
 
@@ -174,6 +174,7 @@ fn fig_p_plane_long_cuts_regions(
             height: 6.0,
         },
         pxu::Component::P,
+        pxu::UCutType::Long,
         settings,
     )?;
 
@@ -229,22 +230,8 @@ fn fig_p_plane_long_cuts_regions(
         }
     }
 
-    for contour in pxu.contours.get_grid(pxu::Component::P).iter() {
-        figure.add_grid_line(contour, &[])?;
-    }
-
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::ULongNegative(_) | pxu::CutType::ULongPositive(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &[], pxu.consts)?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
+    figure.add_cuts(&pxu, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -262,27 +249,12 @@ fn fig_p_plane_short_cuts(
             height: 6.0 * 25.0 / 15.0,
         },
         pxu::Component::P,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
-    // .take(100)
-    {
-        figure.add_grid_line(contour, &[])?;
-    }
-
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::SemiShort, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &[], pxu.consts)?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
+    figure.add_cuts(&pxu, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -300,6 +272,7 @@ fn fig_xp_cuts_1(
             height: 18.0,
         },
         pxu::Component::Xp,
+        pxu::UCutType::Short,
         settings,
     )?;
 
@@ -312,21 +285,7 @@ fn fig_xp_cuts_1(
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
 
-    let mut state = pxu::State::new(1, pxu.consts);
-    state.points[0].sheet_data.u_branch.1 = ::pxu::kinematics::UBranch::Between;
-
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::SemiShort, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -344,14 +303,11 @@ fn fig_u_period_between_between(
             height: 12.5,
         },
         pxu::Component::U,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
@@ -359,18 +315,7 @@ fn fig_u_period_between_between(
         ::pxu::kinematics::UBranch::Between,
     );
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U period between/between")
@@ -396,14 +341,11 @@ fn fig_u_band_between_outside(
             height: 12.5,
         },
         pxu::Component::U,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
@@ -411,18 +353,7 @@ fn fig_u_band_between_outside(
         ::pxu::kinematics::UBranch::Outside,
     );
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U band between/outside")
@@ -448,14 +379,11 @@ fn fig_u_band_between_inside(
             height: 12.5,
         },
         pxu::Component::U,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::U).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
@@ -463,18 +391,7 @@ fn fig_u_band_between_inside(
         ::pxu::kinematics::UBranch::Inside,
     );
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::U, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U band between/inside")
@@ -500,14 +417,11 @@ fn fig_p_band_between_outside(
             height: 6.0,
         },
         pxu::Component::P,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U band between/outside")
@@ -516,18 +430,7 @@ fn fig_p_band_between_outside(
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let mut straight_segments = vec![];
     let mut dotted_segments = vec![];
@@ -585,15 +488,11 @@ fn fig_p_band_between_inside(
             height: 6.0,
         },
         pxu::Component::P,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::P).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
-
+    figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U band between/inside")
         .ok_or(error("Path not found"))?;
@@ -601,18 +500,7 @@ fn fig_p_band_between_inside(
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let mut straight_segments = vec![];
     let mut dotted_segments = vec![];
@@ -670,15 +558,11 @@ fn fig_xp_band_between_inside(
             height: 8.0,
         },
         pxu::Component::Xp,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter()
-    // .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
-    {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
-
+    figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U band between/inside")
         .ok_or(error("Path not found"))?;
@@ -689,22 +573,7 @@ fn fig_xp_band_between_inside(
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E
-                    | pxu::CutType::UShortScallion(_)
-                    | pxu::CutType::UShortKidney(_)
-                    | pxu::CutType::Log(pxu::Component::Xp)
-                    | pxu::CutType::ULongPositive(pxu::Component::Xp)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let mut straight_segments = vec![];
     let mut dotted_segments = vec![];
@@ -762,12 +631,11 @@ fn fig_xp_band_between_outside(
             height: 8.0,
         },
         pxu::Component::Xp,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::Xp).iter() {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U band between/outside")
@@ -779,18 +647,7 @@ fn fig_xp_band_between_outside(
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::Xp, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let mut straight_segments = vec![];
     let mut dotted_segments = vec![];
@@ -848,12 +705,11 @@ fn fig_xm_band_between_inside(
             height: 8.0,
         },
         pxu::Component::Xm,
+        pxu::UCutType::Short,
         settings,
     )?;
 
-    for contour in pxu.contours.get_grid(pxu::Component::Xm).iter() {
-        figure.add_grid_line(contour, &["very thin", "gray"])?;
-    }
+    figure.add_grid_lines(&pxu, &[])?;
 
     let path = pxu
         .get_path_by_name("U band between/inside")
@@ -865,18 +721,7 @@ fn fig_xm_band_between_inside(
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    for cut in pxu
-        .contours
-        .get_visible_cuts(&pxu, pxu::Component::Xm, pxu::UCutType::Short, 0)
-        .filter(|cut| {
-            matches!(
-                cut.typ,
-                pxu::CutType::E | pxu::CutType::UShortScallion(_) | pxu::CutType::UShortKidney(_)
-            )
-        })
-    {
-        figure.add_cut(cut, &["very thick"], pxu.consts)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
 
     let mut straight_segments = vec![];
     let mut dotted_segments = vec![];
