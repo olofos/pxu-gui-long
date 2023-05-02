@@ -319,7 +319,7 @@ fn fig_u_period_between_between(
 
     let path = pxu
         .get_path_by_name("U period between/between")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
         figure.add_plot(&["very thick", "blue"], &segment.u)?;
@@ -357,7 +357,7 @@ fn fig_u_band_between_outside(
 
     let path = pxu
         .get_path_by_name("U band between/outside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
         figure.add_plot(&["very thick", "blue"], &segment.u)?;
@@ -395,7 +395,7 @@ fn fig_u_band_between_inside(
 
     let path = pxu
         .get_path_by_name("U band between/inside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
         figure.add_plot(&["very thick", "blue"], &segment.u)?;
@@ -425,7 +425,7 @@ fn fig_p_band_between_outside(
 
     let path = pxu
         .get_path_by_name("U band between/outside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
@@ -495,7 +495,7 @@ fn fig_p_band_between_inside(
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U band between/inside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
@@ -565,7 +565,7 @@ fn fig_xp_band_between_inside(
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U band between/inside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
@@ -639,7 +639,7 @@ fn fig_xp_band_between_outside(
 
     let path = pxu
         .get_path_by_name("U band between/outside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Outside);
@@ -713,7 +713,7 @@ fn fig_xm_band_between_inside(
 
     let path = pxu
         .get_path_by_name("U band between/inside")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
@@ -786,7 +786,7 @@ fn fig_xp_period_between_between(
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U period between/between")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
@@ -856,7 +856,7 @@ fn fig_xm_period_between_between(
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U period between/between")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
@@ -926,7 +926,7 @@ fn fig_p_period_between_between(
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
         .get_path_by_name("U period between/between")
-        .ok_or(error("Path not found"))?;
+        .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
