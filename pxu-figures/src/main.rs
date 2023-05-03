@@ -26,6 +26,13 @@ fn main() -> std::io::Result<()> {
         log::set_max_level(log::LevelFilter::Debug);
     }
 
+    let num_threads = if let Some(jobs) = settings.jobs {
+        jobs
+    } else {
+        num_cpus::get()
+    }
+    .min(ALL_FIGURES.len());
+
     if settings.rebuild {
         println!(" ---  Rebuilding all figures");
     }
@@ -33,8 +40,11 @@ fn main() -> std::io::Result<()> {
     let spinner_style = ProgressStyle::with_template(
         "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
     )
-    .unwrap()
-    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+    .unwrap();
+    let spinner_style_no_progress =
+        ProgressStyle::with_template("[{elapsed_precise}] {spinner} {msg}")
+            .unwrap()
+            .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏");
 
     let cache = cache::Cache::load(&settings.output_dir)?;
 
@@ -62,9 +72,10 @@ fn main() -> std::io::Result<()> {
     pxu.contours = contours;
     pxu.state = pxu::State::new(1, consts);
 
+    let mb = Arc::new(MultiProgress::new());
     let pb = if settings.verbose == 0 {
         println!("[2/5] Loading paths");
-        ProgressBar::new(1)
+        mb.add(ProgressBar::new(1))
     } else {
         ProgressBar::hidden()
     };
@@ -73,16 +84,46 @@ fn main() -> std::io::Result<()> {
     pb.set_style(spinner_style.clone());
     pb.set_length(saved_paths.len() as u64);
 
-    pxu.paths = saved_paths
-        .into_iter()
-        .map(|saved_path| {
+    let pool = threadpool::ThreadPool::new(num_threads);
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let saved_paths_len = saved_paths.len();
+
+    for saved_path in saved_paths {
+        let tx = tx.clone();
+        let contours = pxu.contours.clone();
+        let consts = pxu.consts;
+        let spinner_style = spinner_style_no_progress.clone();
+        let settings = settings.clone();
+        let mb = mb.clone();
+        pool.execute(move || {
+            let pb = if settings.verbose == 0 {
+                mb.add(ProgressBar::new_spinner())
+            } else {
+                ProgressBar::hidden()
+            };
+            pb.set_style(spinner_style);
+            pb.enable_steady_tick(std::time::Duration::from_millis(100));
+
             pb.set_message(saved_path.name.clone());
-            let path =
-                pxu::path::Path::from_base_path(saved_path.into(), &pxu.contours, pxu.consts);
+            let path = pxu::path::Path::from_base_path(saved_path.into(), &contours, consts);
+            tx.send(path).unwrap();
+            pb.finish_and_clear();
+        });
+    }
+
+    pxu.paths = rx
+        .into_iter()
+        .take(saved_paths_len)
+        .map(|r| {
             pb.inc(1);
-            path
+            r
         })
-        .collect();
+        .collect::<Vec<_>>();
+
+    pool.join();
+    pb.finish_and_clear();
+
     pb.finish_and_clear();
 
     let pxu_ref = Arc::new(pxu);
