@@ -146,6 +146,7 @@ enum GeneratorCommand {
         branch_point_type: BranchPointType,
     },
     ClearCut,
+    _EnableDebugPath,
     ComputeCutX(CutDirection),
     ComputeCutXFull(XCut),
     ComputeCutP {
@@ -198,6 +199,8 @@ struct ContourGeneratorRuntimeContext {
     e_int: Option<EPInterpolator>,
     branch_point_data: Option<BranchPointData>,
     cut_data: RuntimeCutData,
+    show_p_debug_path: bool,
+    debug_path: Vec<Complex64>,
 }
 
 struct ContourCommandGenerator {
@@ -496,36 +499,43 @@ impl Contours {
 
             PStartXp { p } => {
                 self.rctx.p_int = Some(PInterpolatorMut::xp(p, consts));
+                self.rctx.debug_path = vec![xp(p, 1.0, consts)];
             }
 
             PGotoXp(p, m) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_xp(p, m);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             PGotoXm(p, m) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_xm(p, m);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             PGotoRe(x) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_re(x);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             PGotoIm(x) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_im(x);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             PGotoP(p) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_p(p);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             PGotoM(m) => {
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 p_int.goto_m(m);
+                self.rctx.debug_path.push(p_int.pt().evaluate(consts));
             }
 
             AddGridLineP => {
@@ -560,7 +570,27 @@ impl Contours {
                 self.rctx.cut_data.branch_point = None;
             }
 
+            _EnableDebugPath => {
+                self.rctx.show_p_debug_path = true;
+            }
+
             ComputeCutP { reverse } => {
+                if self.rctx.show_p_debug_path {
+                    let cut = Cut::new(
+                        Component::Xp,
+                        self.rctx.debug_path.clone(),
+                        None,
+                        CutType::DebugPath,
+                        0,
+                        false,
+                        vec![],
+                    );
+                    self.cuts.push(cut);
+
+                    self.rctx.show_p_debug_path = false;
+                    self.rctx.debug_path = vec![];
+                }
+
                 let Some(ref mut p_int) = self.rctx.p_int else { return };
                 let new_path = if reverse {
                     p_int.contour().into_iter().rev().collect()
