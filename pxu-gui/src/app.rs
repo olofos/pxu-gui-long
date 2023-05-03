@@ -536,6 +536,8 @@ impl PxuGuiApp {
             if ui.add(egui::Button::new("Reset")).clicked() {
                 self.pxu.consts = CouplingConstants::new(2.0, 5);
                 self.pxu.state = pxu::State::new(self.pxu.state.points.len(), self.pxu.consts);
+                self.pxu.contours.clear();
+                self.anim_data.stop();
             }
 
             self.draw_state_information(ui);
