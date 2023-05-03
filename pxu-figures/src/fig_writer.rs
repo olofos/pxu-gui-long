@@ -67,6 +67,7 @@ impl FigureWriter {
 progress_file=io.open(""#;
     const FILE_START_2: &str = r#"","w")
 \end{luacode}
+\usepackage[svgnames]{xcolor}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.17}
 \usepgfplotslibrary{fillbetween}
@@ -238,16 +239,16 @@ progress_file=io.open(""#;
     ) -> Result<()> {
         let (color, style) = match cut.typ {
             pxu::CutType::E => ("black", ""),
-            pxu::CutType::Log(pxu::Component::Xp) => ("red", ""),
-            pxu::CutType::Log(pxu::Component::Xm) => ("green", ""),
-            pxu::CutType::ULongPositive(pxu::Component::Xp) => ("red", ""),
-            pxu::CutType::ULongNegative(pxu::Component::Xp) => ("red", "dashed"),
-            pxu::CutType::ULongPositive(pxu::Component::Xm) => ("green", ""),
-            pxu::CutType::ULongNegative(pxu::Component::Xm) => ("green", "dashed"),
-            pxu::CutType::UShortScallion(pxu::Component::Xp) => ("red", ""),
-            pxu::CutType::UShortKidney(pxu::Component::Xp) => ("red", "dashed"),
-            pxu::CutType::UShortScallion(pxu::Component::Xm) => ("green", ""),
-            pxu::CutType::UShortKidney(pxu::Component::Xm) => ("green", "dashed"),
+            pxu::CutType::Log(pxu::Component::Xp) => ("Red", ""),
+            pxu::CutType::Log(pxu::Component::Xm) => ("Green", ""),
+            pxu::CutType::ULongPositive(pxu::Component::Xp) => ("Red", ""),
+            pxu::CutType::ULongNegative(pxu::Component::Xp) => ("Red", "densely dashed"),
+            pxu::CutType::ULongPositive(pxu::Component::Xm) => ("Green", ""),
+            pxu::CutType::ULongNegative(pxu::Component::Xm) => ("Green", "densely dashed"),
+            pxu::CutType::UShortScallion(pxu::Component::Xp) => ("Red", ""),
+            pxu::CutType::UShortKidney(pxu::Component::Xp) => ("Red", "densely dashed"),
+            pxu::CutType::UShortScallion(pxu::Component::Xm) => ("Green", ""),
+            pxu::CutType::UShortKidney(pxu::Component::Xm) => ("Green", "densely dashed"),
             _ => {
                 return Ok(());
             }
@@ -263,11 +264,14 @@ progress_file=io.open(""#;
         for shift in shifts {
             self.y_shift = shift;
 
-            self.add_plot(&[&[color, style, "thick"], options].concat(), &cut.path)?;
+            self.add_plot(
+                &[&[color, style, "very thick"], options].concat(),
+                &cut.path,
+            )?;
 
             if let Some(branch_point) = cut.branch_point {
                 self.add_plot_all(
-                    &[&[color, "only marks", "mark size=0.02cm"], options].concat(),
+                    &[&[color, "only marks", "mark size=0.05cm"], options].concat(),
                     vec![branch_point],
                 )?;
             }

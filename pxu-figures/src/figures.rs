@@ -270,7 +270,7 @@ fn fig_xp_cuts_1(
         0.0,
         Size {
             width: 12.0,
-            height: 18.0,
+            height: 12.0,
         },
         pxu::Component::Xp,
         pxu::UCutType::Short,
@@ -324,7 +324,7 @@ fn fig_u_period_between_between(
         .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
     }
 
     figure.finish(cache, settings)
@@ -363,7 +363,7 @@ fn fig_u_band_between_outside(
         .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
     }
 
     figure.finish(cache, settings)
@@ -402,7 +402,7 @@ fn fig_u_band_between_inside(
         .ok_or_else(|| error("Path not found"))?;
 
     for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "blue"], &segment.u)?;
+        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
     }
 
     figure.finish(cache, settings)
@@ -470,11 +470,11 @@ fn fig_p_band_between_outside(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -538,11 +538,11 @@ fn fig_p_band_between_inside(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -612,11 +612,11 @@ fn fig_xp_band_between_inside(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -687,11 +687,11 @@ fn fig_xp_band_between_outside(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -762,11 +762,11 @@ fn fig_xm_band_between_inside(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -833,11 +833,11 @@ fn fig_xp_period_between_between(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -904,11 +904,11 @@ fn fig_xm_period_between_between(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
@@ -975,11 +975,11 @@ fn fig_p_period_between_between(
     }
 
     for points in dotted_segments {
-        figure.add_plot(&["very thick", "blue", "dotted"], &points)?;
+        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
     }
 
     for points in straight_segments {
-        figure.add_plot(&["very thick", "blue"], &points)?;
+        figure.add_plot(&["very thick", "Blue"], &points)?;
     }
 
     figure.finish(cache, settings)
