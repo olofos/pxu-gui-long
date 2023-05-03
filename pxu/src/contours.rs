@@ -1829,52 +1829,23 @@ impl ContourCommandGenerator {
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
 
-            if p_range != 0 {
-                self.clear_cut();
-                self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p_rev();
+            self.clear_cut();
+            self.p_start_xp(p0)
+                .goto_m(-((p_range + 1) * consts.k()) as f64)
+                .compute_cut_path_p();
 
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p();
+            self.p_start_xp(p0 + 1.0)
+                .goto_xm(p0 + 1.0, 1.0)
+                .goto_p(p1 + 1.0)
+                .goto_m(-((p_range + 2) * consts.k()) as f64)
+                .compute_cut_path_p_rev();
 
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            } else {
-                self.clear_cut();
-                self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p_rev();
-
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-
-                self.clear_cut();
-
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p();
-
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            }
+            self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+            self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
+                .e_branch(-1)
+                .push_cut(p_range);
 
             if p_range == -1 {
                 let p0 = p_start + 1.0 / 16.0;
@@ -2425,52 +2396,23 @@ impl ContourCommandGenerator {
             let p0 = p_start + 1.0 / 8.0;
             let p1 = p_start + 7.0 / 8.0;
 
-            if p_range != 0 {
-                self.clear_cut();
-                self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p_rev();
+            self.clear_cut();
+            self.p_start_xp(p0)
+                .goto_m(-((p_range + 1) * consts.k()) as f64)
+                .compute_cut_path_p();
 
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p();
+            self.p_start_xp(p0 + 1.0)
+                .goto_xm(p0 + 1.0, 1.0)
+                .goto_p(p1 + 1.0)
+                .goto_m(-((p_range + 2) * consts.k()) as f64)
+                .compute_cut_path_p_rev();
 
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            } else {
-                self.clear_cut();
-                self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p_rev();
-
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-
-                self.clear_cut();
-
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p();
-
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            }
+            self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                .e_branch(1)
+                .push_cut(p_range);
+            self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
+                .e_branch(-1)
+                .push_cut(p_range);
 
             if p_range == -1 {
                 let p0 = p_start + 1.0 / 16.0;
@@ -3234,32 +3176,19 @@ impl ContourCommandGenerator {
                 .xp_inside()
                 .im_xp_negative()
                 .push_cut(p_range);
+            {
+                let p0 = p_start + 1.0 / 8.0;
+                let p1 = p_start + 7.0 / 8.0;
 
-            let p0 = p_start + 1.0 / 8.0;
-            let p1 = p_start + 7.0 / 8.0;
-
-            if p_range != 0 {
                 self.clear_cut();
                 self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p_rev();
-
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
                     .goto_m(-((p_range + 1) * consts.k()) as f64)
                     .compute_cut_path_p();
 
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            } else {
-                self.clear_cut();
-                self.p_start_xp(p0)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
+                self.p_start_xp(p0 + 1.0)
+                    .goto_xm(p0 + 1.0, 1.0)
+                    .goto_p(p1 + 1.0)
+                    .goto_m(-((p_range + 2) * consts.k()) as f64)
                     .compute_cut_path_p_rev();
 
                 self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
@@ -3269,38 +3198,23 @@ impl ContourCommandGenerator {
                     .e_branch(-1)
                     .push_cut(p_range);
 
-                self.clear_cut();
+                if p_range == -1 {
+                    let p0 = p_start + 1.0 / 16.0;
+                    let p1 = p_start + 15.0 / 16.0;
 
-                self.p_start_xp(p0)
-                    .goto_xm(p0, 1.0)
-                    .goto_p(p1)
-                    .goto_m(-((p_range + 1) * consts.k()) as f64)
-                    .compute_cut_path_p();
-
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
-            }
-
-            if p_range == -1 {
-                let p0 = p_start + 1.0 / 16.0;
-                let p1 = p_start + 15.0 / 16.0;
-
-                self.clear_cut()
-                    .p_start_xp(p1)
-                    .goto_m(-consts.k() as f64)
-                    .goto_p(p0)
-                    .goto_m(0.0)
-                    .compute_cut_path_p();
-                self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
-                    .e_branch(1)
-                    .push_cut(p_range);
-                self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
-                    .e_branch(-1)
-                    .push_cut(p_range);
+                    self.clear_cut()
+                        .p_start_xp(p1)
+                        .goto_m(-consts.k() as f64)
+                        .goto_p(p0)
+                        .goto_m(0.0)
+                        .compute_cut_path_p();
+                    self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
+                        .e_branch(1)
+                        .push_cut(p_range);
+                    self.create_cut(Component::P, CutType::UShortScallion(Component::Xm))
+                        .e_branch(-1)
+                        .push_cut(p_range);
+                }
             }
         }
 
