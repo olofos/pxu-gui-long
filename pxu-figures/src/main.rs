@@ -138,15 +138,19 @@ fn main() -> std::io::Result<()> {
     }
     let mb = Arc::new(MultiProgress::new());
 
-    let num_threads = if let Some(jobs) = settings.jobs {
-        jobs
-    } else {
-        num_cpus::get()
-    }
-    .min(ALL_FIGURES.len());
-
     let pool = threadpool::ThreadPool::new(num_threads);
     let (tx, rx) = std::sync::mpsc::channel();
+
+    let pb = if settings.verbose == 0 {
+        mb.add(ProgressBar::new_spinner())
+    } else {
+        ProgressBar::hidden()
+    };
+
+    pb.set_style(spinner_style.clone());
+    pb.set_message("Building figures");
+    pb.set_length(ALL_FIGURES.len() as u64);
+    pb.enable_steady_tick(std::time::Duration::from_millis(250));
 
     for (i, f) in ALL_FIGURES.iter().enumerate() {
         let pxu_ref = pxu_ref.clone();
@@ -177,12 +181,17 @@ fn main() -> std::io::Result<()> {
         });
     }
 
-    pool.join();
-
     let mut finished_figures = rx
         .into_iter()
         .take(ALL_FIGURES.len())
+        .map(|r| {
+            pb.inc(1);
+            r
+        })
         .collect::<Result<Vec<_>>>()?;
+    pool.join();
+    pb.finish_and_clear();
+
     finished_figures.sort_by_key(|&(n, _)| n);
     let finished_figures = finished_figures.into_iter().map(|(_, r)| r);
 
@@ -203,11 +212,22 @@ fn main() -> std::io::Result<()> {
         println!("[5/5] Building summary");
     }
 
-    if summary.finish(&settings)?.wait()?.success() {
+    let pb = if settings.verbose == 0 {
+        ProgressBar::new_spinner()
+    } else {
+        ProgressBar::hidden()
+    };
+
+    pb.set_style(spinner_style_no_progress);
+    pb.enable_steady_tick(std::time::Duration::from_millis(100));
+
+    if summary.finish(&settings, &pb)?.wait()?.success() {
         log::info!("[{SUMMARY_NAME}] Done.");
     } else {
         log::error!("[{SUMMARY_NAME}] Error.");
     }
+
+    pb.finish_and_clear();
 
     Ok(())
 }

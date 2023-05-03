@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 
 use clap::Parser;
+use indicatif::ProgressBar;
 
 use crate::fig_compiler::FinishedFigure;
 
@@ -54,7 +55,8 @@ impl Summary {
         self.finished_figures.push(finished_figure);
     }
 
-    pub fn finish(self, settings: &Settings) -> Result<Child> {
+    pub fn finish(self, settings: &Settings, pb: &ProgressBar) -> Result<Child> {
+        pb.set_message(format!("Creating {}.{}", SUMMARY_NAME, TEX_EXT));
         let mut path = PathBuf::from(&settings.output_dir).join(SUMMARY_NAME);
         path.set_extension(TEX_EXT);
 
@@ -93,6 +95,8 @@ impl Summary {
         writer.write_all(Self::END.as_bytes())?;
 
         writer.flush()?;
+
+        pb.set_message(format!("Compiling {}.{}", SUMMARY_NAME, TEX_EXT));
 
         let mut cmd = Command::new(&settings.lualatex);
         cmd.arg(format!("--output-directory={}", settings.output_dir))
