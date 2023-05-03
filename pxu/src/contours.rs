@@ -1877,14 +1877,12 @@ impl ContourCommandGenerator {
             }
 
             if p_range == -1 {
-                let p0 = p_start + 1.0 / 8.0;
-                let p1 = p_start + 6.0 / 8.0;
+                let p0 = p_start + 1.0 / 16.0;
+                let p1 = p_start + 15.0 / 16.0;
 
                 self.clear_cut()
-                    .p_start_xp(p0)
-                    .goto_m(-consts.k() as f64 + 1.0)
-                    .goto_p(p1)
-                    .goto_m(-consts.k() as f64 + 3.0)
+                    .p_start_xp(p1)
+                    .goto_m(-consts.k() as f64)
                     .goto_p(p0)
                     .goto_m(0.0)
                     .compute_cut_path_p();
@@ -2476,14 +2474,12 @@ impl ContourCommandGenerator {
             }
 
             if p_range == -1 {
-                let p0 = p_start + 1.0 / 8.0;
-                let p1 = p_start + 6.0 / 8.0;
+                let p0 = p_start + 1.0 / 16.0;
+                let p1 = p_start + 15.0 / 16.0;
 
                 self.clear_cut()
-                    .p_start_xp(p0)
-                    .goto_m(-consts.k() as f64 + 1.0)
-                    .goto_p(p1)
-                    .goto_m(-consts.k() as f64 + 3.0)
+                    .p_start_xp(p1)
+                    .goto_m(-consts.k() as f64)
                     .goto_p(p0)
                     .goto_m(0.0)
                     .compute_cut_path_p();
@@ -3291,14 +3287,12 @@ impl ContourCommandGenerator {
             }
 
             if p_range == -1 {
-                let p0 = p_start + 1.0 / 8.0;
-                let p1 = p_start + 6.0 / 8.0;
+                let p0 = p_start + 1.0 / 16.0;
+                let p1 = p_start + 15.0 / 16.0;
 
                 self.clear_cut()
-                    .p_start_xp(p0)
-                    .goto_m(-consts.k() as f64 + 1.0)
-                    .goto_p(p1)
-                    .goto_m(-consts.k() as f64 + 3.0)
+                    .p_start_xp(p1)
+                    .goto_m(-consts.k() as f64)
                     .goto_p(p0)
                     .goto_m(0.0)
                     .compute_cut_path_p();
