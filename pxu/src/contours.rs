@@ -1908,7 +1908,6 @@ impl ContourCommandGenerator {
             .im_xm_negative()
             .push_cut(p_range);
 
-        #[allow(clippy::comparison_chain)]
         if p_range == 0 {
             self.compute_branch_point(p_range, BranchPointType::XpPositiveAxisImXmPositive)
                 .compute_cut_path_x(CutDirection::Negative)
@@ -3313,7 +3312,6 @@ impl ContourCommandGenerator {
 
         self.compute_cut_e_xp();
 
-        #[allow(clippy::comparison_chain)]
         if p_range == 0 {
             self.create_cut(Component::Xp, CutType::E)
                 .log_branch(p_range)
