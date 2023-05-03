@@ -88,7 +88,8 @@ progress_file=io.open(""#;
 
     pub fn new(
         name: &str,
-        bounds: Bounds,
+        x_range: Range<f64>,
+        y0: f64,
         size: Size,
         component: pxu::Component,
         u_cut_type: pxu::UCutType,
@@ -96,6 +97,16 @@ progress_file=io.open(""#;
     ) -> std::io::Result<Self> {
         let mut path = PathBuf::from(&settings.output_dir).join(name);
         path.set_extension(TEX_EXT);
+
+        let aspect_ratio = match component {
+            pxu::Component::P => 1.5,
+            _ => 1.0,
+        };
+
+        let y_size = (x_range.end - x_range.start) * size.height / size.width / aspect_ratio;
+        let y_range = (y0 - y_size / 2.0)..(y0 + y_size / 2.0);
+
+        let bounds = Bounds::new(x_range, y_range);
 
         log::info!("[{name}]: Creating file {}", path.to_string_lossy());
 

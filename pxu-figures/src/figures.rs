@@ -1,6 +1,6 @@
 use crate::cache;
 use crate::fig_compiler::FigureCompiler;
-use crate::fig_writer::{Bounds, FigureWriter, Node};
+use crate::fig_writer::{FigureWriter, Node};
 use crate::utils::{error, Settings, Size};
 
 use num::complex::Complex64;
@@ -9,14 +9,15 @@ use pxu::{interpolation::PInterpolatorMut, kinematics::UBranch, Pxu};
 use std::io::Result;
 use std::sync::Arc;
 
-fn fig_xpl_preimage(
+fn fig_p_xpl_preimage(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
-        "xpL-preimage",
-        Bounds::new(-2.6..2.6, -0.7..0.7),
+        "p-xpL-preimage",
+        -2.6..2.6,
+        0.0,
         Size {
             width: 15.0,
             height: 6.0,
@@ -138,10 +139,11 @@ fn fig_xpl_cover(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-cover",
-        Bounds::new(-6.0..6.0, -0.2..4.0),
+        -5.0..5.0,
+        1.9,
         Size {
             width: 6.0,
-            height: 4.0,
+            height: 3.0,
         },
         pxu::Component::Xp,
         pxu::UCutType::Long,
@@ -164,7 +166,8 @@ fn fig_p_plane_long_cuts_regions(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-long-cuts-regions",
-        Bounds::new(-2.6..2.6, -0.7..0.7),
+        -2.6..2.6,
+        0.0,
         Size {
             width: 15.0,
             height: 6.0,
@@ -239,10 +242,11 @@ fn fig_p_plane_short_cuts(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-short-cuts",
-        Bounds::new(-2.6..2.6, -0.7..0.7),
+        -2.6..2.6,
+        0.0,
         Size {
             width: 25.0,
-            height: 6.0 * 25.0 / 15.0,
+            height: 10.0,
         },
         pxu::Component::P,
         pxu::UCutType::Short,
@@ -262,7 +266,8 @@ fn fig_xp_cuts_1(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-cuts-1",
-        Bounds::new(-4.0..4.0, -6.0..6.0),
+        -4.0..4.0,
+        0.0,
         Size {
             width: 12.0,
             height: 18.0,
@@ -278,7 +283,7 @@ fn fig_xp_cuts_1(
         .iter()
         .filter(|line| matches!(line.component, GridLineComponent::Xp(m) | GridLineComponent::Xm(m) if (-10.0..).contains(&m)))
     {
-        figure.add_grid_line(contour, &["thin", "black"])?;
+        figure.add_grid_line(contour, &[])?;
     }
 
     figure.add_cuts(&pxu, &[])?;
@@ -293,7 +298,8 @@ fn fig_u_period_between_between(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "u-period-between-between",
-        Bounds::new(-6.0..4.0, -12.25..12.75),
+        -6.0..4.0,
+        0.25,
         Size {
             width: 5.0,
             height: 12.5,
@@ -331,7 +337,8 @@ fn fig_u_band_between_outside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "u-band-between-outside",
-        Bounds::new(-6.0..4.0, -12.25..12.75),
+        -6.0..4.0,
+        0.25,
         Size {
             width: 5.0,
             height: 12.5,
@@ -369,7 +376,8 @@ fn fig_u_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "u-band-between-inside",
-        Bounds::new(-6.0..4.0, -12.25..12.75),
+        -6.0..4.0,
+        0.25,
         Size {
             width: 5.0,
             height: 12.5,
@@ -407,7 +415,8 @@ fn fig_p_band_between_outside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-band-between-outside",
-        Bounds::new(-2.6..2.6, -0.7..0.7),
+        -2.6..2.6,
+        0.0,
         Size {
             width: 15.0,
             height: 6.0,
@@ -478,7 +487,8 @@ fn fig_p_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-band-between-inside",
-        Bounds::new(-2.6..2.6, -0.7..0.7),
+        -2.6..2.6,
+        0.0,
         Size {
             width: 15.0,
             height: 6.0,
@@ -492,9 +502,6 @@ fn fig_p_band_between_inside(
     let path = pxu
         .get_path_by_name("U band between/inside")
         .ok_or_else(|| error("Path not found"))?;
-
-    let mut pxu = (*pxu).clone();
-    pxu.state = path.base_path.start.clone();
 
     figure.add_cuts(&pxu, &[])?;
 
@@ -548,7 +555,8 @@ fn fig_xp_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-band-between-inside",
-        Bounds::new(-2.6..2.6, -2.6..2.6),
+        -2.6..2.6,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -621,7 +629,8 @@ fn fig_xp_band_between_outside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-band-between-outside",
-        Bounds::new(-3.1..2.1, -2.6..2.6),
+        -3.1..2.1,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -695,7 +704,8 @@ fn fig_xm_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xm-band-between-inside",
-        Bounds::new(-1.3..1.3, -1.3..1.3),
+        -1.3..1.3,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -769,7 +779,8 @@ fn fig_xp_period_between_between(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-period-between-between",
-        Bounds::new(-3.1..2.1, -2.6..2.6),
+        -3.1..2.1,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -839,7 +850,8 @@ fn fig_xm_period_between_between(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xm-period-between-between",
-        Bounds::new(-3.1..2.1, -2.6..2.6),
+        -3.1..2.1,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -909,7 +921,8 @@ fn fig_p_period_between_between(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-period-between-between",
-        Bounds::new(-0.15..0.15, -0.1..0.1),
+        -0.15..0.15,
+        0.0,
         Size {
             width: 8.0,
             height: 8.0,
@@ -976,7 +989,7 @@ type FigureFunction =
     fn(pxu: Arc<Pxu>, cache: Arc<cache::Cache>, settings: &Settings) -> Result<FigureCompiler>;
 
 pub const ALL_FIGURES: &[FigureFunction] = &[
-    fig_xpl_preimage,
+    fig_p_xpl_preimage,
     fig_xpl_cover,
     fig_p_plane_long_cuts_regions,
     fig_p_plane_short_cuts,
