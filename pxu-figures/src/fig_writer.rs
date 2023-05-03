@@ -162,7 +162,6 @@ progress_file=io.open(""#;
     }
 
     pub fn crop(&self, contour: &Vec<Complex64>) -> Vec<Complex64> {
-        // return contour.clone();
         if contour.len() < 2 {
             return vec![];
         }
@@ -216,7 +215,10 @@ progress_file=io.open(""#;
     }
 
     pub fn add_grid_line(&mut self, grid_line: &GridLine, options: &[&str]) -> Result<()> {
-        self.add_plot(&[&["very thin", "gray"], options].concat(), &grid_line.path)?;
+        self.add_plot(
+            &[&["very thin", "lightgray"], options].concat(),
+            &grid_line.path,
+        )?;
 
         Ok(())
     }
