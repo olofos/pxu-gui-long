@@ -20,8 +20,12 @@ fn main() -> std::io::Result<()> {
     let settings = Settings::parse();
 
     if settings.verbose > 0 {
-        tracing_subscriber::fmt::fmt()
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_file(true)
+            .with_line_number(true)
             .with_writer(std::io::stderr)
+            .without_time()
             .init();
         log::set_max_level(log::LevelFilter::Debug);
     }

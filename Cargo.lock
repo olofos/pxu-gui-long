@@ -1871,6 +1871,7 @@ dependencies = [
  "num_cpus",
  "pxu",
  "threadpool",
+ "tracing",
  "tracing-subscriber",
 ]
 
