@@ -430,12 +430,6 @@ impl ConstructedSegment {
                 segments.last_mut().unwrap().end =
                     state.points[base_path.excitation].get(base_path.component);
 
-                log::info!(
-                    "{t} ({t1},{t2}): {:.2} {:?}",
-                    z,
-                    state.points[base_path.excitation].sheet_data
-                );
-
                 let z = zs + (s + 0.01).clamp(0.0, 1.0) * (z2 - zs);
 
                 if !state.update(
@@ -460,12 +454,6 @@ impl ConstructedSegment {
                     end: self.end,
                     path: vec![(t, state.clone())],
                 });
-
-                log::info!(
-                    "{t} ({t1},{t2}): {:.2} {:?}",
-                    z,
-                    state.points[base_path.excitation].sheet_data
-                );
             }
         }
 

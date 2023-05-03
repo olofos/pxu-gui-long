@@ -227,7 +227,7 @@ impl Point {
                 }
                 _ => {}
             }
-            log::info!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
+            log::debug!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
         for guess in [
