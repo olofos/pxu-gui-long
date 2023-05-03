@@ -44,13 +44,14 @@ pub struct Summary {
 impl Summary {
     const START: &str = r#"\nonstopmode
     \documentclass[12pt,a4paper]{article}
+    \usepackage[bottom=0.5cm, right=0.5cm, left=0.5cm, top=0.5cm]{geometry}
     \usepackage{graphicx}
     \usepackage{cprotect}
     \usepackage{caption}
     \captionsetup{labelformat=empty}
     \usepackage{pdflscape}
-    \begin{document}
     \pagestyle{empty}
+    \begin{document}
     "#;
 
     const END: &str = r#"\end{document}"#;
