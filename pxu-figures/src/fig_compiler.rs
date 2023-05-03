@@ -72,6 +72,7 @@ impl FigureCompiler {
         let mut path = PathBuf::from(&settings.output_dir).join(&self.name);
         path.set_extension("prg");
         loop {
+            pb.tick();
             if let Ok(meta) = path.metadata() {
                 pb.set_position(meta.len());
             }
