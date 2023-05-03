@@ -1,17 +1,13 @@
 use crate::cache;
 use crate::fig_compiler::FigureCompiler;
 use crate::fig_writer::{Bounds, FigureWriter, Node};
-use crate::utils::{Settings, Size};
+use crate::utils::{error, Settings, Size};
 
 use num::complex::Complex64;
 use pxu::GridLineComponent;
 use pxu::{interpolation::PInterpolatorMut, kinematics::UBranch, Pxu};
 use std::io::Result;
 use std::sync::Arc;
-
-fn error(message: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, message)
-}
 
 fn fig_xpl_preimage(
     pxu: Arc<Pxu>,

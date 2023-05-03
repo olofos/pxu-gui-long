@@ -3,9 +3,7 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter, Result};
 use std::path::PathBuf;
 
-fn error(message: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, message)
-}
+use crate::utils::error;
 
 const TEX_EXT: &str = "tex";
 const PDF_EXT: &str = "pdf";

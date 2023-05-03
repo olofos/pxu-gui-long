@@ -11,6 +11,10 @@ use crate::fig_compiler::FinishedFigure;
 pub const TEX_EXT: &str = "tex";
 pub const SUMMARY_NAME: &str = "all-figures";
 
+pub fn error(message: &str) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::Other, message)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Size {
     pub width: f64,
