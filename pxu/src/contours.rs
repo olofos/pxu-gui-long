@@ -152,6 +152,7 @@ enum GeneratorCommand {
     ComputeCutP {
         reverse: bool,
     },
+    ComputeBranchPointP,
     ComputeCutEP,
     ComputeCutEXp,
     ComputeCutEXm,
@@ -603,6 +604,12 @@ impl Contours {
                 } else {
                     self.rctx.cut_data.path = Some(new_path);
                 }
+            }
+
+            ComputeBranchPointP => {
+                let Some(ref mut p_int) = self.rctx.p_int else { return };
+                let p = p_int.p();
+                self.rctx.cut_data.branch_point = Some(p);
             }
 
             ComputeBranchPoint {
@@ -1217,6 +1224,10 @@ impl ContourCommandGenerator {
             p_range,
             branch_point_type,
         })
+    }
+
+    fn compute_branch_point_p(&mut self) -> &mut Self {
+        self.add(GeneratorCommand::ComputeBranchPointP)
     }
 
     fn compute_cut_path_x(&mut self, direction: CutDirection) -> &mut Self {
@@ -2272,6 +2283,12 @@ impl ContourCommandGenerator {
                 .goto_m(-(p_range * consts.k()) as f64)
                 .compute_cut_path_p();
 
+            self.p_start_xp(p0)
+                .goto_m((p_range * consts.k() + 1) as f64)
+                .goto_im(0.0)
+                .goto_re(consts.s())
+                .compute_branch_point_p();
+
             self.create_cut(Component::P, CutType::UShortScallion(Component::Xp))
                 .e_branch(1)
                 .push_cut(p_range);
@@ -2406,6 +2423,11 @@ impl ContourCommandGenerator {
                 .goto_p(p1 + 1.0)
                 .goto_m(-((p_range + 2) * consts.k()) as f64)
                 .compute_cut_path_p_rev();
+
+            self.p_start_xp(p1)
+                .goto_im(0.0)
+                .goto_re(-1.0 / consts.s())
+                .compute_branch_point_p();
 
             self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
                 .e_branch(1)
@@ -2979,6 +3001,12 @@ impl ContourCommandGenerator {
                 .goto_m(-(p_range * consts.k()) as f64)
                 .compute_cut_path_p();
 
+            self.p_start_xp(p0)
+                .goto_m((p_range * consts.k() + 1) as f64)
+                .goto_im(0.0)
+                .goto_re(consts.s())
+                .compute_branch_point_p();
+
             self.create_cut(Component::P, CutType::UShortScallion(Component::Xp))
                 .e_branch(1)
                 .push_cut(p_range);
@@ -3190,6 +3218,11 @@ impl ContourCommandGenerator {
                     .goto_p(p1 + 1.0)
                     .goto_m(-((p_range + 2) * consts.k()) as f64)
                     .compute_cut_path_p_rev();
+
+                self.p_start_xp(p1)
+                    .goto_im(0.0)
+                    .goto_re(-1.0 / consts.s())
+                    .compute_branch_point_p();
 
                 self.create_cut(Component::P, CutType::UShortKidney(Component::Xp))
                     .e_branch(1)
