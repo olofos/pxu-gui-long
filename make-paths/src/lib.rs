@@ -6,7 +6,7 @@ pub fn get_plot_paths(
 ) -> Vec<pxu::path::SavedPath> {
     paths::PLOT_PATHS
         .iter()
-        .map(|f| f(&contours, consts))
+        .map(|f| f(contours, consts))
         .collect::<Vec<_>>()
 }
 
@@ -16,6 +16,6 @@ pub fn get_interactive_paths(
 ) -> Vec<pxu::path::SavedPath> {
     paths::INTERACTIVE_PATHS
         .iter()
-        .map(|f| f(&contours, consts))
+        .map(|f| f(contours, consts))
         .collect::<Vec<_>>()
 }
