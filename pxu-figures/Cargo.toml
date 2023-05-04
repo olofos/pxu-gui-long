@@ -13,6 +13,7 @@ itertools = "0.10.5"
 num = "0.4.0"
 md5 = "0.7.0"
 pxu = { path = "../pxu" }
+make-paths = { path = "../make-paths" }
 indicatif = "0.17.3"
 clap = { version = "4.2.2", features = ["derive"] }
 threadpool = "1.8.1"

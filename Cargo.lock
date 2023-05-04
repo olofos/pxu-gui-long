@@ -1866,6 +1866,7 @@ dependencies = [
  "indicatif",
  "itertools",
  "log",
+ "make-paths",
  "md5",
  "num",
  "num_cpus",

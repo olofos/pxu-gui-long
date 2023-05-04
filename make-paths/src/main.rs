@@ -24,7 +24,7 @@ fn main() -> std::io::Result<()> {
     .unwrap()
     .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
 
-    eprintln!("[1/?] Generating contours");
+    eprintln!("[1/3] Generating contours");
     let pb = ProgressBar::new(1);
     pb.set_style(spinner_style);
     loop {
@@ -36,7 +36,10 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    let saved_paths = make_paths::get_all_paths(&contours, consts);
+    eprintln!("[2/3] Generating paths");
+    let saved_paths = make_paths::get_interactive_paths(&contours, consts);
+
+    eprintln!("[3/3] Saving paths");
 
     let result = if settings.compressed {
         pxu::path::SavedPath::save_compressed(&saved_paths)
