@@ -60,7 +60,7 @@ impl Goto for pxu::State {
 }
 
 // xp circle between/between
-pub fn path_xp_circle_between_between(
+fn path_xp_circle_between_between(
     contours: &pxu::Contours,
     consts: CouplingConstants,
 ) -> SavedPath {
@@ -96,10 +96,7 @@ pub fn path_xp_circle_between_between(
 }
 
 // p circle origin not through E cut
-pub fn path_p_circle_origin_not_e(
-    contours: &pxu::Contours,
-    consts: CouplingConstants,
-) -> SavedPath {
+fn path_p_circle_origin_not_e(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
     let center = Complex64::new(0.0, 0.0);
     let radius = 0.05;
     let steps = 128;
@@ -126,7 +123,7 @@ pub fn path_p_circle_origin_not_e(
 }
 
 // P circle around origin through E cuts
-pub fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
+fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
     let center = Complex64::new(0.0, 0.0);
     let radius = 0.10;
     let steps = 128;
@@ -153,10 +150,7 @@ pub fn path_p_circle_origin_e(contours: &pxu::Contours, consts: CouplingConstant
 }
 
 // U band between/outside
-pub fn path_u_band_between_outside(
-    contours: &pxu::Contours,
-    consts: CouplingConstants,
-) -> SavedPath {
+fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
     let mut state = pxu::State::new(1, consts);
 
     let x0 = 2.7;
@@ -224,10 +218,7 @@ pub fn path_u_band_between_outside(
 }
 
 // U band between/inside
-pub fn path_u_band_between_inside(
-    contours: &pxu::Contours,
-    consts: CouplingConstants,
-) -> SavedPath {
+fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
     let mut state = pxu::State::new(1, consts);
 
     let x0 = 2.7;
@@ -296,7 +287,7 @@ pub fn path_u_band_between_inside(
 }
 
 // U period between/between
-pub fn path_u_periodic_between_between(
+fn path_u_periodic_between_between(
     contours: &pxu::Contours,
     consts: CouplingConstants,
 ) -> SavedPath {
