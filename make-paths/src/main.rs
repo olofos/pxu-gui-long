@@ -2,8 +2,6 @@ use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use pxu::kinematics::CouplingConstants;
 
-mod paths;
-
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
 struct Settings {
@@ -38,10 +36,7 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    let saved_paths = paths::ALL_PATHS
-        .iter()
-        .map(|f| f(&contours, consts))
-        .collect::<Vec<_>>();
+    let saved_paths = make_paths::get_all_paths(&contours, consts);
 
     let result = if settings.compressed {
         pxu::path::SavedPath::save_compressed(&saved_paths)
