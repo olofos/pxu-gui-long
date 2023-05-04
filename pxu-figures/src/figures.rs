@@ -468,7 +468,7 @@ fn fig_xp_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-band-between-inside",
-        -2.6..2.6,
+        -3.1..2.1,
         0.0,
         Size {
             width: 8.0,

@@ -156,6 +156,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     let x0 = 2.7;
     let y0 = -1.5;
     let k = consts.k() as f64;
+    let h = consts.h;
 
     state.follow_path(
         pxu::Component::U,
@@ -186,7 +187,26 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
         16,
     );
 
-    let mut path = vec![Complex64::new(0.0, y0)];
+    let r1 = 1.0;
+    let r2 = k / h - r1;
+    let y0 = -r1 - 3.0 * k;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(-x0, y0),
+        contours,
+        consts,
+        16,
+    );
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(0.0, y0),
+        contours,
+        consts,
+        16,
+    );
+
+    let mut path = vec![state.points[0].u];
 
     let steps = 16;
     let steps = (0..=16)
@@ -196,16 +216,18 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     for y in 0..=5 {
         let y = y as f64;
 
-        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        let c = Complex64::new(x0, y0 + k * y + r1);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+            path.push(c + Complex64::from_polar(r1, -PI / 2.0 + *theta));
         }
 
-        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        let c = Complex64::new(-x0, y0 + k * y + 2.0 * r1 + r2);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+            path.push(c + Complex64::from_polar(r2, -PI / 2.0 - *theta));
         }
     }
+
+    path.push(Complex64::new(0.0, y0 + 6.0 * k));
 
     pxu::path::SavedPath::new(
         "U band between/outside",
@@ -227,6 +249,7 @@ fn path_u_band_between_outside_single(
     let x0 = 2.7;
     let y0 = -1.5;
     let k = consts.k() as f64;
+    let h = consts.h;
 
     state.follow_path(
         pxu::Component::U,
@@ -235,6 +258,17 @@ fn path_u_band_between_outside_single(
         consts,
     );
 
+    let r1 = 1.0;
+    let r2 = k / h - r1;
+    let y0 = -r1;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(-x0, y0),
+        contours,
+        consts,
+        16,
+    );
     state.goto(
         pxu::Component::U,
         Complex64::new(0.0, y0),
@@ -243,7 +277,7 @@ fn path_u_band_between_outside_single(
         16,
     );
 
-    let mut path = vec![Complex64::new(0.0, y0)];
+    let mut path = vec![state.points[0].u];
 
     let steps = 16;
     let steps = (0..=16)
@@ -253,18 +287,18 @@ fn path_u_band_between_outside_single(
     for y in 0..=0 {
         let y = y as f64;
 
-        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        let c = Complex64::new(x0, y0 + k * y + r1);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+            path.push(c + Complex64::from_polar(r1, -PI / 2.0 + *theta));
         }
 
-        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        let c = Complex64::new(-x0, y0 + k * y + 2.0 * r1 + r2);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+            path.push(c + Complex64::from_polar(r2, -PI / 2.0 - *theta));
         }
     }
 
-    path.push(Complex64::new(0.0, y0 + k));
+    path.push(Complex64::new(0.0, y0 + 1.0 * k));
 
     pxu::path::SavedPath::new(
         "U band between/outside (single)",
@@ -283,6 +317,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
     let x0 = 2.7;
     let y0 = -1.75;
     let k = consts.k() as f64;
+    let h = consts.h;
 
     state.follow_path(
         pxu::Component::U,
@@ -303,7 +338,6 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
         state.follow_path(pxu::Component::U, &path, contours, consts);
     }
 
-    let x0 = 1.8;
     let y0 = y0 - 3.0 * k;
 
     state.goto(
@@ -314,26 +348,47 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
         16,
     );
 
+    let r1 = 1.0;
+    let r2 = k / h - r1;
+    let y0 = -r1 - 3.0 * k;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(-x0, y0),
+        contours,
+        consts,
+        16,
+    );
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(0.0, y0),
+        contours,
+        consts,
+        16,
+    );
+
     let mut path = vec![state.points[0].u];
 
-    let steps = 32;
-    let steps = (0..=steps)
+    let steps = 16;
+    let steps = (0..=16)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
     for y in 0..=5 {
         let y = y as f64;
 
-        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        let c = Complex64::new(x0, y0 + k * y + r1);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+            path.push(c + Complex64::from_polar(r1, -PI / 2.0 + *theta));
         }
 
-        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        let c = Complex64::new(-x0, y0 + k * y + 2.0 * r1 + r2);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+            path.push(c + Complex64::from_polar(r2, -PI / 2.0 - *theta));
         }
     }
+
+    path.push(Complex64::new(0.0, y0 + 6.0 * k));
 
     pxu::path::SavedPath::new(
         "U band between/inside",
@@ -353,8 +408,8 @@ fn path_u_band_between_inside_single(
     let mut state = pxu::State::new(1, consts);
 
     let x0 = 2.7;
-    let y0 = -1.75;
     let k = consts.k() as f64;
+    let h = consts.h;
 
     state.follow_path(
         pxu::Component::U,
@@ -363,8 +418,9 @@ fn path_u_band_between_inside_single(
         consts,
     );
 
-    let x0 = 1.8;
-    let y0 = y0;
+    let r1 = 1.0;
+    let r2 = k / h - r1;
+    let y0 = -r1;
 
     state.goto(
         pxu::Component::U,
@@ -373,27 +429,36 @@ fn path_u_band_between_inside_single(
         consts,
         16,
     );
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(0.0, y0),
+        contours,
+        consts,
+        16,
+    );
 
     let mut path = vec![state.points[0].u];
 
-    let steps = 32;
-    let steps = (0..=steps)
+    let steps = 16;
+    let steps = (0..=16)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
     for y in 0..=0 {
         let y = y as f64;
 
-        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        let c = Complex64::new(x0, y0 + k * y + r1);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+            path.push(c + Complex64::from_polar(r1, -PI / 2.0 + *theta));
         }
 
-        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        let c = Complex64::new(-x0, y0 + k * y + 2.0 * r1 + r2);
         for theta in steps.iter() {
-            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+            path.push(c + Complex64::from_polar(r2, -PI / 2.0 - *theta));
         }
     }
+
+    path.push(Complex64::new(0.0, y0 + 1.0 * k));
 
     pxu::path::SavedPath::new(
         "U band between/inside (single)",
