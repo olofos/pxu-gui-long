@@ -160,6 +160,8 @@ impl SavedPath {
         use base64::Engine;
         use std::io::Write;
 
+        let input = input.trim();
+
         if let Ok(path) = ron::from_str(input) {
             return Some(path);
         }
@@ -212,6 +214,8 @@ impl SavedPath {
     pub fn load(input: &str) -> Option<Vec<Self>> {
         use base64::Engine;
         use std::io::Write;
+
+        let input = input.trim();
 
         if let Ok(saved_paths) = ron::from_str(input) {
             return Some(saved_paths);
