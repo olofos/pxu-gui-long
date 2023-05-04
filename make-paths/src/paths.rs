@@ -379,9 +379,90 @@ fn path_u_periodic_between_between(
     )
 }
 
+// U period between/between single
+fn path_u_periodic_between_between_single(
+    contours: &pxu::Contours,
+    consts: CouplingConstants,
+) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let x0 = 2.7;
+    let y0 = -0.75;
+    let k = consts.k() as f64;
+    let h = consts.h;
+
+    state.follow_path(
+        pxu::Component::U,
+        &[[4.8, 0.0], [4.8, 1.0], [0.0, 1.0], [0.0, y0], [-x0, y0]],
+        contours,
+        consts,
+    );
+
+    let r1 = 1.0;
+    let r2 = k / h - r1;
+    let y0 = -r1;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(-x0, y0),
+        contours,
+        consts,
+        16,
+    );
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(0.0, y0),
+        contours,
+        consts,
+        16,
+    );
+
+    let mut path = vec![state.points[0].u];
+
+    let steps = 16;
+    let steps = (0..=16)
+        .map(|n| PI * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    for y in 0..=0 {
+        let y = y as f64;
+
+        let c = Complex64::new(x0, y0 + k * y + r1);
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(r1, -PI / 2.0 + *theta));
+        }
+
+        let c = Complex64::new(-x0, y0 + k * y + 2.0 * r1 + r2);
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(r2, -PI / 2.0 - *theta));
+        }
+    }
+
+    path.push(Complex64::new(0.0, y0 + 1.0 * k));
+
+    pxu::path::SavedPath::new(
+        "U period between/between (single)",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
 type PathFunction = fn(&pxu::Contours, CouplingConstants) -> SavedPath;
 
-pub const ALL_PATHS: &[PathFunction] = &[
+pub const PLOT_PATHS: &[PathFunction] = &[
+    path_xp_circle_between_between,
+    path_p_circle_origin_e,
+    path_p_circle_origin_not_e,
+    path_u_band_between_inside,
+    path_u_band_between_outside,
+    path_u_periodic_between_between,
+    path_u_periodic_between_between_single,
+];
+
+pub const INTERACTIVE_PATHS: &[PathFunction] = &[
     path_xp_circle_between_between,
     path_p_circle_origin_e,
     path_p_circle_origin_not_e,

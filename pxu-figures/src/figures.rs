@@ -792,7 +792,7 @@ fn fig_xp_period_between_between(
 
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
-        .get_path_by_name("U period between/between")
+        .get_path_by_name("U period between/between (single)")
         .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
@@ -863,7 +863,7 @@ fn fig_xm_period_between_between(
 
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
-        .get_path_by_name("U period between/between")
+        .get_path_by_name("U period between/between (single)")
         .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
@@ -934,7 +934,7 @@ fn fig_p_period_between_between(
 
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
-        .get_path_by_name("U period between/between")
+        .get_path_by_name("U period between/between (single)")
         .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
