@@ -217,6 +217,65 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     )
 }
 
+// U band between/outside (single)
+fn path_u_band_between_outside_single(
+    contours: &pxu::Contours,
+    consts: CouplingConstants,
+) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let x0 = 2.7;
+    let y0 = -1.5;
+    let k = consts.k() as f64;
+
+    state.follow_path(
+        pxu::Component::U,
+        &[[0.0, 0.0], [0.0, y0]],
+        contours,
+        consts,
+    );
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(0.0, y0),
+        contours,
+        consts,
+        16,
+    );
+
+    let mut path = vec![Complex64::new(0.0, y0)];
+
+    let steps = 16;
+    let steps = (0..=16)
+        .map(|n| PI * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    for y in 0..=0 {
+        let y = y as f64;
+
+        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+        }
+
+        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+        }
+    }
+
+    path.push(Complex64::new(0.0, y0 + k));
+
+    pxu::path::SavedPath::new(
+        "U band between/outside (single)",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
 // U band between/inside
 fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
     let mut state = pxu::State::new(1, consts);
@@ -278,6 +337,66 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
 
     pxu::path::SavedPath::new(
         "U band between/inside",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
+// U band between/inside (single)
+fn path_u_band_between_inside_single(
+    contours: &pxu::Contours,
+    consts: CouplingConstants,
+) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let x0 = 2.7;
+    let y0 = -1.75;
+    let k = consts.k() as f64;
+
+    state.follow_path(
+        pxu::Component::U,
+        &[[4.8, 0.0], [4.8, 1.0], [0.0, 1.0], [0.0, -2.5], [-x0, -2.5]],
+        contours,
+        consts,
+    );
+
+    let x0 = 1.8;
+    let y0 = y0;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(-x0, y0),
+        contours,
+        consts,
+        16,
+    );
+
+    let mut path = vec![state.points[0].u];
+
+    let steps = 32;
+    let steps = (0..=steps)
+        .map(|n| PI * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    for y in 0..=0 {
+        let y = y as f64;
+
+        let c = Complex64::new(x0, y0 + k * (y + 0.25));
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 + *theta));
+        }
+
+        let c = Complex64::new(-x0, y0 + k * (y + 0.75));
+        for theta in steps.iter() {
+            path.push(c + Complex64::from_polar(0.25 * k, -PI / 2.0 - *theta));
+        }
+    }
+
+    pxu::path::SavedPath::new(
+        "U band between/inside (single)",
         path,
         state,
         pxu::Component::U,
@@ -457,7 +576,9 @@ pub const PLOT_PATHS: &[PathFunction] = &[
     path_p_circle_origin_e,
     path_p_circle_origin_not_e,
     path_u_band_between_inside,
+    path_u_band_between_inside_single,
     path_u_band_between_outside,
+    path_u_band_between_outside_single,
     path_u_periodic_between_between,
     path_u_periodic_between_between_single,
 ];
@@ -468,5 +589,6 @@ pub const INTERACTIVE_PATHS: &[PathFunction] = &[
     path_p_circle_origin_not_e,
     path_u_band_between_inside,
     path_u_band_between_outside,
+    path_u_band_between_outside_single,
     path_u_periodic_between_between,
 ];

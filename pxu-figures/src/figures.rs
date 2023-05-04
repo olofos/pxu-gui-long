@@ -481,7 +481,7 @@ fn fig_xp_band_between_inside(
 
     figure.add_grid_lines(&pxu, &[])?;
     let path = pxu
-        .get_path_by_name("U band between/inside")
+        .get_path_by_name("U band between/inside (single)")
         .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
@@ -491,7 +491,7 @@ fn fig_xp_band_between_inside(
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
     figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
+    figure.add_path(&pxu, path, &["solid"])?;
 
     figure.finish(cache, settings)
 }
@@ -517,7 +517,7 @@ fn fig_xp_band_between_outside(
     figure.add_grid_lines(&pxu, &[])?;
 
     let path = pxu
-        .get_path_by_name("U band between/outside")
+        .get_path_by_name("U band between/outside (single)")
         .ok_or_else(|| error("Path not found"))?;
 
     let mut pxu = (*pxu).clone();
@@ -527,7 +527,7 @@ fn fig_xp_band_between_outside(
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
     figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
+    figure.add_path(&pxu, path, &["solid"])?;
 
     figure.finish(cache, settings)
 }
