@@ -317,15 +317,12 @@ fn fig_u_period_between_between(
         ::pxu::kinematics::UBranch::Between,
     );
 
-    figure.add_cuts(&pxu, &[])?;
-
     let path = pxu
         .get_path_by_name("U period between/between")
         .ok_or_else(|| error("Path not found"))?;
 
-    for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -356,15 +353,12 @@ fn fig_u_band_between_outside(
         ::pxu::kinematics::UBranch::Outside,
     );
 
-    figure.add_cuts(&pxu, &[])?;
-
     let path = pxu
         .get_path_by_name("U band between/outside")
         .ok_or_else(|| error("Path not found"))?;
 
-    for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -395,15 +389,12 @@ fn fig_u_band_between_inside(
         ::pxu::kinematics::UBranch::Inside,
     );
 
-    figure.add_cuts(&pxu, &[])?;
-
     let path = pxu
         .get_path_by_name("U band between/inside")
         .ok_or_else(|| error("Path not found"))?;
 
-    for segment in &path.segments[0] {
-        figure.add_plot(&["very thick", "Blue"], &segment.u)?;
-    }
+    figure.add_cuts(&pxu, &[])?;
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -436,46 +427,7 @@ fn fig_p_band_between_outside(
     pxu.state = path.base_path.start.clone();
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::P,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.p);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -504,46 +456,7 @@ fn fig_p_band_between_inside(
         .ok_or_else(|| error("Path not found"))?;
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::P,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.p);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -578,46 +491,7 @@ fn fig_xp_band_between_inside(
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::Xp,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.xp);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -653,46 +527,7 @@ fn fig_xp_band_between_outside(
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::Xp,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.xp);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -728,46 +563,7 @@ fn fig_xm_band_between_inside(
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::Xm,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.xm);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -799,46 +595,7 @@ fn fig_xp_period_between_between(
     pxu.state = path.base_path.start.clone();
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::Xp,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.xp);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -870,46 +627,7 @@ fn fig_xm_period_between_between(
     pxu.state = path.base_path.start.clone();
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::Xm,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.xm);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }
@@ -941,46 +659,7 @@ fn fig_p_period_between_between(
     pxu.state = path.base_path.start.clone();
 
     figure.add_cuts(&pxu, &[])?;
-
-    let mut straight_segments = vec![];
-    let mut dotted_segments = vec![];
-
-    let mut same_branch = false;
-    let mut points = vec![];
-
-    for segment in &path.segments[0] {
-        let segment_same_branch = segment.sheet_data.is_same(
-            &pxu.state.points[0].sheet_data,
-            pxu::Component::P,
-            pxu::UCutType::Short,
-        );
-
-        if segment_same_branch != same_branch && !points.is_empty() {
-            if same_branch {
-                straight_segments.push(points);
-            } else {
-                dotted_segments.push(points);
-            }
-            points = vec![];
-        }
-
-        points.extend(&segment.p);
-        same_branch = segment_same_branch;
-    }
-
-    if same_branch {
-        straight_segments.push(points);
-    } else {
-        dotted_segments.push(points);
-    }
-
-    for points in dotted_segments {
-        figure.add_plot(&["very thick", "Blue", "dotted"], &points)?;
-    }
-
-    for points in straight_segments {
-        figure.add_plot(&["very thick", "Blue"], &points)?;
-    }
+    figure.add_path(&pxu, path, &[])?;
 
     figure.finish(cache, settings)
 }

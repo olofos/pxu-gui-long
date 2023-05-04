@@ -580,6 +580,15 @@ impl Segment {
         Self::simplify_line(&mut self.xm);
         Self::simplify_line(&mut self.u);
     }
+
+    pub fn get(&self, component: Component) -> &Vec<Complex64> {
+        match component {
+            Component::P => &self.p,
+            Component::Xp => &self.xp,
+            Component::Xm => &self.xm,
+            Component::U => &self.u,
+        }
+    }
 }
 
 impl BasePath {

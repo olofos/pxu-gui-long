@@ -328,6 +328,58 @@ progress_file=io.open(""#;
         )
     }
 
+    pub fn add_path(
+        &mut self,
+        pxu: &pxu::Pxu,
+        path: &pxu::path::Path,
+        options: &[&str],
+    ) -> Result<()> {
+        let mut straight_segments = vec![];
+        let mut dotted_segments = vec![];
+
+        let mut same_branch = false;
+        let mut points = vec![];
+
+        for segment in &path.segments[0] {
+            let segment_same_branch = segment.sheet_data.is_same(
+                &pxu.state.points[0].sheet_data,
+                self.component,
+                self.u_cut_type,
+            );
+
+            if segment_same_branch != same_branch && !points.is_empty() {
+                if same_branch {
+                    straight_segments.push(points);
+                } else {
+                    dotted_segments.push(points);
+                }
+                points = vec![];
+            }
+
+            points.extend(segment.get(self.component));
+            same_branch = segment_same_branch;
+        }
+
+        if same_branch {
+            straight_segments.push(points);
+        } else {
+            dotted_segments.push(points);
+        }
+
+        for points in dotted_segments {
+            self.add_plot(
+                &[&["very thick", "Blue", "dotted"], options].concat(),
+                &points,
+            )?;
+        }
+
+        for points in straight_segments {
+            self.add_plot(&[&["very thick", "Blue"], options].concat(), &points)?;
+        }
+
+        Ok(())
+    }
+
     pub fn finish(
         mut self,
         cache: Arc<cache::Cache>,
