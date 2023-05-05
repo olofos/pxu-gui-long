@@ -237,18 +237,19 @@ progress_file=io.open(""#;
         options: &[&str],
         consts: CouplingConstants,
     ) -> Result<()> {
+        let dashed = "densely dashed";
         let (color, style) = match cut.typ {
             pxu::CutType::E => ("black", ""),
             pxu::CutType::Log(pxu::Component::Xp) => ("Red", ""),
             pxu::CutType::Log(pxu::Component::Xm) => ("Green", ""),
             pxu::CutType::ULongPositive(pxu::Component::Xp) => ("Red", ""),
-            pxu::CutType::ULongNegative(pxu::Component::Xp) => ("Red", "densely dashed"),
+            pxu::CutType::ULongNegative(pxu::Component::Xp) => ("Red", dashed),
             pxu::CutType::ULongPositive(pxu::Component::Xm) => ("Green", ""),
-            pxu::CutType::ULongNegative(pxu::Component::Xm) => ("Green", "densely dashed"),
+            pxu::CutType::ULongNegative(pxu::Component::Xm) => ("Green", dashed),
             pxu::CutType::UShortScallion(pxu::Component::Xp) => ("Red", ""),
-            pxu::CutType::UShortKidney(pxu::Component::Xp) => ("Red", "densely dashed"),
+            pxu::CutType::UShortKidney(pxu::Component::Xp) => ("Red", dashed),
             pxu::CutType::UShortScallion(pxu::Component::Xm) => ("Green", ""),
-            pxu::CutType::UShortKidney(pxu::Component::Xm) => ("Green", "densely dashed"),
+            pxu::CutType::UShortKidney(pxu::Component::Xm) => ("Green", dashed),
             _ => {
                 return Ok(());
             }
@@ -264,6 +265,9 @@ progress_file=io.open(""#;
         for shift in shifts {
             self.y_shift = shift;
 
+            if style == dashed {
+                self.add_plot(&[&["lightgray", "very thick"], options].concat(), &cut.path)?
+            }
             self.add_plot(
                 &[&[color, style, "very thick"], options].concat(),
                 &cut.path,
@@ -394,7 +398,7 @@ progress_file=io.open(""#;
         };
         writeln!(
             self.writer,
-            "\\node at (current bounding box.north east) [anchor=north east,fill=white,outer sep=0.1cm,draw] {{$\\scriptstyle {component_name}$}};"
+            "\\node at (current bounding box.north east) [anchor=north east,fill=white,outer sep=0.1cm,draw,thin] {{$\\scriptstyle {component_name}$}};"
         )?;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
