@@ -654,6 +654,5 @@ pub const INTERACTIVE_PATHS: &[PathFunction] = &[
     path_p_circle_origin_not_e,
     path_u_band_between_inside,
     path_u_band_between_outside,
-    path_u_band_between_outside_single,
     path_u_periodic_between_between,
 ];
