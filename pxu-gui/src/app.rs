@@ -519,8 +519,11 @@ impl PxuGuiApp {
                         - 1.0 / xm
                         - 2.0 * num::complex::Complex64::i() * (k * p) / h)
                         .im;
-                let (label, m) = if xp.im >= 0.0 { ("Xp", m) } else { ("Xm", -m) };
-                ui.label(format!("xp = {label}(p = {p:.3}, m = {m:.3})"));
+                if xp.im >= 0.0 {
+                    ui.label(format!("xp = Xp({:.3},{:.3})", p, m));
+                } else {
+                    ui.label(format!("xp = Xm({:.3},{:.3})", -p, -m));
+                };
             }
             {
                 let xm = active_point.xm;
@@ -534,8 +537,11 @@ impl PxuGuiApp {
                         - 1.0 / xm
                         - 2.0 * num::complex::Complex64::i() * (k * p) / h)
                         .im;
-                let (label, m) = if xm.im >= 0.0 { ("Xp", -m) } else { ("Xm", m) };
-                ui.label(format!("xm = {label}(p = {p:.3}, m = {m:.3})"));
+                if xm.im >= 0.0 {
+                    ui.label(format!("xm = Xp({:.3},{:.3})", -p, -m));
+                } else {
+                    ui.label(format!("xm = Xm({:.3},{:.3})", p, m));
+                };
             }
         }
     }
