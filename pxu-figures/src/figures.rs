@@ -539,7 +539,7 @@ fn fig_xm_band_between_inside(
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xm-band-between-inside",
-        -1.3..1.3,
+        -0.8..0.4,
         0.0,
         Size {
             width: 8.0,
@@ -558,6 +558,42 @@ fn fig_xm_band_between_inside(
 
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
+    pxu.state.points[0].sheet_data.log_branch_p = 0;
+    pxu.state.points[0].sheet_data.log_branch_m = -1;
+    pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
+
+    figure.add_cuts(&pxu, &[])?;
+    figure.add_path(&pxu, path, &[])?;
+
+    figure.finish(cache, settings)
+}
+
+fn fig_xm_band_between_outside(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "xm-band-between-outside",
+        -7.0..7.0,
+        0.0,
+        Size {
+            width: 8.0,
+            height: 16.0,
+        },
+        pxu::Component::Xm,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    figure.add_grid_lines(&pxu, &[])?;
+
+    let path = pxu
+        .get_path_by_name("U band between/outside")
+        .ok_or_else(|| error("Path not found"))?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Outside);
     pxu.state.points[0].sheet_data.log_branch_p = 0;
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
@@ -673,15 +709,16 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_p_plane_long_cuts_regions,
     fig_p_plane_short_cuts,
     fig_xp_cuts_1,
-    fig_u_period_between_between,
     fig_u_band_between_outside,
     fig_u_band_between_inside,
+    fig_u_period_between_between,
     fig_p_band_between_outside,
     fig_p_band_between_inside,
-    fig_xp_band_between_inside,
-    fig_xp_band_between_outside,
-    fig_xm_band_between_inside,
-    fig_xp_period_between_between,
-    fig_xm_period_between_between,
     fig_p_period_between_between,
+    fig_xp_band_between_outside,
+    fig_xp_band_between_inside,
+    fig_xp_period_between_between,
+    fig_xm_band_between_inside,
+    fig_xm_band_between_outside,
+    fig_xm_period_between_between,
 ];
