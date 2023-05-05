@@ -542,26 +542,30 @@ impl PxuGuiApp {
 
             self.draw_state_information(ui);
 
-            let path_name = if let Some(path_index) = self.ui_state.path_index {
-                &self.pxu.paths[path_index].base_path.name
-            } else {
-                "None"
-            };
-            egui::ComboBox::from_id_source("path")
-                .selected_text(path_name)
-                .show_ui(ui, |ui| {
-                    ui.style_mut().wrap = Some(false);
-                    ui.set_min_width(60.0);
-                    ui.selectable_value(&mut self.ui_state.path_index, None, "None");
-                    for i in 0..self.pxu.paths.len() {
-                        ui.selectable_value(
-                            &mut self.ui_state.path_index,
-                            Some(i),
-                            &self.pxu.paths[i].base_path.name,
-                        );
-                    }
-                });
-            ui.end_row();
+            if !self.pxu.paths.is_empty() {
+                ui.separator();
+                ui.label("Path:");
+                let path_name = if let Some(path_index) = self.ui_state.path_index {
+                    &self.pxu.paths[path_index].base_path.name
+                } else {
+                    "None"
+                };
+                egui::ComboBox::from_id_source("path")
+                    .selected_text(path_name)
+                    .show_ui(ui, |ui| {
+                        ui.style_mut().wrap = Some(false);
+                        ui.set_min_width(60.0);
+                        ui.selectable_value(&mut self.ui_state.path_index, None, "None");
+                        for i in 0..self.pxu.paths.len() {
+                            ui.selectable_value(
+                                &mut self.ui_state.path_index,
+                                Some(i),
+                                &self.pxu.paths[i].base_path.name,
+                            );
+                        }
+                    });
+                ui.end_row();
+            }
 
             self.draw_animation_controls(ui, false);
 
