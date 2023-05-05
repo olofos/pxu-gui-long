@@ -121,7 +121,6 @@ impl Plot {
                         pxu::Component::U => {
                             let re = new_value.re;
                             let im = (pxu.consts.h * new_value.im).round() / pxu.consts.h;
-                            log::info!("im: {} => {}", new_value.im, im);
                             Complex64::new(re, im)
                         }
                         _ => new_value,
