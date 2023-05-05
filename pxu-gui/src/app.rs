@@ -505,6 +505,8 @@ impl PxuGuiApp {
                 active_point.sheet_data.u_branch.0, active_point.sheet_data.u_branch.1
             ));
 
+            ui.add_space(10.0);
+
             {
                 let xp = active_point.xp;
                 let xm = xp.conj();
@@ -517,7 +519,23 @@ impl PxuGuiApp {
                         - 1.0 / xm
                         - 2.0 * num::complex::Complex64::i() * (k * p) / h)
                         .im;
-                ui.label(format!("p = {p:.3} m = {m:.3}"));
+                let (label, m) = if xp.im >= 0.0 { ("Xp", m) } else { ("Xm", -m) };
+                ui.label(format!("xp = {label}(p = {p:.3}, m = {m:.3})"));
+            }
+            {
+                let xm = active_point.xm;
+                let xp = xm.conj();
+                let h = self.pxu.consts.h;
+                let k = self.pxu.consts.k() as f64;
+                let p = xp.arg() / std::f64::consts::PI;
+                let m = h / 2.0
+                    * (xp + 1.0 / xp
+                        - xm
+                        - 1.0 / xm
+                        - 2.0 * num::complex::Complex64::i() * (k * p) / h)
+                        .im;
+                let (label, m) = if xm.im >= 0.0 { ("Xp", -m) } else { ("Xm", m) };
+                ui.label(format!("xm = {label}(p = {p:.3}, m = {m:.3})"));
             }
         }
     }
