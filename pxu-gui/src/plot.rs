@@ -404,7 +404,7 @@ impl Plot {
                         branch_point_shapes.push(egui::epaint::Shape::Circle(
                             egui::epaint::CircleShape {
                                 center,
-                                radius: 4.0,
+                                radius: 3.5,
                                 fill: color,
                                 stroke: Stroke::NONE,
                             },
