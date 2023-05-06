@@ -259,6 +259,30 @@ fn fig_p_plane_short_cuts(
     figure.finish(cache, settings)
 }
 
+fn fig_p_plane_long_cuts(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-plane-long-cuts",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 25.0,
+            height: 10.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Long,
+        settings,
+    )?;
+
+    figure.add_grid_lines(&pxu, &[])?;
+    figure.add_cuts(&pxu, &[])?;
+
+    figure.finish(cache, settings)
+}
+
 fn fig_xp_cuts_1(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
@@ -891,6 +915,7 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_xpl_cover,
     fig_p_plane_long_cuts_regions,
     fig_p_plane_short_cuts,
+    fig_p_plane_long_cuts,
     fig_xp_cuts_1,
     fig_u_band_between_outside,
     fig_u_band_between_inside,
