@@ -169,8 +169,12 @@ progress_file=io.open(""#;
 
         let mut coordinates: Vec<Complex64> = vec![];
 
+        let y_shift = Complex64::new(0.0, self.y_shift.unwrap_or_default());
+
         let include = |z1, z2| {
-            self.bounds.inside(z1) || self.bounds.inside(z2) || self.bounds.crosses(z1, z2)
+            let z1 = z1 + y_shift;
+            let z2 = z2 + y_shift;
+            self.bounds.inside(&z1) || self.bounds.inside(&z2) || self.bounds.crosses(&z1, &z2)
         };
 
         if let [z1, z2] = &contour[0..=1] {
