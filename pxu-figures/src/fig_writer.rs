@@ -53,7 +53,7 @@ pub struct FigureWriter {
     pub size: Size,
     writer: BufWriter<File>,
     pub plot_count: u64,
-    component: pxu::Component,
+    pub component: pxu::Component,
     y_shift: Option<f64>,
     u_cut_type: pxu::UCutType,
 }
