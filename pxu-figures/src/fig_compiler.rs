@@ -12,6 +12,7 @@ use crate::utils::{Settings, Size, TEX_EXT};
 
 pub struct FigureCompiler {
     pub name: String,
+    pub caption: String,
     child: Child,
     plot_count: u64,
     size: Size,
@@ -20,6 +21,7 @@ pub struct FigureCompiler {
 #[derive(Debug)]
 pub struct FinishedFigure {
     pub name: String,
+    pub caption: String,
     pub size: Size,
 }
 
@@ -31,6 +33,7 @@ impl FigureCompiler {
     ) -> Result<Self> {
         let FigureWriter {
             name,
+            caption,
             size,
             plot_count,
             ..
@@ -40,6 +43,7 @@ impl FigureCompiler {
             let child = Command::new("/bin/true").spawn()?;
             Ok(Self {
                 name,
+                caption,
                 child,
                 plot_count: 0,
                 size,
@@ -60,6 +64,7 @@ impl FigureCompiler {
 
             Ok(Self {
                 name,
+                caption,
                 child,
                 plot_count,
                 size,
@@ -90,6 +95,7 @@ impl FigureCompiler {
         let _ = std::fs::remove_file(path);
         Ok(FinishedFigure {
             name: self.name,
+            caption: self.caption,
             size: self.size,
         })
     }

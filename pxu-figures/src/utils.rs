@@ -47,7 +47,7 @@ impl Summary {
     \usepackage[bottom=0.5cm, right=0.5cm, left=0.5cm, top=0.5cm]{geometry}
     \usepackage{graphicx}
     \usepackage{cprotect}
-    \usepackage{caption}
+    \usepackage[justification=centering]{caption}
     \captionsetup{labelformat=empty}
     \usepackage{pdflscape}
     \pagestyle{empty}
@@ -86,9 +86,12 @@ impl Summary {
             );
             write!(writer, "\\begin{{figure}}\\centering")?;
             write!(writer, "{includegraphics}")?;
-            write!(writer, "\\cprotect\\caption{{\\verb|")?;
-            write!(writer, "{includegraphics}")?;
-            write!(writer, "|}}\\end{{figure}}")?;
+            write!(writer, "\\cprotect\\caption{{")?;
+            write!(writer, "\\verb|{includegraphics}|")?;
+            if !finished_figure.caption.is_empty() {
+                write!(writer, "\\\\{}", finished_figure.caption)?;
+            }
+            write!(writer, "}}\\end{{figure}}")?;
 
             if landscape {
                 write!(writer, "\\end{{landscape}}")?;

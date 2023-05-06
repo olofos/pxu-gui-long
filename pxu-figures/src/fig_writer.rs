@@ -49,6 +49,7 @@ impl Bounds {
 #[derive(Debug)]
 pub struct FigureWriter {
     pub name: String,
+    pub caption: String,
     pub bounds: Bounds,
     pub size: Size,
     writer: BufWriter<File>,
@@ -142,6 +143,7 @@ progress_file=io.open(""#;
             component,
             y_shift: None,
             u_cut_type,
+            caption: String::new(),
         })
     }
 
@@ -415,6 +417,10 @@ progress_file=io.open(""#;
             v.re * self.size.width / self.bounds.width(),
             v.im * self.size.height / self.bounds.height(),
         )
+    }
+
+    pub fn set_caption(&mut self, caption: &str) {
+        self.caption = caption.to_owned();
     }
 }
 
