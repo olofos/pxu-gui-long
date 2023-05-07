@@ -432,14 +432,15 @@ impl PxuGuiApp {
                 .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load/Save"))
                 .clicked()
             {
-                // let s = if let Some(base_path) = &self.pxu.path.base_path {
-                //     let saved_path: pxu::path::SavedPath =
-                //         (base_path.clone(), self.pxu.consts).into();
-                //     saved_path.encode().unwrap_or_default()
-                // } else {
-                //     String::new()
-                // };
-                let s = String::new();
+                let s = if let Some(path_index) = self.ui_state.path_index {
+                    let base_path = &self.pxu.paths[path_index].base_path;
+                    let saved_paths: Vec<pxu::path::SavedPath> =
+                        vec![(base_path.clone(), self.pxu.consts).into()];
+                    pxu::path::SavedPath::save(&saved_paths).unwrap_or_default()
+                    //     saved_path.encode().unwrap_or_default()
+                } else {
+                    String::new()
+                };
                 self.path_dialog_text = Some(s);
             }
 
@@ -467,6 +468,14 @@ impl PxuGuiApp {
                 });
             }
         });
+
+        if ui.button("Print state").clicked() {
+            if let Ok(s) = ron::to_string(&self.pxu.state) {
+                log::info!("{s}");
+            } else {
+                log::info!("Could not print state");
+            }
+        }
     }
 
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {
@@ -475,6 +484,11 @@ impl PxuGuiApp {
         {
             ui.label(format!("Momentum: {:.3}", self.pxu.state.p()));
             ui.label(format!("Energy: {:.3}", self.pxu.state.en(self.pxu.consts)));
+            ui.label(format!(
+                "Charge: {:.3}",
+                self.pxu.state.points.len() as f64
+                    + self.pxu.consts.k() as f64 * self.pxu.state.p()
+            ));
         }
 
         ui.separator();
