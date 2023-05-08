@@ -160,6 +160,9 @@ impl eframe::App for PxuGuiApp {
                         } else {
                             self.ui_state.saved_paths_to_load = None;
                             self.ui_state.path_load_progress = None;
+                            if !self.pxu.paths.is_empty() {
+                                self.ui_state.path_index = Some(0);
+                            }
                         }
                     }
                     break;

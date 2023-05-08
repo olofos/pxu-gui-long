@@ -22,6 +22,7 @@ pub struct Segment {
     pub sheet_data: SheetData,
 }
 
+#[derive(Debug)]
 struct ConstructedSegment {
     start: Complex64,
     end: Complex64,
