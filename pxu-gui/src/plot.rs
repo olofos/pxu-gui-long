@@ -54,10 +54,6 @@ impl Plot {
                 scroll.x * (self.height / rect.height()) * (self.width_factor),
                 scroll.y * (self.height / rect.height()),
             );
-
-            if scroll != vec2(0.0, 0.0) {
-                log::info!("{scroll:?}");
-            }
         }
     }
 

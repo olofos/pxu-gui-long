@@ -145,19 +145,22 @@ impl eframe::App for PxuGuiApp {
                         .floor() as i32,
                     self.pxu.consts,
                 ) {
-                    if let Some(ref saved_paths) = self.ui_state.saved_path_to_load {
-                        self.pxu.paths = saved_paths
-                            .into_iter()
-                            .map(|saved_path| {
-                                pxu::Path::from_base_path(
-                                    saved_path.clone().into(),
-                                    &self.pxu.contours,
-                                    self.pxu.consts,
-                                )
-                            })
-                            .collect();
+                    if let Some(ref mut saved_paths) = self.ui_state.saved_paths_to_load {
+                        if let Some(saved_path) = saved_paths.pop() {
+                            let path = pxu::Path::from_base_path(
+                                saved_path.into(),
+                                &self.pxu.contours,
+                                self.pxu.consts,
+                            );
 
-                        self.ui_state.saved_path_to_load = None;
+                            self.pxu.paths.push(path);
+
+                            let progress = self.ui_state.path_load_progress.unwrap();
+                            self.ui_state.path_load_progress = Some((progress.0 + 1, progress.1));
+                        } else {
+                            self.ui_state.saved_paths_to_load = None;
+                            self.ui_state.path_load_progress = None;
+                        }
                     }
                     break;
                 }
@@ -667,6 +670,12 @@ impl PxuGuiApp {
                     ui.add(
                         egui::ProgressBar::new(progress)
                             .text(format!("Generating contours   {:.0}%", 100.0 * progress)),
+                    );
+                } else if let Some((curret, total)) = self.ui_state.path_load_progress {
+                    let progress = current as f32 / total as f32;
+                    ui.add(
+                        egui::ProgressBar::new(progress)
+                            .text(format!("Loading paths: {}/{}", curret, total)),
                     );
                 }
             });
