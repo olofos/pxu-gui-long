@@ -23,6 +23,8 @@ pub struct UiState {
     #[serde(skip)]
     pub continuous_mode: bool,
     pub path_index: Option<usize>,
+    #[serde(skip)]
+    pub saved_path_to_load: Option<Vec<pxu::path::SavedPath>>,
 }
 
 impl Default for UiState {
@@ -39,6 +41,7 @@ impl Default for UiState {
             show_dev: false,
             continuous_mode: false,
             path_index: None,
+            saved_path_to_load: None,
         }
     }
 }
@@ -48,6 +51,10 @@ impl UiState {
         self.show_fps = arguments.show_fps;
         self.show_dev = arguments.show_dev;
         self.continuous_mode = arguments.continuous_mode;
+
+        if let Some(ref paths) = arguments.paths {
+            self.saved_path_to_load = pxu::path::SavedPath::load(&paths);
+        }
     }
 
     pub fn toggle_fullscreen(&mut self, component: pxu::Component) {

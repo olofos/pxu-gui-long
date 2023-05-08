@@ -4,6 +4,7 @@ pub struct Arguments {
     pub show_fps: bool,
     pub show_dev: bool,
     pub continuous_mode: bool,
+    pub paths: Option<String>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -51,12 +52,19 @@ impl Arguments {
                     .action(clap::ArgAction::SetTrue)
                     .required(false),
             )
+            .arg(
+                clap::Arg::new("paths")
+                    .long("paths")
+                    .help("Load paths")
+                    .required(false),
+            )
             .get_matches();
 
         Self {
             show_fps: matches.get_flag("fps"),
             show_dev: matches.get_flag("dev"),
             continuous_mode: matches.get_flag("continuous_mode"),
+            paths: matches.get_one::<String>("paths").map(|s| s.clone()),
         }
     }
 }

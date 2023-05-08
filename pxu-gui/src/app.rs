@@ -145,6 +145,20 @@ impl eframe::App for PxuGuiApp {
                         .floor() as i32,
                     self.pxu.consts,
                 ) {
+                    if let Some(ref saved_paths) = self.ui_state.saved_path_to_load {
+                        self.pxu.paths = saved_paths
+                            .into_iter()
+                            .map(|saved_path| {
+                                pxu::Path::from_base_path(
+                                    saved_path.clone().into(),
+                                    &self.pxu.contours,
+                                    self.pxu.consts,
+                                )
+                            })
+                            .collect();
+
+                        self.ui_state.saved_path_to_load = None;
+                    }
                     break;
                 }
                 ctx.request_repaint();
