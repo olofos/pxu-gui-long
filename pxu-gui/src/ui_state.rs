@@ -56,7 +56,7 @@ impl UiState {
         self.continuous_mode = arguments.continuous_mode;
 
         if let Some(ref paths) = arguments.paths {
-            let saved_paths_to_load = pxu::path::SavedPath::load(&paths);
+            let saved_paths_to_load = pxu::path::SavedPath::load(paths);
             if let Some(ref paths) = saved_paths_to_load {
                 self.path_load_progress = Some((0, paths.len()))
             }

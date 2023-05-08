@@ -64,7 +64,7 @@ impl Arguments {
             show_fps: matches.get_flag("fps"),
             show_dev: matches.get_flag("dev"),
             continuous_mode: matches.get_flag("continuous_mode"),
-            paths: matches.get_one::<String>("paths").map(|s| s.clone()),
+            paths: matches.get_one::<String>("paths").cloned(),
         }
     }
 }
