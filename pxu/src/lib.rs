@@ -25,6 +25,7 @@ pub struct Pxu {
     #[serde(skip)]
     pub contours: Contours,
     pub state: State,
+    #[serde(skip)]
     pub paths: Vec<Path>,
 }
 
