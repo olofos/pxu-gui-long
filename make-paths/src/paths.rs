@@ -634,6 +634,178 @@ fn path_u_periodic_between_between_single(
     )
 }
 
+// U crossing from 0-2pi
+fn path_u_crossing_from_0_a(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let h = consts.h;
+    let x0 = -0.19224596334559135;
+    let x1 = 2.6;
+    let x2 = 0.08077185856988384;
+    let y = 2.2 / h;
+    let r = 1.0 / h;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(x0, 0.0),
+        contours,
+        consts,
+        16,
+    );
+
+    let steps = 8;
+    let steps = (0..=steps)
+        .map(|n| PI / 2.0 * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    let mut path = vec![state.points[0].u];
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x0 + r, -y + r) + Complex64::from_polar(r, -PI + theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x1 - r, -y + r) + Complex64::from_polar(r, -PI / 2.0 + theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x1 - r, y - r) + Complex64::from_polar(r, *theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x2 + r, y - r) + Complex64::from_polar(r, PI / 2.0 + theta));
+    }
+
+    path.push(Complex64::new(x2, 0.0));
+
+    pxu::path::SavedPath::new(
+        "U crossing from 0-2pi path A",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
+// U crossing from 0-2pi
+fn path_u_crossing_from_0_b(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let h = consts.h;
+    let x0 = 1.9235122885022853;
+    let x1 = 0.45;
+    let x2 = 2.0535118654142286;
+    let y = 1.8 / h;
+    let r = 1.0 / h;
+
+    state.goto(
+        pxu::Component::U,
+        Complex64::new(x0, 0.0),
+        contours,
+        consts,
+        16,
+    );
+
+    let steps = 8;
+    let steps = (0..=steps)
+        .map(|n| PI / 2.0 * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    let mut path = vec![state.points[0].u];
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x0 - r, -y + r) + Complex64::from_polar(r, -theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x1 + r, -y + r) + Complex64::from_polar(r, -PI / 2.0 - theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x1 + r, y - r) + Complex64::from_polar(r, PI - theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x2 - r, y - r) + Complex64::from_polar(r, PI / 2.0 - theta));
+    }
+
+    path.push(Complex64::new(x2, 0.0));
+
+    pxu::path::SavedPath::new(
+        "U crossing from 0-2pi path B",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
+// U crossing from -2pi to 0
+fn path_u_crossing_from_min_1(contours: &pxu::Contours, consts: CouplingConstants) -> SavedPath {
+    let mut state = pxu::State::new(1, consts);
+
+    let k = consts.k() as f64;
+    let h = consts.h;
+    let x0 = -0.4319489724735624;
+    let x1 = -2.4;
+    let x2 = -0.21090292930603183;
+    let y = 2.2 / h;
+    let r = 1.0 / h;
+
+    state.follow_path(
+        pxu::Component::U,
+        &[
+            [3.0, 0.0],
+            [3.0, -2.0 / h],
+            [-3.0, -2.0 / h],
+            [-3.0, k / h],
+            [x0, k / h],
+        ],
+        contours,
+        consts,
+    );
+
+    let steps = 8;
+    let steps = (0..=steps)
+        .map(|n| PI / 2.0 * n as f64 / steps as f64)
+        .collect::<Vec<_>>();
+
+    let mut path = vec![state.points[0].u];
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x0 - r, k / h - y + r) + Complex64::from_polar(r, -theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(
+            Complex64::new(x1 + r, k / h - y + r) + Complex64::from_polar(r, -PI / 2.0 - theta),
+        );
+    }
+
+    for theta in steps.iter() {
+        path.push(Complex64::new(x1 + r, k / h + y - r) + Complex64::from_polar(r, PI - theta));
+    }
+
+    for theta in steps.iter() {
+        path.push(
+            Complex64::new(x2 - r, k / h + y - r) + Complex64::from_polar(r, PI / 2.0 - theta),
+        );
+    }
+
+    path.push(Complex64::new(x2, k / h));
+
+    pxu::path::SavedPath::new(
+        "U crossing from -2pi to 0",
+        path,
+        state,
+        pxu::Component::U,
+        0,
+        consts,
+    )
+}
+
 type PathFunction = fn(&pxu::Contours, CouplingConstants) -> SavedPath;
 
 pub const PLOT_PATHS: &[PathFunction] = &[
@@ -646,6 +818,9 @@ pub const PLOT_PATHS: &[PathFunction] = &[
     path_u_band_between_outside_single,
     path_u_periodic_between_between,
     path_u_periodic_between_between_single,
+    path_u_crossing_from_0_a,
+    path_u_crossing_from_0_b,
+    path_u_crossing_from_min_1,
 ];
 
 pub const INTERACTIVE_PATHS: &[PathFunction] = &[
@@ -655,4 +830,7 @@ pub const INTERACTIVE_PATHS: &[PathFunction] = &[
     path_u_band_between_inside,
     path_u_band_between_outside,
     path_u_periodic_between_between,
+    path_u_crossing_from_0_b,
+    path_u_crossing_from_0_a,
+    path_u_crossing_from_min_1,
 ];

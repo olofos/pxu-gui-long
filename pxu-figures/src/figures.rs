@@ -709,13 +709,94 @@ fn fig_p_period_between_between(
     )
 }
 
-    let mut pxu = (*pxu).clone();
-    pxu.state = path.base_path.start.clone();
+fn fig_u_crossing_0(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let figure = FigureWriter::new(
+        "u-crossing-0",
+        -3.0..3.0,
+        0.0,
+        Size {
+            width: 6.0,
+            height: 6.0,
+        },
+        pxu::Component::U,
+        pxu::UCutType::Short,
+        settings,
+    )?;
 
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
+    draw_path_figure(
+        figure,
+        &[
+            "U crossing from 0-2pi path A",
+            "U crossing from 0-2pi path B",
+        ],
+        pxu,
+        cache,
+        settings,
+    )
+}
 
-    figure.finish(cache, settings)
+fn fig_xp_crossing_0(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let figure = FigureWriter::new(
+        "xp-crossing-0",
+        -3.0..3.0,
+        0.0,
+        Size {
+            width: 6.0,
+            height: 6.0,
+        },
+        pxu::Component::Xp,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    draw_path_figure(
+        figure,
+        &[
+            "U crossing from 0-2pi path A",
+            "U crossing from 0-2pi path B",
+        ],
+        pxu,
+        cache,
+        settings,
+    )
+}
+
+fn fig_xm_crossing_0(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let figure = FigureWriter::new(
+        "xm-crossing-0",
+        -1.5..4.4,
+        0.0,
+        Size {
+            width: 6.0,
+            height: 6.0,
+        },
+        pxu::Component::Xm,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    draw_path_figure(
+        figure,
+        &[
+            "U crossing from 0-2pi path A",
+            "U crossing from 0-2pi path B",
+        ],
+        pxu,
+        cache,
+        settings,
+    )
 }
 
 fn draw_state_figure(
@@ -925,6 +1006,9 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_xm_band_between_inside,
     fig_xm_band_between_outside,
     fig_xm_period_between_between,
+    fig_u_crossing_0,
+    fig_xp_crossing_0,
+    fig_xm_crossing_0,
     fig_p_two_particle_bs_0,
     fig_xp_two_particle_bs_0,
     fig_xm_two_particle_bs_0,
