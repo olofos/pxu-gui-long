@@ -69,6 +69,11 @@ impl Point {
             return None;
         }
 
+        if (p - p.re.round()).norm() < 0.005 {
+            log::debug!("Too close to the origin");
+            return None;
+        }
+
         if (self.xp - new_xp).norm_sqr() > 16.0 / (consts.h * consts.h) {
             log::debug!(
                 "xp jump too large: {} ({}) {} ({})",
