@@ -315,12 +315,52 @@ fn fig_xp_cuts_1(
     figure.finish(cache, settings)
 }
 
+fn draw_path_figure(
+    mut figure: FigureWriter,
+    paths: &[&str],
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    figure.add_grid_lines(&pxu, &[])?;
+    figure.add_cuts(&pxu, &[])?;
+
+    for name in paths {
+        let path = pxu
+            .get_path_by_name(name)
+            .ok_or_else(|| error(&format!("Path \"{name}\" not found")))?;
+        figure.add_path(&pxu, path, &[])?;
+    }
+
+    figure.finish(cache, settings)
+}
+
+fn draw_path_figure_with_options(
+    mut figure: FigureWriter,
+    paths: &[(&str, &[&str])],
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    figure.add_grid_lines(&pxu, &[])?;
+    figure.add_cuts(&pxu, &[])?;
+
+    for (name, options) in paths {
+        let path = pxu
+            .get_path_by_name(name)
+            .ok_or_else(|| error(&format!("Path \"{name}\" not found")))?;
+        figure.add_path(&pxu, path, options)?;
+    }
+
+    figure.finish(cache, settings)
+}
+
 fn fig_u_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "u-period-between-between",
         -6.0..4.0,
         0.25,
@@ -333,22 +373,19 @@ fn fig_u_period_between_between(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
         ::pxu::kinematics::UBranch::Between,
         ::pxu::kinematics::UBranch::Between,
     );
 
-    let path = pxu
-        .get_path_by_name("U period between/between")
-        .ok_or_else(|| error("Path not found"))?;
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(
+        figure,
+        &["U period between/between"],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_u_band_between_outside(
@@ -356,7 +393,7 @@ fn fig_u_band_between_outside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "u-band-between-outside",
         -6.0..4.0,
         0.25,
@@ -369,22 +406,19 @@ fn fig_u_band_between_outside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
         ::pxu::kinematics::UBranch::Between,
         ::pxu::kinematics::UBranch::Outside,
     );
 
-    let path = pxu
-        .get_path_by_name("U band between/outside")
-        .ok_or_else(|| error("Path not found"))?;
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(
+        figure,
+        &["U band between/outside"],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_u_band_between_inside(
@@ -392,7 +426,7 @@ fn fig_u_band_between_inside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "u-band-between-inside",
         -6.0..4.0,
         0.25,
@@ -405,22 +439,19 @@ fn fig_u_band_between_inside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (
         ::pxu::kinematics::UBranch::Between,
         ::pxu::kinematics::UBranch::Inside,
     );
 
-    let path = pxu
-        .get_path_by_name("U band between/inside")
-        .ok_or_else(|| error("Path not found"))?;
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(
+        figure,
+        &["U band between/inside"],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_p_band_between_outside(
@@ -428,7 +459,7 @@ fn fig_p_band_between_outside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "p-band-between-outside",
         -2.6..2.6,
         0.0,
@@ -441,19 +472,7 @@ fn fig_p_band_between_outside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
-    let path = pxu
-        .get_path_by_name("U band between/outside")
-        .ok_or_else(|| error("Path not found"))?;
-
-    let mut pxu = (*pxu).clone();
-    pxu.state = path.base_path.start.clone();
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(figure, &["U band between/outside"], pxu, cache, settings)
 }
 
 fn fig_p_band_between_inside(
@@ -461,7 +480,7 @@ fn fig_p_band_between_inside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "p-band-between-inside",
         -2.6..2.6,
         0.0,
@@ -474,15 +493,7 @@ fn fig_p_band_between_inside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-    let path = pxu
-        .get_path_by_name("U band between/inside")
-        .ok_or_else(|| error("Path not found"))?;
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(figure, &["U band between/inside"], pxu, cache, settings)
 }
 
 fn fig_xp_band_between_inside(
@@ -490,7 +501,7 @@ fn fig_xp_band_between_inside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xp-band-between-inside",
         -3.1..2.1,
         0.0,
@@ -503,21 +514,19 @@ fn fig_xp_band_between_inside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-    let path = pxu
-        .get_path_by_name("U band between/inside (single)")
-        .ok_or_else(|| error("Path not found"))?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
     pxu.state.points[0].sheet_data.log_branch_p = 0;
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &["solid"])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure_with_options(
+        figure,
+        &[("U band between/inside (single)", &["solid"])],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_xp_band_between_outside(
@@ -525,7 +534,7 @@ fn fig_xp_band_between_outside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xp-band-between-outside",
         -3.1..2.1,
         0.0,
@@ -538,22 +547,19 @@ fn fig_xp_band_between_outside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
-    let path = pxu
-        .get_path_by_name("U band between/outside (single)")
-        .ok_or_else(|| error("Path not found"))?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Outside);
     pxu.state.points[0].sheet_data.log_branch_p = 0;
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &["solid"])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure_with_options(
+        figure,
+        &[("U band between/outside (single)", &["solid"])],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_xm_band_between_inside(
@@ -561,7 +567,7 @@ fn fig_xm_band_between_inside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xm-band-between-inside",
         -0.8..0.4,
         0.0,
@@ -574,22 +580,19 @@ fn fig_xm_band_between_inside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
-    let path = pxu
-        .get_path_by_name("U band between/inside")
-        .ok_or_else(|| error("Path not found"))?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Inside);
     pxu.state.points[0].sheet_data.log_branch_p = 0;
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(
+        figure,
+        &["U band between/inside"],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_xm_band_between_outside(
@@ -597,7 +600,7 @@ fn fig_xm_band_between_outside(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xm-band-between-outside",
         -7.0..7.0,
         0.0,
@@ -610,22 +613,19 @@ fn fig_xm_band_between_outside(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-
-    let path = pxu
-        .get_path_by_name("U band between/outside")
-        .ok_or_else(|| error("Path not found"))?;
-
     let mut pxu = (*pxu).clone();
     pxu.state.points[0].sheet_data.u_branch = (UBranch::Between, UBranch::Outside);
     pxu.state.points[0].sheet_data.log_branch_p = 0;
     pxu.state.points[0].sheet_data.log_branch_m = -1;
     pxu.state.points[0].sheet_data.im_x_sign = (1, -1);
 
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure(
+        figure,
+        &["U band between/outside"],
+        Arc::new(pxu),
+        cache,
+        settings,
+    )
 }
 
 fn fig_xp_period_between_between(
@@ -633,7 +633,7 @@ fn fig_xp_period_between_between(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xp-period-between-between",
         -3.1..2.1,
         0.0,
@@ -646,18 +646,13 @@ fn fig_xp_period_between_between(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-    let path = pxu
-        .get_path_by_name("U period between/between (single)")
-        .ok_or_else(|| error("Path not found"))?;
-
-    let mut pxu = (*pxu).clone();
-    pxu.state = path.base_path.start.clone();
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure_with_options(
+        figure,
+        &[("U period between/between (single)", &["solid"])],
+        pxu,
+        cache,
+        settings,
+    )
 }
 
 fn fig_xm_period_between_between(
@@ -665,7 +660,7 @@ fn fig_xm_period_between_between(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "xm-period-between-between",
         -3.1..2.1,
         0.0,
@@ -678,18 +673,13 @@ fn fig_xm_period_between_between(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-    let path = pxu
-        .get_path_by_name("U period between/between (single)")
-        .ok_or_else(|| error("Path not found"))?;
-
-    let mut pxu = (*pxu).clone();
-    pxu.state = path.base_path.start.clone();
-
-    figure.add_cuts(&pxu, &[])?;
-    figure.add_path(&pxu, path, &[])?;
-
-    figure.finish(cache, settings)
+    draw_path_figure_with_options(
+        figure,
+        &[("U period between/between (single)", &["solid"])],
+        pxu,
+        cache,
+        settings,
+    )
 }
 
 fn fig_p_period_between_between(
@@ -697,7 +687,7 @@ fn fig_p_period_between_between(
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
+    let figure = FigureWriter::new(
         "p-period-between-between",
         -0.15..0.15,
         0.0,
@@ -710,10 +700,14 @@ fn fig_p_period_between_between(
         settings,
     )?;
 
-    figure.add_grid_lines(&pxu, &[])?;
-    let path = pxu
-        .get_path_by_name("U period between/between (single)")
-        .ok_or_else(|| error("Path not found"))?;
+    draw_path_figure(
+        figure,
+        &["U period between/between (single)"],
+        pxu,
+        cache,
+        settings,
+    )
+}
 
     let mut pxu = (*pxu).clone();
     pxu.state = path.base_path.start.clone();
