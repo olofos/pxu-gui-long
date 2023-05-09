@@ -1165,6 +1165,38 @@ fn fig_p_short_cut_regions(
 
     figure.add_cuts(&pxu, &[])?;
 
+    let mut node = |text1: &str, text2: &str, x: f64, y: f64| -> Result<()> {
+        let options = &[
+            "anchor=mid",
+            "fill=white",
+            "fill opacity=0.75",
+            "text opacity=1",
+            "outer sep=0pt",
+            "inner sep=2pt",
+            "rounded corners",
+        ];
+        figure.add_node(
+            &format!("\\small {text1}/{text2}"),
+            Complex64::new(x, y),
+            options,
+        )?;
+        if text1 != text2 {
+            figure.add_node(
+                &format!("\\small {text2}/{text1}"),
+                Complex64::new(x, -y),
+                options,
+            )?;
+        }
+        Ok(())
+    };
+
+    node("Outside", "Outside", 0.3, 0.0)?;
+    node("Between", "Between", -0.35, 0.0)?;
+    node("Inside", "Inside", -1.4, 0.0)?;
+    node("Between", "Outside", 1.6, 0.33)?;
+    node("Inside", "Between", -1.6, 0.28)?;
+    node("Inside", "Outside", -0.6, 0.5)?;
+
     figure.finish(cache, settings)
 }
 

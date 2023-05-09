@@ -391,6 +391,15 @@ progress_file=io.open(""#;
         Ok(())
     }
 
+    pub fn add_node(&mut self, text: &str, pos: Complex64, options: &[&str]) -> Result<()> {
+        let coord = self.format_coordinate(pos);
+        writeln!(
+            self.writer,
+            "\\node at {coord} [{}] {{{text}}};",
+            options.join(",")
+        )
+    }
+
     pub fn finish(
         mut self,
         cache: Arc<cache::Cache>,
