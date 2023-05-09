@@ -984,6 +984,190 @@ fn fig_u_bs_1_4_same_energy(
     draw_state_figure(figure, &state_strings, pxu, cache, settings)
 }
 
+fn fig_p_short_cut_regions(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-short-cut-regions",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 25.0,
+            height: 10.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    // figure.add_grid_lines(&pxu, &[])?;
+    // figure.add_axis()?;
+
+    let xp_scallion_path = {
+        let mut xp_scallions = pxu
+            .contours
+            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+            .filter(|cut| matches!(cut.typ, pxu::CutType::UShortScallion(pxu::Component::Xp)))
+            .map(|cut| cut.path.clone())
+            .collect::<Vec<_>>();
+
+        for path in xp_scallions.iter_mut() {
+            if path.first().unwrap().re > path.last().unwrap().re {
+                path.reverse();
+            }
+        }
+
+        xp_scallions.sort_by_key(|path| (path.first().unwrap().re * 1000.0).round() as i64);
+
+        let mut left_paths = vec![];
+        let mut right_path = vec![];
+
+        for path in xp_scallions {
+            if path.first().unwrap().re < -0.5 {
+                left_paths.push(path);
+            } else {
+                right_path.extend(path);
+            }
+        }
+
+        let min_1_path = left_paths.pop().unwrap();
+
+        let mut e_cuts = pxu
+            .contours
+            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+            .filter(|cut| {
+                matches!(cut.typ, pxu::CutType::E)
+                    && cut.path[0].im < 0.0
+                    && (-1.0..0.0).contains(&cut.path[0].re)
+            })
+            .map(|cut| cut.path.clone())
+            .collect::<Vec<_>>();
+
+        for path in e_cuts.iter_mut() {
+            if path.first().unwrap().im > path.last().unwrap().im {
+                path.reverse();
+            }
+        }
+
+        e_cuts.sort_by_key(|path| (path[0].re * 1000.0) as i32);
+
+        let e_cut_0 = e_cuts
+            .pop()
+            .unwrap()
+            .into_iter()
+            .filter(|z| z.im < right_path[0].im)
+            .collect::<Vec<_>>();
+
+        let e_cut_min_1 = e_cuts
+            .pop()
+            .unwrap()
+            .into_iter()
+            .filter(|z| z.im < min_1_path[0].im)
+            .collect::<Vec<_>>();
+
+        let mut full_path = vec![];
+
+        for path in left_paths {
+            full_path.extend(path);
+        }
+
+        full_path.extend(e_cut_min_1);
+        full_path.extend(min_1_path);
+        full_path.extend(e_cut_0);
+        full_path.extend(right_path);
+
+        full_path
+    };
+
+    let mut xp_kidney_path = {
+        let mut xp_kidneys = pxu
+            .contours
+            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+            .filter(|cut| matches!(cut.typ, pxu::CutType::UShortKidney(pxu::Component::Xp)))
+            .map(|cut| cut.path.clone())
+            .filter(|path| path[0].re > 0.0 || path[0].im < 0.2)
+            .collect::<Vec<_>>();
+
+        for path in xp_kidneys.iter_mut() {
+            if path.first().unwrap().re > path.last().unwrap().re {
+                path.reverse();
+            }
+        }
+
+        xp_kidneys.sort_by_key(|path| (path.first().unwrap().re * 1000.0).round() as i64);
+
+        let mut left_path = vec![];
+        let mut right_path = vec![];
+
+        for path in xp_kidneys {
+            if path.first().unwrap().re < -0.5 {
+                left_path.extend(path);
+            } else {
+                right_path.extend(path);
+            }
+        }
+
+        let mut e_cut = pxu
+            .contours
+            .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+            .filter(|cut| {
+                matches!(cut.typ, pxu::CutType::E)
+                    && cut.path[0].im > 0.0
+                    && (-0.5..0.0).contains(&cut.path[0].re)
+            })
+            .map(|cut| cut.path.clone())
+            .next()
+            .unwrap();
+
+        if e_cut.first().unwrap().im > e_cut.last().unwrap().im {
+            e_cut.reverse();
+        }
+
+        let e_cut = e_cut
+            .into_iter()
+            .filter(|z| z.im > left_path.last().unwrap().im)
+            .collect::<Vec<_>>();
+
+        let mut full_path = vec![];
+
+        full_path.extend(left_path);
+        full_path.extend(e_cut);
+        full_path.extend(right_path);
+
+        full_path
+    };
+
+    let mut xp_between_path = xp_scallion_path;
+    xp_between_path.extend(xp_kidney_path.iter().rev());
+
+    let x0 = xp_kidney_path.first().unwrap().re;
+    let x1 = xp_kidney_path.last().unwrap().re;
+
+    xp_kidney_path.push(Complex64::new(x1, 4.0));
+    xp_kidney_path.push(Complex64::new(x0, 4.0));
+
+    figure.add_plot_all(
+        &["fill=Green,opacity=0.3,draw=none"],
+        xp_kidney_path.iter().map(|z| z.conj()).collect(),
+    )?;
+    figure.add_plot_all(&["fill=Red,opacity=0.3,draw=none"], xp_kidney_path)?;
+
+    figure.add_plot_all(
+        &["pattern=north west lines,pattern color=Green,draw=none"],
+        xp_between_path.iter().map(|z| z.conj()).collect(),
+    )?;
+    figure.add_plot_all(
+        &["pattern=north east lines,pattern color=Red,draw=none"],
+        xp_between_path,
+    )?;
+
+    figure.add_cuts(&pxu, &[])?;
+
+    figure.finish(cache, settings)
+}
+
 type FigureFunction =
     fn(pxu: Arc<Pxu>, cache: Arc<cache::Cache>, settings: &Settings) -> Result<FigureCompiler>;
 
@@ -1014,4 +1198,5 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_xm_two_particle_bs_0,
     fig_u_two_particle_bs_0,
     fig_u_bs_1_4_same_energy,
+    fig_p_short_cut_regions,
 ];
