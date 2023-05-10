@@ -408,6 +408,7 @@ progress_file=io.open(""#;
         mut self,
         cache: Arc<cache::Cache>,
         settings: &Settings,
+        pb: &ProgressBar,
     ) -> std::io::Result<FigureCompiler> {
         writeln!(self.writer, "\\end{{axis}}\n")?;
         let component_name = match self.component {
@@ -423,6 +424,7 @@ progress_file=io.open(""#;
         self.writer.write_all(Self::FILE_END.as_bytes())?;
         self.writer.flush()?;
 
+        pb.set_message(format!("Compiling {}.tex", self.name));
         FigureCompiler::new(self, cache, settings)
     }
 

@@ -76,7 +76,6 @@ impl FigureCompiler {
     }
 
     pub fn wait(mut self, pb: &ProgressBar, settings: &Settings) -> Result<FinishedFigure> {
-        pb.set_message(format!("Compiling {}.tex", self.name));
         pb.set_length(self.plot_count + 1);
         let mut progress_path = PathBuf::from(&settings.output_dir).join(&self.name);
         progress_path.set_extension(PROGRESS_EXT);

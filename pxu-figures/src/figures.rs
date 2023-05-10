@@ -132,7 +132,7 @@ fn fig_p_xpl_preimage(
         }
     }
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_xpl_cover(
@@ -161,7 +161,7 @@ fn fig_xpl_cover(
     ) {
         figure.add_grid_line(contour, &["thin", "black"])?;
     }
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_p_plane_long_cuts_regions(
@@ -239,7 +239,7 @@ fn fig_p_plane_long_cuts_regions(
     figure.add_grid_lines(&pxu, &[])?;
     figure.add_cuts(&pxu, &[])?;
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_p_plane_short_cuts(
@@ -265,7 +265,7 @@ fn fig_p_plane_short_cuts(
     figure.add_grid_lines(&pxu, &[])?;
     figure.add_cuts(&pxu, &[])?;
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_p_plane_long_cuts(
@@ -291,7 +291,7 @@ fn fig_p_plane_long_cuts(
     figure.add_grid_lines(&pxu, &[])?;
     figure.add_cuts(&pxu, &[])?;
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_xp_cuts_1(
@@ -325,7 +325,7 @@ fn fig_xp_cuts_1(
 
     figure.add_cuts(&pxu, &[])?;
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn draw_path_figure(
@@ -334,6 +334,7 @@ fn draw_path_figure(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     figure.add_grid_lines(&pxu, &[])?;
     figure.add_cuts(&pxu, &[])?;
@@ -345,7 +346,7 @@ fn draw_path_figure(
         figure.add_path(&pxu, path, &[])?;
     }
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn draw_path_figure_with_options(
@@ -354,6 +355,7 @@ fn draw_path_figure_with_options(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     figure.add_grid_lines(&pxu, &[])?;
     figure.add_cuts(&pxu, &[])?;
@@ -365,7 +367,7 @@ fn draw_path_figure_with_options(
         figure.add_path(&pxu, path, options)?;
     }
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_u_period_between_between(
@@ -400,6 +402,7 @@ fn fig_u_period_between_between(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -435,6 +438,7 @@ fn fig_u_band_between_outside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -470,6 +474,7 @@ fn fig_u_band_between_inside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -493,7 +498,14 @@ fn fig_p_band_between_outside(
         pb,
     )?;
 
-    draw_path_figure(figure, &["U band between/outside"], pxu, cache, settings)
+    draw_path_figure(
+        figure,
+        &["U band between/outside"],
+        pxu,
+        cache,
+        settings,
+        pb,
+    )
 }
 
 fn fig_p_band_between_inside(
@@ -516,7 +528,7 @@ fn fig_p_band_between_inside(
         pb,
     )?;
 
-    draw_path_figure(figure, &["U band between/inside"], pxu, cache, settings)
+    draw_path_figure(figure, &["U band between/inside"], pxu, cache, settings, pb)
 }
 
 fn fig_xp_band_between_inside(
@@ -551,6 +563,7 @@ fn fig_xp_band_between_inside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -586,6 +599,7 @@ fn fig_xp_band_between_outside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -621,6 +635,7 @@ fn fig_xm_band_between_inside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -656,6 +671,7 @@ fn fig_xm_band_between_outside(
         Arc::new(pxu),
         cache,
         settings,
+        pb,
     )
 }
 
@@ -685,6 +701,7 @@ fn fig_xp_period_between_between(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -714,6 +731,7 @@ fn fig_xm_period_between_between(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -743,6 +761,7 @@ fn fig_p_period_between_between(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -775,6 +794,7 @@ fn fig_u_crossing_0(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -807,6 +827,7 @@ fn fig_xp_crossing_0(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -839,6 +860,7 @@ fn fig_xm_crossing_0(
         pxu,
         cache,
         settings,
+        pb,
     )
 }
 
@@ -848,6 +870,7 @@ fn draw_state_figure(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let states: Vec<pxu::State> = state_strings
         .iter()
@@ -885,7 +908,7 @@ fn draw_state_figure(
 
         figure.add_plot_all(&["only marks", color, mark, "mark size=0.075cm"], points)?;
     }
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_p_two_particle_bs_0(
@@ -914,7 +937,7 @@ fn fig_p_two_particle_bs_0(
         "(points:[(p:(0.2955484673695275,-0.07853446096510001),xp:(1.503716303147816,2.0656922379697886),xm:(0.9506849827846514,-1.236725796907908),u:(0.9875645002911329,0.49999999999534983),sheet_data:(log_branch_p:0,log_branch_m:0,e_branch:1,u_branch:(Outside,Between),im_x_sign:(1,1))),(p:(0.0041589403041424845,0.07853446096569741),xp:(0.9506849827846514,-1.2367257969079077),xm:(1.5037163031519056,-2.0656922379786726),u:(0.9875645002911335,-0.5000000000046495),sheet_data:(log_branch_p:0,log_branch_m:0,e_branch:1,u_branch:(Between,Outside),im_x_sign:(1,1)))])",
     ];
 
-    draw_state_figure(figure, &state_strings, pxu, cache, settings)
+    draw_state_figure(figure, &state_strings, pxu, cache, settings, pb)
 }
 
 fn fig_xp_two_particle_bs_0(
@@ -944,7 +967,7 @@ fn fig_xp_two_particle_bs_0(
 
     ];
 
-    draw_state_figure(figure, &state_strings, pxu, cache, settings)
+    draw_state_figure(figure, &state_strings, pxu, cache, settings, pb)
 }
 
 fn fig_xm_two_particle_bs_0(
@@ -974,7 +997,7 @@ fn fig_xm_two_particle_bs_0(
 
     ];
 
-    draw_state_figure(figure, &state_strings, pxu, cache, settings)
+    draw_state_figure(figure, &state_strings, pxu, cache, settings, pb)
 }
 
 fn fig_u_two_particle_bs_0(
@@ -1004,7 +1027,7 @@ fn fig_u_two_particle_bs_0(
 
     ];
 
-    draw_state_figure(figure, &state_strings, pxu, cache, settings)
+    draw_state_figure(figure, &state_strings, pxu, cache, settings, pb)
 }
 
 fn fig_u_bs_1_4_same_energy(
@@ -1034,7 +1057,7 @@ fn fig_u_bs_1_4_same_energy(
 
     figure.set_caption("A single particle state and a four particle bound state with the same total energy and momentum and opposite charge.");
 
-    draw_state_figure(figure, &state_strings, pxu, cache, settings)
+    draw_state_figure(figure, &state_strings, pxu, cache, settings, pb)
 }
 
 fn draw_p_region_plot(
@@ -1043,6 +1066,7 @@ fn draw_p_region_plot(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut xp_scallion_path = {
         let mut xp_scallions = pxu
@@ -1259,7 +1283,7 @@ fn draw_p_region_plot(
         node("Inside", "Outside", -0.6, 0.5)?;
     }
 
-    figure.finish(cache, settings)
+    figure.finish(cache, settings, pb)
 }
 
 fn fig_p_short_cut_regions_e_plus(
@@ -1282,7 +1306,7 @@ fn fig_p_short_cut_regions_e_plus(
         pb,
     )?;
 
-    draw_p_region_plot(figure, 1, pxu, cache, settings)
+    draw_p_region_plot(figure, 1, pxu, cache, settings, pb)
 }
 
 fn fig_p_short_cut_regions_e_min(
@@ -1305,7 +1329,7 @@ fn fig_p_short_cut_regions_e_min(
         pb,
     )?;
 
-    draw_p_region_plot(figure, -1, pxu, cache, settings)
+    draw_p_region_plot(figure, -1, pxu, cache, settings, pb)
 }
 
 type FigureFunction = fn(
