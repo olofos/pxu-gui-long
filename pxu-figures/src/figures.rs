@@ -984,28 +984,14 @@ fn fig_u_bs_1_4_same_energy(
     draw_state_figure(figure, &state_strings, pxu, cache, settings)
 }
 
-fn fig_p_short_cut_regions(
+fn draw_p_region_plot(
+    mut figure: FigureWriter,
+    e_branch: i32,
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
 ) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
-        "p-short-cut-regions",
-        -2.6..2.6,
-        0.0,
-        Size {
-            width: 25.0,
-            height: 10.0,
-        },
-        pxu::Component::P,
-        pxu::UCutType::Short,
-        settings,
-    )?;
-
-    // figure.add_grid_lines(&pxu, &[])?;
-    // figure.add_axis()?;
-
-    let xp_scallion_path = {
+    let mut xp_scallion_path = {
         let mut xp_scallions = pxu
             .contours
             .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
@@ -1139,6 +1125,13 @@ fn fig_p_short_cut_regions(
         full_path
     };
 
+    if e_branch < 0 {
+        (xp_scallion_path, xp_kidney_path) = (
+            xp_kidney_path.into_iter().map(|z| z.conj()).collect(),
+            xp_scallion_path.into_iter().map(|z| z.conj()).collect(),
+        );
+    }
+
     let mut xp_between_path = xp_scallion_path;
     xp_between_path.extend(xp_kidney_path.iter().rev());
 
@@ -1149,19 +1142,26 @@ fn fig_p_short_cut_regions(
     xp_kidney_path.push(Complex64::new(x0, 4.0));
 
     figure.add_plot_all(
-        &["fill=Green,opacity=0.3,draw=none"],
+        &["fill=Green", "opacity=0.3", "draw=none"],
         xp_kidney_path.iter().map(|z| z.conj()).collect(),
     )?;
-    figure.add_plot_all(&["fill=Red,opacity=0.3,draw=none"], xp_kidney_path)?;
+    figure.add_plot_all(&["fill=Red", "opacity=0.3", "draw=none"], xp_kidney_path)?;
 
     figure.add_plot_all(
-        &["pattern=north west lines,pattern color=Green,draw=none"],
+        &[
+            "pattern color=Green",
+            "pattern=north east lines",
+            "draw=none",
+        ],
         xp_between_path.iter().map(|z| z.conj()).collect(),
     )?;
     figure.add_plot_all(
-        &["pattern=north east lines,pattern color=Red,draw=none"],
+        &["pattern color=Red", "pattern=north west lines", "draw=none"],
         xp_between_path,
     )?;
+
+    let mut pxu = (*pxu).clone();
+    pxu.state.points[0].sheet_data.e_branch = e_branch;
 
     figure.add_cuts(&pxu, &[])?;
 
@@ -1176,13 +1176,13 @@ fn fig_p_short_cut_regions(
             "rounded corners",
         ];
         figure.add_node(
-            &format!("\\small {text1}/{text2}"),
+            &format!("\\scriptsize\\sffamily {text1}/{text2}"),
             Complex64::new(x, y),
             options,
         )?;
         if text1 != text2 {
             figure.add_node(
-                &format!("\\small {text2}/{text1}"),
+                &format!("\\scriptsize\\sffamily {text2}/{text1}"),
                 Complex64::new(x, -y),
                 options,
             )?;
@@ -1190,14 +1190,65 @@ fn fig_p_short_cut_regions(
         Ok(())
     };
 
-    node("Outside", "Outside", 0.3, 0.0)?;
-    node("Between", "Between", -0.35, 0.0)?;
-    node("Inside", "Inside", -1.4, 0.0)?;
-    node("Between", "Outside", 1.6, 0.33)?;
-    node("Inside", "Between", -1.6, 0.28)?;
-    node("Inside", "Outside", -0.6, 0.5)?;
+    if e_branch > 0 {
+        node("Outside", "Outside", 0.29, 0.0)?;
+        node("Between", "Between", -0.37, 0.0)?;
+        node("Inside", "Inside", -1.35, 0.0)?;
+        node("Between", "Outside", 1.6, 0.33)?;
+        node("Inside", "Between", -1.6, 0.28)?;
+        node("Inside", "Outside", -0.6, 0.5)?;
+    } else {
+        node("Inside", "Inside", 0.25, 0.0)?;
+        node("Between", "Between", -0.37, 0.0)?;
+        node("Outside", "Outside", -1.35, 0.0)?;
+        node("Inside", "Between", 1.6, 0.33)?;
+        node("Between", "Outside", -1.6, 0.28)?;
+        node("Inside", "Outside", -0.6, 0.5)?;
+    }
 
     figure.finish(cache, settings)
+}
+
+fn fig_p_short_cut_regions_e_plus(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let figure = FigureWriter::new(
+        "p-short-cut-regions-e-plus",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 18.0,
+            height: 7.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    draw_p_region_plot(figure, 1, pxu, cache, settings)
+}
+
+fn fig_p_short_cut_regions_e_min(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+) -> Result<FigureCompiler> {
+    let figure = FigureWriter::new(
+        "p-short-cut-regions-e-min",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 18.0,
+            height: 7.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Short,
+        settings,
+    )?;
+
+    draw_p_region_plot(figure, -1, pxu, cache, settings)
 }
 
 type FigureFunction =
@@ -1230,5 +1281,6 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_xm_two_particle_bs_0,
     fig_u_two_particle_bs_0,
     fig_u_bs_1_4_same_energy,
-    fig_p_short_cut_regions,
+    fig_p_short_cut_regions_e_plus,
+    fig_p_short_cut_regions_e_min,
 ];
