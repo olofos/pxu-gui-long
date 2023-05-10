@@ -1339,6 +1339,96 @@ type FigureFunction = fn(
     pb: &ProgressBar,
 ) -> Result<FigureCompiler>;
 
+fn fig_p_physical_region_e_plus(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+    pb: &ProgressBar,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-physical-region-e-plus",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 18.0,
+            height: 4.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Short,
+        settings,
+        pb,
+    )?;
+
+    figure.add_axis()?;
+    figure.add_grid_lines(&pxu, &[])?;
+
+    let options = &["draw=none", "fill=Blue", "opacity=0.5"];
+
+    for p_start in [-3, -2, 1, 2] {
+        let p_start = p_start as f64;
+        let p0 = p_start + 1.0 / 16.0;
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_m(2.0);
+
+        let line = p_int.contour();
+
+        let mut full_line = line.clone();
+        full_line.extend(line.into_iter().rev().map(|z| z.conj()));
+
+        figure.add_plot_all(options, full_line)?;
+    }
+
+    {
+        let mut line = vec![];
+
+        let p_start = 0.0;
+        let p0 = p_start + 1.0 / 16.0;
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_conj();
+        p_int.goto_m(0.0);
+        line.extend(p_int.contour().iter().rev());
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_m(0.0);
+        line.extend(p_int.contour().into_iter());
+
+        let mut full_line = line.clone();
+        full_line.extend(line.into_iter().rev().map(|z| z.conj()));
+
+        figure.add_plot_all(options, full_line)?;
+    }
+
+    {
+        let mut line = vec![];
+
+        let p_start = -1.0;
+        let p0 = p_start + 1.0 / 16.0;
+        let p2 = p_start + 15.0 / 16.0;
+
+        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
+        p_int.goto_m(pxu.consts.k() as f64);
+        line.extend(p_int.contour().iter().rev().map(|z| z.conj()));
+
+        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
+        p_int.goto_conj().goto_m(0.0);
+        line.extend(p_int.contour().iter());
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_m(0.0);
+        line.extend(p_int.contour().iter().rev());
+
+        let mut full_line = line.clone();
+        full_line.extend(line.into_iter().rev().map(|z| z.conj()));
+
+        figure.add_plot_all(options, full_line)?;
+    }
+
+    figure.add_cuts(&pxu, &[])?;
+
+    figure.finish(cache, settings, pb)
+}
+
 pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_p_xpl_preimage,
     fig_xpl_cover,
@@ -1368,4 +1458,5 @@ pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_u_bs_1_4_same_energy,
     fig_p_short_cut_regions_e_plus,
     fig_p_short_cut_regions_e_min,
+    fig_p_physical_region_e_plus,
 ];
