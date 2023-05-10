@@ -9,6 +9,8 @@ use indicatif::ProgressBar;
 use crate::fig_compiler::FinishedFigure;
 
 pub const TEX_EXT: &str = "tex";
+pub const PDF_EXT: &str = "pdf";
+pub const PROGRESS_EXT: &str = "prg";
 pub const SUMMARY_NAME: &str = "all-figures";
 
 pub fn error(message: &str) -> std::io::Error {
@@ -34,6 +36,8 @@ pub struct Settings {
     pub verbose: u8,
     #[arg(short, long)]
     pub jobs: Option<usize>,
+    #[arg(short, long)]
+    pub no_compress: bool,
 }
 
 #[derive(Debug, Default)]

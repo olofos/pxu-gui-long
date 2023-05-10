@@ -90,6 +90,7 @@ progress_file=io.open(""#;
 \end{document}
 "#;
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: &str,
         x_range: Range<f64>,

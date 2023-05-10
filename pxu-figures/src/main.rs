@@ -14,8 +14,29 @@ mod utils;
 use crate::figures::ALL_FIGURES;
 use crate::utils::{error, Settings, Summary, SUMMARY_NAME};
 
+fn check_for_gs() -> bool {
+    let mut cmd = std::process::Command::new("gs");
+    cmd.arg("--version")
+        .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null());
+    match cmd.spawn() {
+        Ok(mut child) => {
+            if child.wait().is_err() {
+                log::info!("Could not run \"gs\"");
+                false
+            } else {
+                true
+            }
+        }
+        Err(_) => {
+            log::info!("Could not run \"gs\"");
+            false
+        }
+    }
+}
+
 fn main() -> std::io::Result<()> {
-    let settings = Settings::parse();
+    let mut settings = Settings::parse();
 
     if settings.verbose > 0 {
         tracing_subscriber::fmt()
@@ -26,6 +47,10 @@ fn main() -> std::io::Result<()> {
             .without_time()
             .init();
         log::set_max_level(log::LevelFilter::Debug);
+    }
+
+    if !settings.no_compress {
+        settings.no_compress = !check_for_gs();
     }
 
     let num_threads = if let Some(jobs) = settings.jobs {
