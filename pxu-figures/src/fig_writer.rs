@@ -1,3 +1,4 @@
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use num::complex::Complex64;
 use pxu::GridLine;
@@ -97,6 +98,7 @@ progress_file=io.open(""#;
         component: pxu::Component,
         u_cut_type: pxu::UCutType,
         settings: &Settings,
+        pb: &ProgressBar,
     ) -> std::io::Result<Self> {
         let mut path = PathBuf::from(&settings.output_dir).join(name);
         path.set_extension(TEX_EXT);
@@ -112,6 +114,7 @@ progress_file=io.open(""#;
         let bounds = Bounds::new(x_range, y_range);
 
         log::info!("[{name}]: Creating file {}", path.to_string_lossy());
+        pb.set_message(format!("generating {}", path.to_string_lossy()));
 
         let file = File::create(&path)?;
         let mut writer = BufWriter::new(file);

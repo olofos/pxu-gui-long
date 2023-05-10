@@ -2,6 +2,7 @@ use crate::cache;
 use crate::fig_compiler::FigureCompiler;
 use crate::fig_writer::{FigureWriter, Node};
 use crate::utils::{error, Settings, Size};
+use indicatif::ProgressBar;
 
 use num::complex::Complex64;
 use pxu::GridLineComponent;
@@ -13,6 +14,7 @@ fn fig_p_xpl_preimage(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-xpL-preimage",
@@ -25,6 +27,7 @@ fn fig_p_xpl_preimage(
         pxu::Component::P,
         pxu::UCutType::Long,
         settings,
+        pb,
     )?;
 
     figure.add_grid_lines(&pxu, &[])?;
@@ -136,6 +139,7 @@ fn fig_xpl_cover(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xpL-cover",
@@ -148,6 +152,7 @@ fn fig_xpl_cover(
         pxu::Component::Xp,
         pxu::UCutType::Long,
         settings,
+        pb,
     )?;
 
     figure.add_axis()?;
@@ -163,6 +168,7 @@ fn fig_p_plane_long_cuts_regions(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-long-cuts-regions",
@@ -175,6 +181,7 @@ fn fig_p_plane_long_cuts_regions(
         pxu::Component::P,
         pxu::UCutType::Long,
         settings,
+        pb,
     )?;
 
     let color_physical = "blue!10";
@@ -239,6 +246,7 @@ fn fig_p_plane_short_cuts(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-short-cuts",
@@ -251,6 +259,7 @@ fn fig_p_plane_short_cuts(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     figure.add_grid_lines(&pxu, &[])?;
@@ -263,6 +272,7 @@ fn fig_p_plane_long_cuts(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "p-plane-long-cuts",
@@ -275,6 +285,7 @@ fn fig_p_plane_long_cuts(
         pxu::Component::P,
         pxu::UCutType::Long,
         settings,
+        pb,
     )?;
 
     figure.add_grid_lines(&pxu, &[])?;
@@ -287,6 +298,7 @@ fn fig_xp_cuts_1(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "xp-cuts-1",
@@ -299,6 +311,7 @@ fn fig_xp_cuts_1(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     figure.add_axis()?;
@@ -359,6 +372,7 @@ fn fig_u_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "u-period-between-between",
@@ -371,6 +385,7 @@ fn fig_u_period_between_between(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -392,6 +407,7 @@ fn fig_u_band_between_outside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "u-band-between-outside",
@@ -404,6 +420,7 @@ fn fig_u_band_between_outside(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -425,6 +442,7 @@ fn fig_u_band_between_inside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "u-band-between-inside",
@@ -437,6 +455,7 @@ fn fig_u_band_between_inside(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -458,6 +477,7 @@ fn fig_p_band_between_outside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-band-between-outside",
@@ -470,6 +490,7 @@ fn fig_p_band_between_outside(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(figure, &["U band between/outside"], pxu, cache, settings)
@@ -479,6 +500,7 @@ fn fig_p_band_between_inside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-band-between-inside",
@@ -491,6 +513,7 @@ fn fig_p_band_between_inside(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(figure, &["U band between/inside"], pxu, cache, settings)
@@ -500,6 +523,7 @@ fn fig_xp_band_between_inside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xp-band-between-inside",
@@ -512,6 +536,7 @@ fn fig_xp_band_between_inside(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -533,6 +558,7 @@ fn fig_xp_band_between_outside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xp-band-between-outside",
@@ -545,6 +571,7 @@ fn fig_xp_band_between_outside(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -566,6 +593,7 @@ fn fig_xm_band_between_inside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xm-band-between-inside",
@@ -578,6 +606,7 @@ fn fig_xm_band_between_inside(
         pxu::Component::Xm,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -599,6 +628,7 @@ fn fig_xm_band_between_outside(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xm-band-between-outside",
@@ -611,6 +641,7 @@ fn fig_xm_band_between_outside(
         pxu::Component::Xm,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let mut pxu = (*pxu).clone();
@@ -632,6 +663,7 @@ fn fig_xp_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xp-period-between-between",
@@ -644,6 +676,7 @@ fn fig_xp_period_between_between(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure_with_options(
@@ -659,6 +692,7 @@ fn fig_xm_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xm-period-between-between",
@@ -671,6 +705,7 @@ fn fig_xm_period_between_between(
         pxu::Component::Xm,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure_with_options(
@@ -686,6 +721,7 @@ fn fig_p_period_between_between(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-period-between-between",
@@ -698,6 +734,7 @@ fn fig_p_period_between_between(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(
@@ -713,6 +750,7 @@ fn fig_u_crossing_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "u-crossing-0",
@@ -725,6 +763,7 @@ fn fig_u_crossing_0(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(
@@ -743,6 +782,7 @@ fn fig_xp_crossing_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xp-crossing-0",
@@ -755,6 +795,7 @@ fn fig_xp_crossing_0(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(
@@ -773,6 +814,7 @@ fn fig_xm_crossing_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xm-crossing-0",
@@ -785,6 +827,7 @@ fn fig_xm_crossing_0(
         pxu::Component::Xm,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_path_figure(
@@ -849,6 +892,7 @@ fn fig_p_two_particle_bs_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-two-particle-bs-0",
@@ -861,6 +905,7 @@ fn fig_p_two_particle_bs_0(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let state_strings = [
@@ -876,6 +921,7 @@ fn fig_xp_two_particle_bs_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xp-two-particle-bs-0",
@@ -888,6 +934,7 @@ fn fig_xp_two_particle_bs_0(
         pxu::Component::Xp,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let state_strings = [
@@ -904,6 +951,7 @@ fn fig_xm_two_particle_bs_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "xm-two-particle-bs-0",
@@ -916,6 +964,7 @@ fn fig_xm_two_particle_bs_0(
         pxu::Component::Xm,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let state_strings = [
@@ -932,6 +981,7 @@ fn fig_u_two_particle_bs_0(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "u-two-particle-bs-0",
@@ -944,6 +994,7 @@ fn fig_u_two_particle_bs_0(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let state_strings = [
@@ -960,6 +1011,7 @@ fn fig_u_bs_1_4_same_energy(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let mut figure = FigureWriter::new(
         "u-bs-1-4-same-energy",
@@ -972,6 +1024,7 @@ fn fig_u_bs_1_4_same_energy(
         pxu::Component::U,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     let state_strings = [
@@ -1213,6 +1266,7 @@ fn fig_p_short_cut_regions_e_plus(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-short-cut-regions-e-plus",
@@ -1225,6 +1279,7 @@ fn fig_p_short_cut_regions_e_plus(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_p_region_plot(figure, 1, pxu, cache, settings)
@@ -1234,6 +1289,7 @@ fn fig_p_short_cut_regions_e_min(
     pxu: Arc<Pxu>,
     cache: Arc<cache::Cache>,
     settings: &Settings,
+    pb: &ProgressBar,
 ) -> Result<FigureCompiler> {
     let figure = FigureWriter::new(
         "p-short-cut-regions-e-min",
@@ -1246,13 +1302,18 @@ fn fig_p_short_cut_regions_e_min(
         pxu::Component::P,
         pxu::UCutType::Short,
         settings,
+        pb,
     )?;
 
     draw_p_region_plot(figure, -1, pxu, cache, settings)
 }
 
-type FigureFunction =
-    fn(pxu: Arc<Pxu>, cache: Arc<cache::Cache>, settings: &Settings) -> Result<FigureCompiler>;
+type FigureFunction = fn(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+    pb: &ProgressBar,
+) -> Result<FigureCompiler>;
 
 pub const ALL_FIGURES: &[FigureFunction] = &[
     fig_p_xpl_preimage,

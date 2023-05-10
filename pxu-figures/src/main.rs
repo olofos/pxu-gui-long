@@ -168,10 +168,8 @@ fn main() -> std::io::Result<()> {
                 ProgressBar::hidden()
             };
             pb.set_style(spinner_style);
-            pb.set_message("Generating tex file");
-            match f(pxu_ref, cache_ref, &settings) {
+            match f(pxu_ref, cache_ref, &settings, &pb) {
                 Ok(figure) => {
-                    pb.set_message(format!("Compiling {}.tex", figure.name));
                     let result = figure.wait(&pb, &settings);
                     pb.finish_and_clear();
                     tx.send(result.map(|r| (i, r))).unwrap();
