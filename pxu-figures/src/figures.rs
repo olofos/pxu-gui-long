@@ -1339,29 +1339,8 @@ type FigureFunction = fn(
     pb: &ProgressBar,
 ) -> Result<FigureCompiler>;
 
-fn fig_p_physical_region_e_plus(
-    pxu: Arc<Pxu>,
-    cache: Arc<cache::Cache>,
-    settings: &Settings,
-    pb: &ProgressBar,
-) -> Result<FigureCompiler> {
-    let mut figure = FigureWriter::new(
-        "p-physical-region-e-plus",
-        -2.6..2.6,
-        0.0,
-        Size {
-            width: 18.0,
-            height: 4.0,
-        },
-        pxu::Component::P,
-        pxu::UCutType::Short,
-        settings,
-        pb,
-    )?;
-
-    figure.add_grid_lines(&pxu, &[])?;
-
-    let options = &["draw=none", "fill=Blue", "opacity=0.5"];
+fn get_physical_region(pxu: &Pxu) -> Vec<Vec<Complex64>> {
+    let mut physical_region = vec![];
 
     for p_start in [-3, -2, 1, 2] {
         let p_start = p_start as f64;
@@ -1374,7 +1353,7 @@ fn fig_p_physical_region_e_plus(
         let mut full_line = line.clone();
         full_line.extend(line.into_iter().rev().map(|z| z.conj()));
 
-        figure.add_plot_all(options, full_line)?;
+        physical_region.push(full_line);
     }
 
     {
@@ -1395,7 +1374,7 @@ fn fig_p_physical_region_e_plus(
         let mut full_line = line.clone();
         full_line.extend(line.into_iter().rev().map(|z| z.conj()));
 
-        figure.add_plot_all(options, full_line)?;
+        physical_region.push(full_line);
     }
 
     {
@@ -1420,7 +1399,92 @@ fn fig_p_physical_region_e_plus(
         let mut full_line = line.clone();
         full_line.extend(line.into_iter().rev().map(|z| z.conj()));
 
-        figure.add_plot_all(options, full_line)?;
+        physical_region.push(full_line);
+    }
+
+    physical_region
+}
+
+fn get_crossed_region(pxu: &Pxu) -> Vec<Vec<Complex64>> {
+    let mut crossed_region = vec![];
+
+    {
+        let mut line: Vec<Complex64> = vec![];
+
+        let p_start = 0.0;
+        let p0 = p_start + 1.0 / 16.0;
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_conj();
+        p_int.goto_m(0.0);
+        line.extend(p_int.contour().iter().rev());
+
+        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
+        p_int.goto_m(-1.0).goto_im(0.0);
+        let im_z = line.last().unwrap().im;
+        line.extend(p_int.contour().into_iter().filter(|z| z.im < im_z));
+
+        crossed_region.push(line.iter().map(|z| z.conj()).collect());
+        crossed_region.push(line);
+    }
+
+    {
+        let mut line = vec![];
+
+        let p_start = -1.0;
+        let p2 = p_start + 15.0 / 16.0;
+
+        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
+        p_int.goto_m(pxu.consts.k() as f64);
+        line.extend(p_int.contour().iter().rev().map(|z| z.conj()));
+
+        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
+        p_int.goto_conj().goto_m(0.0);
+        line.extend(p_int.contour().iter());
+
+        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
+        p_int.goto_im(0.0);
+        let im_z = line.last().unwrap().im;
+        line.extend(p_int.contour().iter().rev().filter(|z| z.im < im_z));
+
+        crossed_region.push(line.iter().map(|z| z.conj()).collect());
+        crossed_region.push(line);
+    }
+
+    crossed_region
+}
+
+fn fig_p_physical_region_e_plus(
+    pxu: Arc<Pxu>,
+    cache: Arc<cache::Cache>,
+    settings: &Settings,
+    pb: &ProgressBar,
+) -> Result<FigureCompiler> {
+    let mut figure = FigureWriter::new(
+        "p-physical-region-e-plus",
+        -2.6..2.6,
+        0.0,
+        Size {
+            width: 18.0,
+            height: 4.0,
+        },
+        pxu::Component::P,
+        pxu::UCutType::Short,
+        settings,
+        pb,
+    )?;
+
+    figure.add_grid_lines(&pxu, &[])?;
+
+    let physical_region = get_physical_region(&pxu);
+    let crossed_region = get_crossed_region(&pxu);
+
+    for region in physical_region {
+        figure.add_plot_all(&["draw=none", "fill=Blue", "opacity=0.5"], region)?;
+    }
+
+    for region in crossed_region {
+        figure.add_plot_all(&["draw=none", "fill=Red", "opacity=0.5"], region)?;
     }
 
     figure.add_cuts(&pxu, &[])?;
@@ -1449,49 +1513,16 @@ fn fig_p_physical_region_e_minus(
     )?;
 
     figure.add_grid_lines(&pxu, &[])?;
-    let options = &["draw=none", "fill=Blue", "opacity=0.5"];
 
-    {
-        let mut line: Vec<Complex64> = vec![];
+    let crossed_region = get_physical_region(&pxu);
+    let physical_region = get_crossed_region(&pxu);
 
-        let p_start = 0.0;
-        let p0 = p_start + 1.0 / 16.0;
-
-        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
-        p_int.goto_conj();
-        p_int.goto_m(0.0);
-        line.extend(p_int.contour().iter().rev());
-
-        let mut p_int = PInterpolatorMut::xp(p0, pxu.consts);
-        p_int.goto_m(-1.0).goto_im(0.0);
-        let im_z = line.last().unwrap().im;
-        line.extend(p_int.contour().into_iter().filter(|z| z.im < im_z));
-
-        figure.add_plot_all(options, line.iter().map(|z| z.conj()).collect())?;
-        figure.add_plot_all(options, line)?;
+    for region in physical_region {
+        figure.add_plot_all(&["draw=none", "fill=Blue", "opacity=0.5"], region)?;
     }
 
-    {
-        let mut line = vec![];
-
-        let p_start = -1.0;
-        let p2 = p_start + 15.0 / 16.0;
-
-        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
-        p_int.goto_m(pxu.consts.k() as f64);
-        line.extend(p_int.contour().iter().rev().map(|z| z.conj()));
-
-        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
-        p_int.goto_conj().goto_m(0.0);
-        line.extend(p_int.contour().iter());
-
-        let mut p_int = PInterpolatorMut::xp(p2, pxu.consts);
-        p_int.goto_im(0.0);
-        let im_z = line.last().unwrap().im;
-        line.extend(p_int.contour().iter().rev().filter(|z| z.im < im_z));
-
-        figure.add_plot_all(options, line.iter().map(|z| z.conj()).collect())?;
-        figure.add_plot_all(options, line)?;
+    for region in crossed_region {
+        figure.add_plot_all(&["draw=none", "fill=Red", "opacity=0.5"], region)?;
     }
 
     let mut pxu = (*pxu).clone();
