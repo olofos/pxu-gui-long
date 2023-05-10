@@ -209,7 +209,7 @@ fn path_u_band_between_outside(contours: &pxu::Contours, consts: CouplingConstan
     let mut path = vec![state.points[0].u];
 
     let steps = 16;
-    let steps = (0..=16)
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
@@ -279,8 +279,8 @@ fn path_u_band_between_outside_single(
 
     let mut path = vec![state.points[0].u];
 
-    let steps = 16;
-    let steps = (0..=16)
+    let steps = 32;
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
@@ -370,7 +370,7 @@ fn path_u_band_between_inside(contours: &pxu::Contours, consts: CouplingConstant
     let mut path = vec![state.points[0].u];
 
     let steps = 16;
-    let steps = (0..=16)
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
@@ -439,8 +439,8 @@ fn path_u_band_between_inside_single(
 
     let mut path = vec![state.points[0].u];
 
-    let steps = 16;
-    let steps = (0..=16)
+    let steps = 32;
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
@@ -533,7 +533,7 @@ fn path_u_periodic_between_between(
     let mut path = vec![state.points[0].u];
 
     let steps = 16;
-    let steps = (0..=16)
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
@@ -603,8 +603,8 @@ fn path_u_periodic_between_between_single(
 
     let mut path = vec![state.points[0].u];
 
-    let steps = 16;
-    let steps = (0..=16)
+    let steps = 32;
+    let steps = (0..=steps)
         .map(|n| PI * n as f64 / steps as f64)
         .collect::<Vec<_>>();
 
