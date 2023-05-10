@@ -16,7 +16,7 @@ pub struct FigureCompiler {
     child: Child,
     plot_count: u64,
     size: Size,
-    should_compress: bool,
+    cached: bool,
 }
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ impl FigureCompiler {
                 child,
                 plot_count: 0,
                 size,
-                should_compress: false,
+                cached: true,
             })
         } else {
             let mut path = PathBuf::from(&settings.output_dir).join(name.clone());
@@ -70,7 +70,7 @@ impl FigureCompiler {
                 child,
                 plot_count,
                 size,
-                should_compress: !settings.no_compress,
+                cached: false,
             })
         }
     }
@@ -86,10 +86,12 @@ impl FigureCompiler {
             }
 
             if let Some(result) = self.child.try_wait()? {
-                if result.success() {
-                    log::info!("[{}]: Lualatex done.", self.name);
-                } else {
-                    log::error!("[{}]: Lualatex failed.", self.name);
+                if !self.cached {
+                    if result.success() {
+                        log::info!("[{}]: Lualatex done.", self.name);
+                    } else {
+                        log::error!("[{}]: Lualatex failed.", self.name);
+                    }
                 }
                 break;
             }
@@ -97,8 +99,9 @@ impl FigureCompiler {
         }
         let _ = std::fs::remove_file(progress_path);
 
-        if self.should_compress {
+        if !settings.no_compress && !self.cached {
             pb.set_message(format!("Compressing {}.pdf", self.name));
+            log::info!("[{}]: Compressing {}.pdf", self.name, self.name);
 
             let mut final_path = PathBuf::from(&settings.output_dir).join(&self.name);
             final_path.set_extension(PDF_EXT);
@@ -108,7 +111,6 @@ impl FigureCompiler {
             let mut temp_path = PathBuf::from(&settings.output_dir).join(temp_name);
             temp_path.set_extension(PDF_EXT);
 
-            log::info!("{:?} -> {:?}", final_path, temp_path);
             std::fs::copy(&final_path, &temp_path)?;
 
             //gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.5 -dPDFSETTINGS=/printer -dNOPAUSE -dQUIET -dBATCH -sOutputFile=
@@ -129,7 +131,6 @@ impl FigureCompiler {
             .stderr(Stdio::null())
             .stdout(Stdio::null());
 
-            log::info!("{:?}", cmd);
             cmd.spawn()?.wait()?;
 
             let _ = std::fs::remove_file(temp_path);
