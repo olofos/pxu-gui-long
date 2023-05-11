@@ -101,7 +101,7 @@ pub fn den2_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Co
 
 const SIGN: f64 = 1.0;
 
-fn x(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
+fn xpm_common(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
@@ -112,12 +112,12 @@ fn x(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     numerator / denominator
 }
 
-fn dx_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
+fn dxpm_common_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
 
-    let term1 = -x(p, m, consts) * (cos / sin) / 2.0;
+    let term1 = -xpm_common(p, m, consts) * (cos / sin) / 2.0;
     let term2 = consts.kslash() / (2.0 * consts.h * sin);
     let term3 = (consts.kslash() * (m + consts.k() as f64 * p)
         + 2.0 * consts.h * consts.h * sin * cos)
@@ -126,44 +126,26 @@ fn dx_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex6
     TAU * (term1 + term2 + SIGN * term3)
 }
 
-fn dx_dm(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
-    let p = p.into();
-    let sin = (PI * p).sin();
-    (1.0 + den_dm(p, m, consts)) * (2.0 * consts.h * sin)
-}
-
 pub fn xp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
-    x(p, m, consts) * (Complex64::i() * PI * p).exp()
+    xpm_common(p, m, consts) * (Complex64::i() * PI * p).exp()
 }
 
 pub fn dxp_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let exp = (Complex64::i() * PI * p).exp();
-    dx_dp(p, m, consts) * exp + (Complex64::i() * PI) * x(p, m, consts) * exp
-}
-
-pub fn dxp_dm(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
-    let p = p.into();
-    let exp = (Complex64::i() * PI * p).exp();
-    dx_dm(p, m, consts) * exp
-}
-
-pub fn dxm_dm(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
-    let p = p.into();
-    let exp = (-Complex64::i() * PI * p).exp();
-    dx_dm(p, m, consts) * exp
+    dxpm_common_dp(p, m, consts) * exp + (Complex64::i() * PI) * xpm_common(p, m, consts) * exp
 }
 
 pub fn xm(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
-    x(p, m, consts) * (-Complex64::i() * PI * p).exp()
+    xpm_common(p, m, consts) * (-Complex64::i() * PI * p).exp()
 }
 
 pub fn dxm_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let exp = (-Complex64::i() * PI * p).exp();
-    dx_dp(p, m, consts) * exp - (Complex64::i() * PI) * x(p, m, consts) * exp
+    dxpm_common_dp(p, m, consts) * exp - (Complex64::i() * PI) * xpm_common(p, m, consts) * exp
 }
 
 pub fn u(p: impl Into<Complex64>, consts: CouplingConstants, sheet_data: &SheetData) -> Complex64 {
@@ -193,17 +175,19 @@ pub fn du_dp(
     if sheet_data.e_branch > 0 {
         term1 = den_dp(p, 1.0, consts) * cot;
         term2 = -TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
-        term3 = -2.0 * consts.kslash() * dx_dp(p, 1.0, consts) / x(p, 1.0, consts);
+        term3 =
+            -2.0 * consts.kslash() * dxpm_common_dp(p, 1.0, consts) / xpm_common(p, 1.0, consts);
     } else {
         term1 = -den_dp(p, 1.0, consts) * cot;
         term2 = TAU * en(p, 1.0, consts) / (2.0 * sin * sin);
-        term3 = -2.0 * consts.kslash() * dx_crossed_dp(p, 1.0, consts) / x_crossed(p, 1.0, consts);
+        term3 = -2.0 * consts.kslash() * dxpm_common_crossed_dp(p, 1.0, consts)
+            / xpm_common_crossed(p, 1.0, consts);
     }
 
     (term1 + term2 + term3) * consts.h
 }
 
-fn x_crossed(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
+fn xpm_common_crossed(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let sin = (PI * p).sin();
     let m_eff = m + consts.k() as f64 * p;
@@ -214,12 +198,12 @@ fn x_crossed(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Comp
     numerator / denominator
 }
 
-fn dx_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
+fn dxpm_common_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let sin = (PI * p).sin();
     let cos = (PI * p).cos();
 
-    let term1 = -x_crossed(p, m, consts) * (cos / sin) / 2.0;
+    let term1 = -xpm_common_crossed(p, m, consts) * (cos / sin) / 2.0;
     let term2 = consts.kslash() / (2.0 * consts.h * sin);
     let term3 = (consts.kslash() * (m + consts.k() as f64 * p)
         + 2.0 * consts.h * consts.h * sin * cos)
@@ -230,24 +214,26 @@ fn dx_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> 
 
 pub fn xp_crossed(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
-    x_crossed(p, m, consts) * (Complex64::i() * PI * p).exp()
+    xpm_common_crossed(p, m, consts) * (Complex64::i() * PI * p).exp()
 }
 
 pub fn dxp_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let exp = (Complex64::i() * PI * p).exp();
-    dx_crossed_dp(p, m, consts) * exp + (Complex64::i() * PI) * x_crossed(p, m, consts) * exp
+    dxpm_common_crossed_dp(p, m, consts) * exp
+        + (Complex64::i() * PI) * xpm_common_crossed(p, m, consts) * exp
 }
 
 pub fn xm_crossed(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
-    x_crossed(p, m, consts) * (-Complex64::i() * PI * p).exp()
+    xpm_common_crossed(p, m, consts) * (-Complex64::i() * PI * p).exp()
 }
 
 pub fn dxm_crossed_dp(p: impl Into<Complex64>, m: f64, consts: CouplingConstants) -> Complex64 {
     let p = p.into();
     let exp = (-Complex64::i() * PI * p).exp();
-    dx_crossed_dp(p, m, consts) * exp - (Complex64::i() * PI) * x_crossed(p, m, consts) * exp
+    dxpm_common_crossed_dp(p, m, consts) * exp
+        - (Complex64::i() * PI) * xpm_common_crossed(p, m, consts) * exp
 }
 
 pub fn xp_on_sheet(
