@@ -64,7 +64,10 @@ impl Anim {
             let speed = self.speed
                 * match self.component {
                     pxu::Component::P => 0.01,
-                    pxu::Component::Xp | pxu::Component::Xm | pxu::Component::U => 0.1,
+                    pxu::Component::X
+                    | pxu::Component::Xp
+                    | pxu::Component::Xm
+                    | pxu::Component::U => 0.1,
                 };
             self.t +=
                 (now - self.prev_frame).num_nanoseconds().unwrap() as f64 / 1_000_000_000.0 * speed;

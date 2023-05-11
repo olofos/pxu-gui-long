@@ -54,6 +54,7 @@ impl std::fmt::Display for UBranch {
 pub struct SheetData {
     pub log_branch_p: i32,
     pub log_branch_m: i32,
+    pub log_branch_x: i32,
     pub e_branch: i32,
     pub u_branch: (UBranch, UBranch),
     pub im_x_sign: (i8, i8),
@@ -286,4 +287,20 @@ pub fn dxm_dp_on_sheet(
     } else {
         dxm_crossed_dp(p, m, consts)
     }
+}
+
+pub fn u_of_x(x: impl Into<Complex64>, consts: CouplingConstants) -> Complex64 {
+    let s = consts.s();
+
+    let x: Complex64 = x.into();
+
+    x + 1.0 / x - (s - 1.0 / s) * x.ln()
+}
+
+pub fn du_dx(x: impl Into<Complex64>, consts: CouplingConstants) -> Complex64 {
+    let s = consts.s();
+
+    let x: Complex64 = x.into();
+
+    (x - s) * (x + 1.0 / s) / (x * x)
 }

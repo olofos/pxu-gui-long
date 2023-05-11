@@ -28,6 +28,8 @@ pub struct UiState {
     pub saved_paths_to_load: Option<Vec<pxu::path::SavedPath>>,
     #[serde(skip)]
     pub path_load_progress: Option<(usize, usize)>,
+    #[serde(skip)]
+    pub show_x: bool,
 }
 
 impl Default for UiState {
@@ -46,6 +48,7 @@ impl Default for UiState {
             path_index: None,
             saved_paths_to_load: None,
             path_load_progress: None,
+            show_x: false,
         }
     }
 }
@@ -55,6 +58,7 @@ impl UiState {
         self.show_fps = arguments.show_fps;
         self.show_dev = arguments.show_dev;
         self.continuous_mode = arguments.continuous_mode;
+        self.show_x = arguments.show_x;
 
         if let Some(ref paths) = arguments.paths {
             let mut saved_paths_to_load = pxu::path::SavedPath::load(paths);

@@ -19,6 +19,7 @@ pub struct Segment {
     pub xp: Vec<Complex64>,
     pub xm: Vec<Complex64>,
     pub u: Vec<Complex64>,
+    pub x: Vec<Complex64>,
     pub sheet_data: SheetData,
 }
 
@@ -261,6 +262,7 @@ impl ConstructedSegment {
             let mut xp = vec![];
             let mut xm = vec![];
             let mut u = vec![];
+            let x = vec![];
 
             let sheet_data = self.path[0].1.points[i].sheet_data.clone();
 
@@ -283,6 +285,7 @@ impl ConstructedSegment {
                 xp,
                 xm,
                 u,
+                x,
                 sheet_data,
             });
         }
@@ -493,7 +496,7 @@ impl Path {
 
         let max_step = match base_path.component {
             Component::P => 0.05,
-            Component::Xp | Component::Xm => 0.1,
+            Component::Xp | Component::Xm | Component::X => 0.1,
             Component::U => 0.5 / consts.h,
         };
 
@@ -588,6 +591,7 @@ impl Segment {
             Component::Xp => &self.xp,
             Component::Xm => &self.xm,
             Component::U => &self.u,
+            Component::X => &self.x,
         }
     }
 }

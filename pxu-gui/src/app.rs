@@ -14,11 +14,11 @@ use crate::ui_state::UiState;
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct PxuGuiApp {
     pxu: pxu::Pxu,
-    #[serde(skip)]
     p_plot: Plot,
     xp_plot: Plot,
     xm_plot: Plot,
     u_plot: Plot,
+    x_plot: Plot,
     #[serde(skip)]
     frame_history: crate::frame_history::FrameHistory,
     #[serde(skip)]
@@ -62,6 +62,12 @@ impl Default for PxuGuiApp {
             u_plot: Plot {
                 component: pxu::Component::U,
                 height: ((4 * consts.k() + 1) as f64 / consts.h) as f32,
+                width_factor: 1.0,
+                origin: Pos2::ZERO,
+            },
+            x_plot: Plot {
+                component: pxu::Component::X,
+                height: (8.0 * consts.s()) as f32,
                 width_factor: 1.0,
                 origin: Pos2::ZERO,
             },
@@ -193,6 +199,7 @@ impl eframe::App for PxuGuiApp {
                     pxu::Component::Xp => &mut self.xp_plot,
                     pxu::Component::Xm => &mut self.xm_plot,
                     pxu::Component::U => &mut self.u_plot,
+                    pxu::Component::X => &mut self.x_plot,
                 };
 
                 plot.show(
@@ -524,6 +531,7 @@ impl PxuGuiApp {
             ui.label(format!("x+: {:.3}", active_point.xp));
             ui.label(format!("x-: {:.3}", active_point.xm));
             ui.label(format!("u: {:.3}", active_point.u));
+            ui.label(format!("x: {:.3}", active_point.x));
 
             ui.add_space(10.0);
             ui.label("Branch info:");

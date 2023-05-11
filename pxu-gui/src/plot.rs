@@ -462,6 +462,19 @@ impl Plot {
                 fill,
                 stroke,
             }));
+
+            if ui_state.show_x
+                && (self.component == pxu::Component::Xp || self.component == pxu::Component::Xm)
+            {
+                let z = pt.x;
+                let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
+                shapes.push(egui::epaint::Shape::Circle(egui::epaint::CircleShape {
+                    center,
+                    radius: 4.0,
+                    fill: Color32::RED,
+                    stroke: egui::epaint::Stroke::NONE,
+                }));
+            }
         }
     }
 
@@ -574,6 +587,7 @@ impl Plot {
                             pxu::Component::Xp => &segment.xp,
                             pxu::Component::Xm => &segment.xm,
                             pxu::Component::U => &segment.u,
+                            pxu::Component::X => &segment.x,
                         };
 
                         let segment_points = contour
@@ -627,6 +641,7 @@ impl Plot {
                 pxu::Component::U => "u",
                 pxu::Component::Xp => "X+",
                 pxu::Component::Xm => "X-",
+                pxu::Component::X => "X",
             };
 
             let text_shape = egui::epaint::Shape::text(

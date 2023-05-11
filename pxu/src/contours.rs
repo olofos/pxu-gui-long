@@ -19,6 +19,7 @@ pub enum Component {
     Xp,
     Xm,
     U,
+    X,
 }
 
 impl Component {
@@ -28,6 +29,7 @@ impl Component {
             Self::Xp => Self::Xm,
             Self::Xm => Self::Xp,
             Self::U => Self::U,
+            Self::X => Self::X,
         }
     }
 }
@@ -408,7 +410,7 @@ impl Contours {
     pub fn get_grid(&self, component: Component) -> &Vec<GridLine> {
         match component {
             Component::P => &self.grid_p,
-            Component::Xp | Component::Xm => &self.grid_x,
+            Component::Xp | Component::Xm | Component::X => &self.grid_x,
             Component::U => &self.grid_u,
         }
     }
