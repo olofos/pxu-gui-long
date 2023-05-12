@@ -87,7 +87,7 @@ impl std::fmt::Display for UCutType {
 
 impl UCutType {
     pub fn all() -> impl Iterator<Item = Self> {
-        [Self::Long, Self::SemiShort, Self::Short].into_iter()
+        [Self::Long, Self::Short].into_iter()
     }
 }
 
