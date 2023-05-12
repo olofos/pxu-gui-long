@@ -325,9 +325,7 @@ impl Plot {
                     }
 
                     pxu::CutType::ULongPositive(comp) => {
-                        if ui_state.u_cut_type == UCutType::SemiShort
-                            || ui_state.u_cut_type == UCutType::Short && hide_log_cut(comp)
-                        {
+                        if ui_state.u_cut_type == UCutType::Short && hide_log_cut(comp) {
                             continue;
                         } else if comp == pxu::Component::Xp {
                             Color32::from_rgb(255, 0, 0)

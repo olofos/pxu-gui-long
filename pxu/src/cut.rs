@@ -167,7 +167,6 @@ pub enum CutVisibilityCondition {
     ImXmOrUmBranch(i8, UBranch),
 
     LongCuts,
-    SemiShortCuts,
     ShortCuts,
     ShortOrSemiShortCuts,
 }
@@ -205,20 +204,15 @@ impl CutVisibilityCondition {
 
             Self::ImXpOrUpBranch(b1, b2) => match u_cut_type {
                 UCutType::Long => Self::ImXp(*b1).check(pt, u_cut_type),
-                UCutType::SemiShort | UCutType::Short => {
-                    Self::UpBranch(b2.clone()).check(pt, u_cut_type)
-                }
+                UCutType::Short => Self::UpBranch(b2.clone()).check(pt, u_cut_type),
             },
 
             Self::ImXmOrUmBranch(b1, b2) => match u_cut_type {
                 UCutType::Long => Self::ImXm(*b1).check(pt, u_cut_type),
-                UCutType::SemiShort | UCutType::Short => {
-                    Self::UmBranch(b2.clone()).check(pt, u_cut_type)
-                }
+                UCutType::Short => Self::UmBranch(b2.clone()).check(pt, u_cut_type),
             },
 
             Self::LongCuts => long_cuts,
-            Self::SemiShortCuts => u_cut_type == UCutType::SemiShort,
             Self::ShortCuts => u_cut_type == UCutType::Short,
             Self::ShortOrSemiShortCuts => !long_cuts,
         }
@@ -236,7 +230,6 @@ impl CutVisibilityCondition {
             Self::ImXmOrUmBranch(b1, b2) => Self::ImXpOrUpBranch(-*b1, b2.clone()),
 
             Self::LongCuts => Self::LongCuts,
-            Self::SemiShortCuts => Self::SemiShortCuts,
             Self::ShortCuts => Self::ShortCuts,
             Self::ShortOrSemiShortCuts => Self::ShortOrSemiShortCuts,
         }
