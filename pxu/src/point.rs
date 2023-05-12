@@ -7,12 +7,17 @@ use crate::kinematics::{
 use crate::nr;
 use num::complex::Complex64;
 
+fn _c_zero() -> Complex64 {
+    Complex64::from(0.0)
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Point {
     pub p: Complex64,
     pub xp: Complex64,
     pub xm: Complex64,
     pub u: Complex64,
+    #[serde(default = "_c_zero")]
     pub x: Complex64,
     pub sheet_data: SheetData,
 }
