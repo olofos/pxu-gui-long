@@ -57,7 +57,7 @@ fn main() {
 
     // Redirect tracing to console.log and friends:
     tracing_wasm::set_as_global_default();
-    wasm_logger::init(wasm_logger::Config::default());
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
 
     let arguments = Arguments::from(get_url());
 
