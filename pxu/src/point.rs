@@ -284,32 +284,31 @@ impl Point {
             log::debug!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
-        for guess in [
-            self.p,
-            self.p - 0.01,
-            self.p + 0.01,
-            self.p - 0.05,
-            self.p + 0.05,
-        ]
-        .into_iter()
+        if let Some(pt) = [self.p, self.p - 0.05, self.p + 0.05]
+            .into_iter()
+            .filter_map(|guess| {
+                let p = match component {
+                    Component::P => Some(new_value),
+                    Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess, consts),
+                    Component::Xm => self.shift_xm(new_value, &new_sheet_data, guess, consts),
+                    Component::U => self.shift_u(new_value, &new_sheet_data, guess, consts),
+                    Component::X => {
+                        todo!("add shift_x")
+                    }
+                };
+
+                self.shifted(p, &new_sheet_data, consts)
+            })
+            .min_by_key(|pt| {
+                (((pt.xp - self.xp).norm_sqr() + (pt.xm - self.xm).norm_sqr()) * 10000.0).round()
+                    as i32
+            })
         {
-            let p = match component {
-                Component::P => Some(new_value),
-                Component::Xp => self.shift_xp(new_value, &new_sheet_data, guess, consts),
-                Component::Xm => self.shift_xm(new_value, &new_sheet_data, guess, consts),
-                Component::U => self.shift_u(new_value, &new_sheet_data, guess, consts),
-                Component::X => {
-                    todo!("add shift_x")
-                }
-            };
-
-            if let Some(pt) = self.shifted(p, &new_sheet_data, consts) {
-                *self = pt;
-                return true;
-            }
+            *self = pt;
+            true
+        } else {
+            false
         }
-
-        false
     }
 
     pub fn same_sheet(&self, other: &Point, component: Component, u_cut_type: UCutType) -> bool {
