@@ -345,35 +345,51 @@ impl SheetData {
                 }
             }
             Component::Xp => {
-                if u_cut_type == UCutType::Short
-                    && sd1.u_branch.1 == UBranch::Between
-                    && sd2.u_branch.1 == UBranch::Between
-                {
-                    true
+                if u_cut_type == UCutType::Short {
+                    if sd1.u_branch.1 == UBranch::Between && sd2.u_branch.1 == UBranch::Between {
+                        true
+                    } else if sd1.u_branch.1 == sd2.u_branch.1
+                        && (sd1.u_branch.0 == UBranch::Between
+                            || sd2.u_branch.0 == UBranch::Between)
+                    {
+                        sd1.log_branch_p == sd2.log_branch_p
+                    } else if (sd1.log_branch_p + sd1.log_branch_m)
+                        != (sd2.log_branch_p + sd2.log_branch_m)
+                    {
+                        false
+                    } else {
+                        sd1.u_branch.1 == sd2.u_branch.1
+                    }
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
                     != (sd2.log_branch_p + sd2.log_branch_m)
                 {
                     false
-                } else if u_cut_type == UCutType::Long {
-                    self.im_x_sign.1.signum() == other.im_x_sign.1.signum()
                 } else {
-                    sd1.u_branch.1 == sd2.u_branch.1
+                    self.im_x_sign.1.signum() == other.im_x_sign.1.signum()
                 }
             }
             Component::Xm => {
-                if u_cut_type == UCutType::Short
-                    && sd1.u_branch.0 == UBranch::Between
-                    && sd2.u_branch.0 == UBranch::Between
-                {
-                    true
+                if u_cut_type == UCutType::Short {
+                    if sd1.u_branch.0 == UBranch::Between && sd2.u_branch.0 == UBranch::Between {
+                        true
+                    } else if sd1.u_branch.0 == sd2.u_branch.0
+                        && (sd1.u_branch.1 == UBranch::Between
+                            || sd2.u_branch.1 == UBranch::Between)
+                    {
+                        sd1.log_branch_m == sd2.log_branch_m
+                    } else if (sd1.log_branch_p + sd1.log_branch_m)
+                        != (sd2.log_branch_p + sd2.log_branch_m)
+                    {
+                        false
+                    } else {
+                        sd1.u_branch.0 == sd2.u_branch.0
+                    }
                 } else if (sd1.log_branch_p + sd1.log_branch_m)
                     != (sd2.log_branch_p + sd2.log_branch_m)
                 {
                     false
-                } else if u_cut_type == UCutType::Long {
-                    self.im_x_sign.0.signum() == other.im_x_sign.0.signum()
                 } else {
-                    sd1.u_branch.0 == sd2.u_branch.0
+                    self.im_x_sign.0.signum() == other.im_x_sign.0.signum()
                 }
             }
             Component::X => {
