@@ -15,7 +15,7 @@ pub use contours::{
 };
 pub use cut::{Cut, CutType};
 pub use kinematics::CouplingConstants;
-pub use path::{EditablePath, Path};
+pub use path::Path;
 pub use point::Point;
 pub use state::State;
 

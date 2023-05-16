@@ -1,6 +1,5 @@
 use egui::{vec2, Pos2};
 use pxu::kinematics::CouplingConstants;
-use pxu::path::EditablePath;
 use pxu::Pxu;
 use pxu::UCutType;
 
@@ -24,7 +23,6 @@ pub struct PxuGuiApp {
     #[serde(skip)]
     anim_data: Anim,
     ui_state: UiState,
-    editable_path: EditablePath,
     #[serde(skip)]
     path_dialog_text: Option<String>,
 }
@@ -74,7 +72,6 @@ impl Default for PxuGuiApp {
             frame_history: Default::default(),
             anim_data: Default::default(),
             ui_state: Default::default(),
-            editable_path: Default::default(),
             path_dialog_text: None,
         }
     }
@@ -202,13 +199,7 @@ impl eframe::App for PxuGuiApp {
                     pxu::Component::X => &mut self.x_plot,
                 };
 
-                plot.show(
-                    ui,
-                    rect,
-                    &mut self.pxu,
-                    &mut self.editable_path,
-                    &mut self.ui_state,
-                );
+                plot.show(ui, rect, &mut self.pxu, &mut self.ui_state);
             } else {
                 use egui::Rect;
                 const GAP: f32 = 8.0;
@@ -222,7 +213,6 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left, size),
                     &mut self.pxu,
-                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -230,7 +220,6 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, 0.0), size),
                     &mut self.pxu,
-                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -238,7 +227,6 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(0.0, h + GAP), size),
                     &mut self.pxu,
-                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
 
@@ -246,7 +234,6 @@ impl eframe::App for PxuGuiApp {
                     ui,
                     Rect::from_min_size(top_left + vec2(w + GAP, h + GAP), size),
                     &mut self.pxu,
-                    &mut self.editable_path,
                     &mut self.ui_state,
                 );
             }
@@ -324,7 +311,6 @@ impl PxuGuiApp {
                     let n = n as usize;
                     self.pxu.state = pxu::State::new(n, self.pxu.consts);
                     self.ui_state.active_point = n / 2;
-                    self.editable_path.clear();
                     self.anim_data.stop();
                 }
                 self.pxu.state.points.len() as f64
@@ -415,94 +401,24 @@ impl PxuGuiApp {
 
     fn draw_path_editing_controls(&mut self, ui: &mut egui::Ui) {
         ui.separator();
-        ui.heading("Edit path");
+        ui.heading("Dev controls");
         ui.add_space(5.0);
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Edit"))
+                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load path"))
                 .clicked()
             {
-                self.ui_state.edit_path = true;
+                self.path_dialog_text = Some(String::new());
             }
 
-            if ui
-                .add_enabled(self.ui_state.edit_path, egui::Button::new("Clear"))
-                .clicked()
-            {
-                self.editable_path.clear();
-            }
-
-            if ui
-                .add_enabled(self.ui_state.edit_path, egui::Button::new("Done"))
-                .clicked()
-            {
-                self.ui_state.edit_path = false;
-
-                // if !self.editable_path.states.is_empty() {
-                //     let base_path = pxu::path::BasePath::from_editable_path(
-                //         &self.editable_path,
-                //         self.ui_state.edit_path_component,
-                //         self.ui_state.active_point,
-                //     );
-                //     self.pxu.path = pxu::path::Path::from_base_path(
-                //         base_path,
-                //         &self.pxu.contours,
-                //         self.pxu.consts,
-                //     );
-                // } else {
-                //     self.pxu.path = Default::default();
-                // }
-            }
-            // });
-            // ui.horizontal(|ui| {
-            if ui
-                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load/Save"))
-                .clicked()
-            {
-                let s = if let Some(path_index) = self.ui_state.path_index {
-                    let base_path = &self.pxu.paths[path_index].base_path;
-                    let saved_paths: Vec<pxu::path::SavedPath> =
-                        vec![(base_path.clone(), self.pxu.consts).into()];
-                    pxu::path::SavedPath::save(&saved_paths).unwrap_or_default()
-                    //     saved_path.encode().unwrap_or_default()
+            if ui.button("Print state").clicked() {
+                if let Ok(s) = ron::to_string(&self.pxu.state) {
+                    log::info!("{s}");
                 } else {
-                    String::new()
-                };
-                self.path_dialog_text = Some(s);
-            }
-
-            if ui
-                .add_enabled(self.ui_state.edit_path, egui::Button::new("Cancel"))
-                .clicked()
-            {
-                self.ui_state.edit_path = false;
+                    log::info!("Could not print state");
+                }
             }
         });
-        ui.label("Component:");
-        ui.horizontal(|ui| {
-            for component in [
-                pxu::Component::P,
-                pxu::Component::Xp,
-                pxu::Component::Xm,
-                pxu::Component::U,
-            ] {
-                ui.add_enabled_ui(self.ui_state.edit_path, |ui| {
-                    ui.radio_value(
-                        &mut self.ui_state.edit_path_component,
-                        component,
-                        format!("{component:?}"),
-                    )
-                });
-            }
-        });
-
-        if ui.button("Print state").clicked() {
-            if let Ok(s) = ron::to_string(&self.pxu.state) {
-                log::info!("{s}");
-            } else {
-                log::info!("Could not print state");
-            }
-        }
     }
 
     fn draw_state_information(&mut self, ui: &mut egui::Ui) {

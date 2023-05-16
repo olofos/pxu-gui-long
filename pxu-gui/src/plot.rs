@@ -16,8 +16,8 @@ pub struct Plot {
 
 #[derive(Debug)]
 struct InteractionPointIndices {
-    hovered: Option<(DraggedPoint, usize)>,
-    dragged: Option<(DraggedPoint, usize)>,
+    hovered: Option<usize>,
+    dragged: Option<usize>,
 }
 
 // enum Response {
@@ -28,13 +28,6 @@ struct InteractionPointIndices {
 //     Scroll(),
 // }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum DraggedPoint {
-    Main,
-    Path(usize),
-}
-
-#[allow(clippy::too_many_arguments)]
 impl Plot {
     fn interact_with_grid(&mut self, ui: &mut Ui, rect: Rect, response: &egui::Response) {
         if response.dragged() {
@@ -62,20 +55,15 @@ impl Plot {
         ui: &mut Ui,
         rect: Rect,
         pxu: &mut pxu::Pxu,
-        editable_path: &mut pxu::path::EditablePath,
         ui_state: &mut UiState,
         response: &egui::Response,
-        dragged_point: DraggedPoint,
     ) -> InteractionPointIndices {
         let to_screen = self.to_screen(rect);
 
         let mut hovered = None;
         let mut dragged = None;
 
-        let state = match dragged_point {
-            DraggedPoint::Main => &mut pxu.state,
-            DraggedPoint::Path(n) => &mut editable_path.states[n],
-        };
+        let state = &mut pxu.state;
 
         for j in 0..state.points.len() {
             let z = state.points[j].get(self.component);
@@ -84,19 +72,16 @@ impl Plot {
             let center = to_screen * egui::pos2(z.re as f32, -z.im as f32);
             let point_rect = egui::Rect::from_center_size(center, size);
 
-            let id = match dragged_point {
-                DraggedPoint::Main => (usize::MAX, j),
-                DraggedPoint::Path(n) => (n, j),
-            };
+            let id = (usize::MAX, j);
             let point_id = response.id.with(id);
             let point_response = ui.interact(point_rect, point_id, egui::Sense::drag());
 
             if point_response.hovered() {
-                hovered = Some((dragged_point, j));
+                hovered = Some(j);
             }
 
             if point_response.dragged() {
-                dragged = Some((dragged_point, j));
+                dragged = Some(j);
             }
 
             if point_response.dragged() {
@@ -139,7 +124,6 @@ impl Plot {
         rect: Rect,
         pxu: &mut pxu::Pxu,
         ui_state: &mut UiState,
-        editable_path: &mut pxu::path::EditablePath,
     ) -> InteractionPointIndices {
         let response = ui.interact(
             rect,
@@ -148,50 +132,7 @@ impl Plot {
         );
 
         self.interact_with_grid(ui, rect, &response);
-        let mut interaction_points = self.interact_with_points(
-            ui,
-            rect,
-            pxu,
-            editable_path,
-            ui_state,
-            &response,
-            DraggedPoint::Main,
-        );
-
-        if ui_state.edit_path {
-            for j in 0..editable_path.states.len() {
-                if interaction_points.dragged.is_none() && interaction_points.hovered.is_none() {
-                    interaction_points = self.interact_with_points(
-                        ui,
-                        rect,
-                        pxu,
-                        editable_path,
-                        ui_state,
-                        &response,
-                        DraggedPoint::Path(j),
-                    );
-                }
-            }
-
-            if ui.input().key_pressed(egui::Key::Space) {
-                match interaction_points.dragged {
-                    Some((DraggedPoint::Main, _)) => {
-                        editable_path.push(&pxu.state);
-                    }
-                    Some((DraggedPoint::Path(state_index), _)) => {
-                        let new_state = editable_path.states[state_index].clone();
-                        editable_path.states.insert(state_index, new_state);
-                    }
-                    _ => {}
-                }
-            }
-
-            if ui.input().key_pressed(egui::Key::Minus) {
-                if let Some((DraggedPoint::Path(state_index), _)) = interaction_points.dragged {
-                    editable_path.states.remove(state_index);
-                }
-            }
-        }
+        let interaction_points = self.interact_with_points(ui, rect, pxu, ui_state, &response);
 
         if response.double_clicked() {
             ui_state.toggle_fullscreen(self.component)
@@ -414,15 +355,15 @@ impl Plot {
         &self,
         rect: Rect,
         pxu: &pxu::Pxu,
-        ui_state: &mut UiState,
+        ui_state: &UiState,
         points: InteractionPointIndices,
         shapes: &mut Vec<egui::Shape>,
     ) {
         let to_screen = self.to_screen(rect);
 
         for (i, pt) in pxu.state.points.iter().enumerate() {
-            let is_hovered = matches!(points.hovered, Some((DraggedPoint::Main, n)) if n == i);
-            let is_dragged = matches!(points.dragged, Some((DraggedPoint::Main, n)) if n == i);
+            let is_hovered = points.hovered == Some(i);
+            let is_dragged = points.dragged == Some(i);
             let is_active = ui_state.active_point == i;
 
             let z = pt.get(self.component);
@@ -481,7 +422,6 @@ impl Plot {
         ui: &mut Ui,
         rect: Rect,
         pxu: &mut pxu::Pxu,
-        editable_path: &pxu::path::EditablePath,
         ui_state: &mut UiState,
         interaction_points: InteractionPointIndices,
     ) {
@@ -492,81 +432,7 @@ impl Plot {
         self.draw_grid(rect, &pxu.contours, &mut shapes);
         self.draw_cuts(rect, pxu, ui_state, &mut shapes);
 
-        if ui_state.edit_path {
-            let mut anchor_shapes = vec![];
-            let mut active_shapes = vec![];
-            for (component_index, path) in editable_path.get(self.component).iter().enumerate() {
-                if path.is_empty() {
-                    continue;
-                }
-
-                let is_active = ui_state.active_point == component_index;
-
-                let points = path
-                    .iter()
-                    .map(|z| to_screen * egui::pos2(z.re as f32, -(z.im as f32)))
-                    .collect::<Vec<_>>();
-
-                let color = if is_active {
-                    Color32::BLUE
-                } else {
-                    Color32::GRAY
-                };
-
-                let z: num::Complex<f64> = pxu.state.points[component_index].get(self.component);
-                let center = to_screen * egui::pos2(z.re as f32, -(z.im as f32));
-
-                let dashed: Vec<Pos2> = vec![*points.last().unwrap(), center];
-
-                if is_active {
-                    let mut anchor_shapes = vec![];
-                    for (state_index, center) in points.iter().enumerate() {
-                        let is_hovered = matches!(
-                            interaction_points.hovered,
-                            Some((DraggedPoint::Path(k), n)) if n == component_index && k == state_index
-                        );
-                        let radius = if is_hovered { 5.0 } else { 3.0 };
-
-                        anchor_shapes
-                            .push(egui::epaint::Shape::circle_filled(*center, radius, color));
-                    }
-
-                    active_shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));
-
-                    active_shapes.extend(egui::epaint::Shape::dashed_line(
-                        &dashed,
-                        Stroke::new(3.0, color),
-                        3.0,
-                        3.0,
-                    ));
-
-                    active_shapes.extend(anchor_shapes);
-                } else {
-                    for (state_index, center) in points.iter().enumerate() {
-                        let is_hovered = matches!(
-                            interaction_points.hovered,
-                            Some((DraggedPoint::Path(k), n)) if n == component_index && k == state_index
-                        );
-
-                        let radius = if is_hovered { 5.0 } else { 3.0 };
-
-                        anchor_shapes
-                            .push(egui::epaint::Shape::circle_filled(*center, radius, color));
-                    }
-
-                    shapes.push(egui::epaint::Shape::line(points, Stroke::new(2.0, color)));
-
-                    shapes.extend(egui::epaint::Shape::dashed_line(
-                        &dashed,
-                        Stroke::new(3.0, color),
-                        3.0,
-                        3.0,
-                    ));
-                }
-            }
-            shapes.extend(anchor_shapes);
-            shapes.extend(active_shapes);
-        } else if let Some(path_index) = ui_state.path_index {
+        if let Some(path_index) = ui_state.path_index {
             if path_index < pxu.paths.len() {
                 for (active_point, segments) in pxu.paths[path_index].segments.iter().enumerate() {
                     let mut points = vec![];
@@ -681,19 +547,12 @@ impl Plot {
         )
     }
 
-    pub fn show(
-        &mut self,
-        ui: &mut Ui,
-        rect: Rect,
-        pxu: &mut pxu::Pxu,
-        editable_path: &mut pxu::path::EditablePath,
-        ui_state: &mut UiState,
-    ) {
+    pub fn show(&mut self, ui: &mut Ui, rect: Rect, pxu: &mut pxu::Pxu, ui_state: &mut UiState) {
         let old_clip_rect = ui.clip_rect();
         ui.set_clip_rect(rect);
 
-        let interaction_points = self.interact(ui, rect, pxu, ui_state, editable_path);
-        self.draw(ui, rect, pxu, editable_path, ui_state, interaction_points);
+        let interaction_points = self.interact(ui, rect, pxu, ui_state);
+        self.draw(ui, rect, pxu, ui_state, interaction_points);
 
         ui.set_clip_rect(old_clip_rect);
         ui.painter().add(egui::epaint::Shape::rect_stroke(
