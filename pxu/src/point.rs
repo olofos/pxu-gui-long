@@ -284,7 +284,17 @@ impl Point {
             log::debug!("Intersection with {:?}: {:?}", cut.typ, new_sheet_data);
         }
 
-        if let Some(pt) = [self.p, self.p - 0.05, self.p + 0.05]
+        let guesses = [
+            self.p,
+            self.p - 0.01,
+            self.p + 0.01,
+            self.p - 0.05,
+            self.p + 0.05,
+            self.p - 0.1,
+            self.p + 0.1,
+        ];
+
+        if let Some(pt) = guesses
             .into_iter()
             .filter_map(|guess| {
                 let p = match component {
