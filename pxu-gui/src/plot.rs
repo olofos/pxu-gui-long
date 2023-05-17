@@ -202,7 +202,7 @@ impl Plot {
 
         let mut branch_point_shapes = vec![];
 
-        if ui_state.show_cuts {
+        {
             let shift = if self.component == pxu::Component::U {
                 2.0 * (pxu.state.points[ui_state.active_point]
                     .sheet_data
