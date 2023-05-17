@@ -13,10 +13,6 @@ pub struct UiState {
     pub show_side_panel: bool,
     pub active_point: usize,
     #[serde(skip)]
-    pub edit_path: bool,
-    #[serde(skip)]
-    pub edit_path_component: pxu::Component,
-    #[serde(skip)]
     pub show_fps: bool,
     #[serde(skip)]
     pub show_dev: bool,
@@ -40,8 +36,6 @@ impl Default for UiState {
             show_cuts: true,
             show_side_panel: true,
             active_point: 0,
-            edit_path: false,
-            edit_path_component: pxu::Component::P,
             show_fps: false,
             show_dev: false,
             continuous_mode: false,

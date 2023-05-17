@@ -404,10 +404,7 @@ impl PxuGuiApp {
         ui.heading("Dev controls");
         ui.add_space(5.0);
         ui.horizontal(|ui| {
-            if ui
-                .add_enabled(!self.ui_state.edit_path, egui::Button::new("Load path"))
-                .clicked()
-            {
+            if ui.add(egui::Button::new("Load path")).clicked() {
                 self.path_dialog_text = Some(String::new());
             }
 
