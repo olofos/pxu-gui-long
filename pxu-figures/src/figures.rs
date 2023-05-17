@@ -25,7 +25,7 @@ fn fig_p_xpl_preimage(
             height: 6.0,
         },
         pxu::Component::P,
-        pxu::UCutType::Long,
+        pxu::UCutType::Short,
         settings,
         pb,
     )?;
@@ -34,7 +34,7 @@ fn fig_p_xpl_preimage(
 
     for cut in pxu
         .contours
-        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Long, 0)
+        .get_visible_cuts(&pxu, pxu::Component::P, pxu::UCutType::Short, 0)
         .filter(|cut| matches!(cut.typ, pxu::CutType::E))
     {
         figure.add_cut(cut, &[], pxu.consts)?;
@@ -150,7 +150,7 @@ fn fig_xpl_cover(
             height: 3.0,
         },
         pxu::Component::Xp,
-        pxu::UCutType::Long,
+        pxu::UCutType::Short,
         settings,
         pb,
     )?;
